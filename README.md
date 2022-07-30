@@ -18,26 +18,26 @@
 
 > 基础配置
 
-1. 下载embyToLocalPlayer.zip并解压到任意文件夹 [链接](https://github.com/kjtsune/embyToLocalPlayer/releases)
-2. 安装tampermonkey [官网](https://www.tampermonkey.net/)
-3. 安装并修改或添加匹配网址embyToLocalPlayer.js [发布页]
-4. 安装python [官网](https://www.python.org/downloads/)
-5. 配置embyToLocalPlayer.ini
+1. 下载`embyToLocalPlayer.zip`并解压到任意文件夹 [链接](https://github.com/kjtsune/embyToLocalPlayer/releases)
+2. 安装 tampermonkey [官网](https://www.tampermonkey.net/)
+3. 安装并修改或添加匹配网址`embyToLocalPlayer.js` [发布页](https://greasyfork.org/zh-CN/scripts/448648-embytolocalplayer?locale_override=1)
+4. 安装 python [官网](https://www.python.org/downloads/)
+5. 配置`embyToLocalPlayer.ini`
 
 > [二选一] 简易模式 [推荐]
 
-6. 下载解压并安装 AutoHotKey [官网](https://www.autohotkey.com/download/ahk-v2.zip)
-7. 双击运行 embyToLocalPlayer_debug.ahk
-8. 现在可网页播放测试，若正常，创建embyToLocalPlayer.ahk快捷方式，并放入开机启动文件夹即可。(`win + r` 输入 `shell:startup` 回车)
+6. 下载解压并安装 AutoHotKey v2 [官网](https://www.autohotkey.com/) [链接](https://www.autohotkey.com/download/ahk-v2.zip)
+7. 双击运行 `embyToLocalPlayer_debug.ahk`
+8. 现在可网页播放测试，若正常，创建`embyToLocalPlayer.ahk`快捷方式，并放入开机启动文件夹即可。(`win + r` 输入 `shell:startup` 回车)
 
 > [二选一] 一般模式
 
-9. 打开命令行。修改并输入 `python C:/path/to/embyToLocalPlayer.py`
-10. 现在可网页播放测试，若正常，修改embyToLocalPlayer.vbs里的python路径和.py文件路径。
-11. .vbs放入开始文件夹即可 (`win + r` 输入 `shell:startup` 回车)
-12. 删除文件夹里所有.ahk的文件。
+6. 打开命令行。修改并输入 `python C:/<path_to>/embyToLocalPlayer.py`
+7. 现在可网页播放测试，若正常，修改`embyToLocalPlayer.vbs`里的python路径和.py文件路径。
+8. .vbs放入开始文件夹即可 (`win + r` 输入 `shell:startup` 回车)
+9. 删除文件夹里所有`.ahk`的文件。
 
 > 可选操作
 
-* 安装embyErrorWindows.js 可自动关闭提示没有兼容流的窗口。[链接](https://greasyfork.org/en/scripts/448629-embyerrorwindows)
-* active_video_player.ahk 是用来激活播放器。不然mpv播放后需要鼠标点击激活窗口才可以使用mpv键盘快捷键。需要[二选一]的简易模式。
+* 安装`embyErrorWindows.js` 可自动关闭提示没有兼容流的窗口。[发布页](https://greasyfork.org/zh-CN/scripts/448629-embyerrorwindows?locale_override=1)
+* `active_video_player.ahk` 是用来激活播放器。不然mpv播放后需要鼠标点击激活窗口才可以使用mpv键盘快捷键。需要[二选一]的简易模式。
