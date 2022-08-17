@@ -2,6 +2,13 @@
 
 需要 python。若用 mpv 播放，可更新服务器观看进度。
 
+**另外推荐**
+
+* Jellyfin MPV Shim [Github](https://github.com/jellyfin/jellyfin-mpv-shim)  
+这个可以连接emby，只是每次打开浏览器需要点一下右上角的“播放到”按钮。  
+开发比较成熟。体验更好。
+
+
 **缺点**
 
 * 本地需要安装 python
@@ -53,3 +60,7 @@
 * 安装 `embyErrorWindows.js` 可自动关闭提示没有兼容流的窗口。[发布页](https://greasyfork.org/zh-CN/scripts/448629-embyerrorwindows?locale_override=1)
 * `portable_config` 文件夹是我的 mpv 配置，可下载绿色版 mpv 将其与 `mpv.exe` 放在一起。
 * 问题反馈群，提问前先尽量自行排查一下。[https://t.me/embyToLocalPlayer](https://t.me/embyToLocalPlayer)
+
+**感谢**
+
+* [iwalton3/python-mpv-jsonipc](https://github.com/iwalton3/python-mpv-jsonipc)
