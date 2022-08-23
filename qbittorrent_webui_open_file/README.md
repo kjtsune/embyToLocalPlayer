@@ -1,7 +1,8 @@
-# qbittorrent_webui_open_file
+# qbittorrent\_webui\_open_file
 
-需要 python。在 qBittorrent WebUI 里打开文件夹或者播放文件。  
+需要 python。在 qBittorrent WebUI 里打开文件夹或者播放文件。
 
+![](https://github.com/kjtsune/embyToLocalPlayer/raw/main/qbittorrent_webui_open_file/qbittorrent_webui_open_file.png)
 
 **缺点**
 
@@ -15,7 +16,7 @@
 
 > 基础配置
 1. 下载 `embyToLocalPlayer.zip` 并解压到任意文件夹 [发布页](https://github.com/kjtsune/embyToLocalPlayer/releases)
-2. 添加脚本匹配网址。油猴插件 > 已安装脚本 > 编辑 > 设置。
+2. 添加脚本匹配网址。油猴插件 > 已安装脚本 > 编辑 > 设置。[发布页](https://greasyfork.org/zh-CN/scripts/450015-qbittorrent-webui-open-file?locale_override=1)
 3. 安装 python (勾选 add to path) [官网](https://www.python.org/downloads/)
 4. 配置 `embyToLocalPlayer.ini` 
 
