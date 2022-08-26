@@ -1,23 +1,51 @@
 // ==UserScript==
 // @name         embyToLocalPlayer
-// @name:en      embyToLocalPlayer
 // @name:zh-CN   embyToLocalPlayer
-// @namespace    http://tampermonkey.net/
-// @version      0.1
-// @description  Require python and set up. If you use mpv, will update watch history to emby server.
-// @description:zh-CN 需要pthon和配置本地文件。若用mpv播放，可更新服务器观看进度。
+// @name:en      embyToLocalPlayer
+// @namespace    https://github.com/kjtsune/embyToLocalPlayer
+// @version      1.0.2
+// @description  需要python。若用mpv播放，可更新服务器观看进度。
+// @description:zh-CN 需要python。若用mpv播放，可更新服务器观看进度。
+// @description:en  Require python. If you use mpv, will update watch history to emby server.
 // @author       Kjtsune
-// @match        http://192.168.2.22:8096/web/index.html
+// @include      */web/index.html*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=emby.media
 // @grant        unsafeWindow
+// @grant        GM_registerMenuCommand
+// @grant        GM_unregisterMenuCommand
 // @run-at       document-start
-// @require      file:///C:/Code/web/embyToLocalPlayer.js
+// @license MIT
 // ==/UserScript==
+'use strict';
+
+
+function switchLocalStorage(key, defaultValue = 'true', trueValue = 'true', falseValue = 'false') {
+    if (key in localStorage) {
+        let value = (localStorage.getItem(key) === trueValue) ? falseValue : trueValue;
+        localStorage.setItem(key, value);
+    } else {
+        localStorage.setItem(key, defaultValue)
+    }
+    console.log('switchLocalStorage ', key, ' to ', localStorage.getItem(key))
+}
+
+function setModeSwitchMenu(storageKey, menuStart = '', menuEnd = '', defaultValue = '关闭', trueValue = '开启', falseValue = '关闭') {
+    let switchNameMap = { 'true': trueValue, 'false': falseValue, null: defaultValue };
+    let menuId = GM_registerMenuCommand(menuStart + switchNameMap[localStorage.getItem(storageKey)] + menuEnd, clickMenu);
+
+    function clickMenu() {
+        GM_unregisterMenuCommand(menuId);
+        switchLocalStorage(storageKey)
+        menuId = GM_registerMenuCommand(menuStart + switchNameMap[localStorage.getItem(storageKey)] + menuEnd, clickMenu);
+    }
+
+}
 
 const originFetch = fetch;
 unsafeWindow.fetch = (...arg) => {
-    if (arg[0].indexOf('/PlaybackInfo?UserId') > -1 && arg[0].indexOf('IsPlayback=true') > -1) {
-        embyToLocalPlayer(arg[0])
+    if (arg[0].indexOf('/PlaybackInfo?UserId') > -1 && arg[0].indexOf('IsPlayback=true') > -1
+        && localStorage.getItem('webPlayerEnable') != 'true') {
+        embyToLocalPlayer(arg[0]);
         return ''
     }
     else if (arg[0].indexOf('/dialog.template.html') != -1) {
@@ -27,7 +55,6 @@ unsafeWindow.fetch = (...arg) => {
         return originFetch(...arg);
     }
 }
-
 
 async function getItemInfo(itemInfoUrl) {
     let response = await fetch(itemInfoUrl);
@@ -39,14 +66,18 @@ async function getItemInfo(itemInfoUrl) {
 }
 
 
-async function embyToLocalPlayer(itemInfoUrl) {
-    // let data = await getEmbyMediaData(itemInfoUrl);
+async function embyToLocalPlayer(playbackUrl) {
     let data = {
-        data: await getItemInfo(itemInfoUrl),
-        url: itemInfoUrl
+        playbackData: await getItemInfo(playbackUrl),
+        playbackUrl: playbackUrl,
+        mountDiskEnable: localStorage.getItem('mountDiskEnable'),
+
     };
     fetch('http://127.0.0.1:58000/embyToLocalPlayer/', {
         method: 'POST',
         body: JSON.stringify(data)
     })
 }
+
+setModeSwitchMenu('webPlayerEnable', '网页播放模式已经')
+setModeSwitchMenu('mountDiskEnable', '读取硬盘模式已经')
