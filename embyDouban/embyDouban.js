@@ -2,20 +2,22 @@
 // @name         embyDouban
 // @name:zh-CN   embyDouban
 // @name:en      embyDouban
-// @version      0.1
+// @namespace    https://github.com/kjtsune/embyToLocalPlayer/tree/main/embyDouban
+// @version      0.1.1
 // @description  emby 里展示豆瓣 评分 链接 评论(可关)
 // @description:zh-CN  emby 里展示豆瓣 评分 链接 评论(可关)
 // @description:en  show douban ratings and comment[optional] on emby
 // @author       Kjtsune
-// @match        http://192.168.2.22:8096/web/index.html
+// @include      */web/index.html*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=emby.media
 // @grant        GM.xmlHttpRequest
 // @grant        GM_registerMenuCommand
 // @grant        GM_unregisterMenuCommand
 // @connect      api.douban.com
 // @connect      movie.douban.com
+// @license MIT
 // ==/UserScript==
-"use strict";
+'use strict';
 
 setModeSwitchMenu('enableDoubanComment', '豆瓣评论已经', '', '开启')
 let enableDoubanComment = (localStorage.getItem('enableDoubanComment') === 'false') ? false : true;
@@ -222,7 +224,7 @@ function insertBangumiButton(idNode) {
     if (el) { return; }
     let id = idNode.textContent.match(/(?<=bgm\=)\d+/);
     let bgmHtml = `<a id="bangumibutton" is="emby-linkbutton" class="raised item-tag-button nobackdropfilter emby-button" href="https://bgm.tv/subject/${id}" target="_blank"><i class="md-icon button-icon button-icon-left">link</i>Bangumi</a>`
-    idNode.insertAdjacentHTML('beforeBegin', bgmHtml);
+    idNode.insertAdjacentHTML('beforebegin', bgmHtml);
 }
 
 setInterval(() => {

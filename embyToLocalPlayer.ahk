@@ -1,5 +1,5 @@
 ﻿#Requires AutoHotkey v2.0-beta
-::1'3df,v\dip`'btw::by the way
+
 ArgsArrayToString(Args) {
     Result := ''
     For value in Args {

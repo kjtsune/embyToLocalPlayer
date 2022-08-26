@@ -11,7 +11,7 @@
 // @grant        GM.xmlHttpRequest
 // @license MIT
 // ==/UserScript==
-"use strict";
+'use strict';
 
 function checkAndAddElement() {
     let infoTable = document.querySelector('div.propertiesTabContent');
