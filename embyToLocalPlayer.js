@@ -8,7 +8,7 @@
 // @description:zh-CN 需要python。若用mpv播放，可更新服务器观看进度。
 // @description:en  Require python. If you use mpv, will update watch history to emby server.
 // @author       Kjtsune
-// @include      */web/index.html*
+// @match        *://*/web/index.html*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=emby.media
 // @grant        unsafeWindow
 // @grant        GM_registerMenuCommand

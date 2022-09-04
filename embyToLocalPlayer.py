@@ -102,8 +102,9 @@ def get_player_and_replace_path(media_path):
         for k, src_prefix in src.items():
             if src_prefix in media_path:
                 dst_prefix = dst[k]
-                media_path = media_path.replace(src_prefix, dst_prefix, 1)
-                if os.path.exists(media_path):
+                tmp_path = media_path.replace(src_prefix, dst_prefix, 1)
+                if os.path.exists(tmp_path):
+                    media_path = tmp_path
                     break
     result = [exe, media_path]
     log(result, 'cmd')
@@ -207,7 +208,7 @@ def start_mpv_player(cmd, start_sec=None, sub_file=None, media_title=None, get_s
         try:
             _stop_sec = mpv.command('get_property', 'time-pos')
             if not _stop_sec:
-                print('stop_sec is error')
+                print('.', end='')
             else:
                 stop_sec = _stop_sec
             time.sleep(0.5)
@@ -291,6 +292,7 @@ def emby_to_local_player(receive_info):
 
 
 def list_pid_and_cmd(str_in='') -> list:
+    # 失败一般是powershell默认屏幕缓冲区宽度太小导致
     cmd = 'Get-WmiObject Win32_Process | Select ProcessId,CommandLine'
     proc = subprocess.run(['powershell', '-Command', cmd], capture_output=True, encoding='gbk')
     if proc.returncode != 0:
@@ -300,7 +302,7 @@ def list_pid_and_cmd(str_in='') -> list:
         line = line.strip().split(maxsplit=1)
         if len(line) < 2 or not line[0].isdecimal():
             continue
-        if not str_in or (str_in and str_in in line[1]):
+        if not str_in or (str_in and str_in in line[1] or 'active_video_player' in line[1]):
             result.append(line)
     result = [(int(pid), _cmd) for pid, _cmd in result]
     return result

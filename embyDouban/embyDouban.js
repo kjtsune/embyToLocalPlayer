@@ -8,7 +8,7 @@
 // @description:zh-CN  emby 里展示豆瓣 评分 链接 评论(可关)
 // @description:en  show douban ratings and comment[optional] on emby
 // @author       Kjtsune
-// @include      */web/index.html*
+// @match        *://*/web/index.html*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=emby.media
 // @grant        GM.xmlHttpRequest
 // @grant        GM_registerMenuCommand
