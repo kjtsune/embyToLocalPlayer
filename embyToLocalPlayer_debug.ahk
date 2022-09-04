@@ -38,6 +38,6 @@ hideOrNot := InStr(A_ScriptFullPath, '_debug') ? '' : 'hide'
 argument := ArgsArrayToString(A_Args)
 pythonScriptPath := StrReplace(A_ScriptFullPath, '_debug', '')
 pythonScriptPath := RegExReplace(pythonScriptPath, '(exe|ahk)$', 'py')
-cmd := 'python ' pythonScriptPath
+cmd := 'python ' '"' pythonScriptPath '"'
 cmd .= ' ' argument
 Run(cmd, , hideOrNot)
