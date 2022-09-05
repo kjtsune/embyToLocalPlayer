@@ -17,6 +17,14 @@
 // @license MIT
 // ==/UserScript==
 'use strict';
+/* 
+更新的同时要去 github 下载文件，方法详见介绍里的 [更新] 部分
+2022-09-05 ：
+1. 修复 .vbs .ahk 文件内路径含空格问题。
+2. 首次启动会自动关闭之前的进程，方便调试，减少错误。
+3. 挂载盘可设优先级（一般用不到）
+4. 更新 portable_config 修复一些注释有误的。
+*/
 
 
 function switchLocalStorage(key, defaultValue = 'true', trueValue = 'true', falseValue = 'false') {

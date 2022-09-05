@@ -292,19 +292,14 @@ def emby_to_local_player(receive_info):
 
 
 def list_pid_and_cmd(str_in='') -> list:
-    # 失败一般是powershell默认屏幕缓冲区宽度太小导致
-    cmd = 'Get-WmiObject Win32_Process | Select ProcessId,CommandLine'
+    cmd = 'Get-WmiObject Win32_Process | Select ProcessId,CommandLine | ConvertTo-Json'
     proc = subprocess.run(['powershell', '-Command', cmd], capture_output=True, encoding='gbk')
     if proc.returncode != 0:
         return []
-    result = []
-    for line in proc.stdout.splitlines():
-        line = line.strip().split(maxsplit=1)
-        if len(line) < 2 or not line[0].isdecimal():
-            continue
-        if not str_in or (str_in and str_in in line[1] or 'active_video_player' in line[1]):
-            result.append(line)
-    result = [(int(pid), _cmd) for pid, _cmd in result]
+    stdout = [(i['ProcessId'], i['CommandLine']) for i in json.loads(proc.stdout)
+              if i['ProcessId'] and i['CommandLine']]
+    result = [(pid, _cmd) for (pid, _cmd) in stdout
+              if str_in in _cmd or 'active_video_player' in _cmd or 'mpv.exe' in _cmd]
     return result
 
 
