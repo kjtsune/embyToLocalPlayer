@@ -29,7 +29,9 @@
 
 **建议**
 
-* 最佳体验请用 mpv 或 mpv.net ，播放失败两者替换测试下 。
+* 最佳体验请用 mpv（纯快捷键）[发布页](https://sourceforge.net/projects/mpv-player-windows/files/release/) 或
+  mpv.net（可鼠标）[发布页](https://github.com/stax76/mpv.net/releases)  
+  **若正常运行但播放失败两者替换测试下** 。
 * potplayer 播放 http 会疯狂写盘并把整个文件下载下来。非挂载不建议使用。
 
 ## 使用说明
@@ -57,11 +59,17 @@
 5. 若不喜欢 `active_video_player.exe` （不需要激活窗口功能可删） 且 mpv 没在前台启动。 可自行配置 mpv `ontop = yes` ，或将 `portable_config`
    文件夹与 `mpv.exe` 放在一起。
 
-> [linux]
+> Linux
 
 1. 删除所有`.ahk .exe .vbs` 的文件。
 2. 双击运行`embyToLocalPlayer.py`，或终端运行。
-3. 正常播放后写 systemd 文件来开机启动（尚未测试)
+3. 正常播放后写 systemd 文件来开机启动（尚未测试）
+
+> 如何更新
+
+* 备份好 `embyToLocalPlayer.ini` 。基础配置 > 步骤 1。
+  同时看看 [embyToLocalPlayer.ini](https://github.com/kjtsune/embyToLocalPlayer/blob/main/embyToLocalPlayer.ini) 有没有新内容。
+* 一般新功能或者修复之前比较重要的问题才会触发油猴更新， github 会详细些。正常使用不更新也可以。（没什么问题也不怎么更新了）
 
 > 其他操作
 
@@ -74,7 +82,12 @@
 > mpv.net 相关
 
 * 设置未播放完自动关闭。不加载下个文件。因为回传进度由播放器关闭触发。
-* Playback > idle:no, auto-load-folder:no （大概是这样
+* 右击 > Settings > Playback > idle:no, auto-load-folder:no （大概是这样
+
+> mpv portable_config 相关
+
+* 快捷键看 `input.conf`
+* 其他设置 `mpv.conf`
 
 **感谢**
 
