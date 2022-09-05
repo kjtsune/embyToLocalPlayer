@@ -3,7 +3,7 @@
 // @name:zh-CN   embyToLocalPlayer
 // @name:en      embyToLocalPlayer
 // @namespace    https://github.com/kjtsune/embyToLocalPlayer
-// @version      1.0.2
+// @version      1.0.3
 // @description  需要python。若用mpv播放，可更新服务器观看进度。
 // @description:zh-CN 需要python。若用mpv播放，可更新服务器观看进度。
 // @description:en  Require python. If you use mpv, will update watch history to emby server.

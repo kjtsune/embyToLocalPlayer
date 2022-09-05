@@ -81,7 +81,7 @@
 
 > mpv.net 相关
 
-* 设置未播放完自动关闭。不加载下个文件。因为回传进度由播放器关闭触发。
+* 设置播放完自动关闭。不加载下个文件。因为回传进度由播放器关闭触发。
 * 右击 > Settings > Playback > idle:no, auto-load-folder:no （大概是这样
 
 > mpv portable_config 相关
