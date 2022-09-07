@@ -3,10 +3,10 @@
 // @name:zh-CN   embyToLocalPlayer
 // @name:en      embyToLocalPlayer
 // @namespace    https://github.com/kjtsune/embyToLocalPlayer
-// @version      1.0.3
-// @description  需要python。若用mpv播放，可更新服务器观看进度。
-// @description:zh-CN 需要python。若用mpv播放，可更新服务器观看进度。
-// @description:en  Require python. If you use mpv, will update watch history to emby server.
+// @version      1.0.4
+// @description  需要python。若用 mpv mpc 播放，可更新服务器观看进度。
+// @description:zh-CN 需要python。若用 mpv mpc 播放，可更新服务器观看进度。
+// @description:en  Require python. If you use mpv or mpc , will update watch history to emby server.
 // @author       Kjtsune
 // @match        *://*/web/index.html*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=emby.media
@@ -17,9 +17,15 @@
 // @license MIT
 // ==/UserScript==
 'use strict';
-/* 
+/*
 更新的同时要去 github 下载文件，方法详见介绍里的 [更新] 部分
-2022-09-05 ：
+
+2022-09-07:
+1. 增加 mpc-hc mpc-be 回传进度支持。
+2. 修复 mpv 窗口激活置顶可能失败，无需配置 `ontop = yes`。
+3. 修复 mpc 未在前台启动，自动全屏。
+
+2022-09-05：
 1. 修复 .vbs .ahk 文件内路径含空格问题。
 2. 首次启动会自动关闭之前的进程，方便调试，减少错误。
 3. 挂载盘可设优先级（一般用不到）
@@ -72,7 +78,6 @@ async function getItemInfo(itemInfoUrl) {
         throw new Error(response.statusText);
     }
 }
-
 
 async function embyToLocalPlayer(playbackUrl) {
     let data = {
