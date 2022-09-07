@@ -1,5 +1,6 @@
 import json
 import os.path
+import re
 import signal
 import subprocess
 import threading
@@ -7,6 +8,7 @@ import time
 import urllib.parse
 import urllib.request
 from configparser import ConfigParser
+from html.parser import HTMLParser
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
 from python_mpv_jsonipc import MPV
@@ -111,20 +113,25 @@ def get_player_and_replace_path(media_path):
     return result
 
 
-def requests_urllib(host, params, _json):
-    _json = json.dumps(_json).encode('utf-8')
-    params = urllib.parse.urlencode(params)
-    host = host + '?' + params
+def requests_urllib(host, params=None, _json=None, decode=False, timeout=2.0):
+    _json = json.dumps(_json).encode('utf-8') if _json else None
+    params = urllib.parse.urlencode(params) if params else None
+    host = host + '?' + params if params else host
     req = urllib.request.Request(host)
-    req.add_header('Content-Type', 'application/json; charset=utf-8')
-    urllib.request.urlopen(req, _json)
+    if _json:
+        req.add_header('Content-Type', 'application/json; charset=utf-8')
+        response = urllib.request.urlopen(req, _json, timeout=timeout)
+    else:
+        response = urllib.request.urlopen(req, timeout=timeout)
+    if decode:
+        return response.read().decode()
 
 
 def active_window_by_pid(pid, scrip_name='active_video_player'):
     for script_type in '.exe', '.ahk':
         script_path = os.path.join(cwd, f'{scrip_name}{script_type}')
         if os.path.exists(script_path) and os.name == 'nt':
-            print(script_path)
+            log(script_path)
             subprocess.run([script_path, str(pid)], shell=True)
             return
 
@@ -185,6 +192,9 @@ def start_mpv_player(cmd, start_sec=None, sub_file=None, media_title=None, get_s
         cmd.append(f'--sub-file={sub_file}')
     if media_title:
         cmd.append(f'--force-media-title={media_title}')
+        cmd.append(f'--osd-playing-msg={media_title}')
+    else:
+        cmd.append('--osd-playing-msg=${path}')
     if start_sec is not None:
         cmd.append(f'--start={start_sec}')
     cmd.append(fr'--input-ipc-server={cmd_pipe}')
@@ -199,7 +209,7 @@ def start_mpv_player(cmd, start_sec=None, sub_file=None, media_title=None, get_s
         time.sleep(0.1)
         mpv = MPV(start_mpv=False, ipc_socket=pipe_name)
     except Exception as e:
-        print(e)
+        log(e)
         time.sleep(1)
         mpv = MPV(start_mpv=False, ipc_socket=pipe_name)
 
@@ -215,6 +225,69 @@ def start_mpv_player(cmd, start_sec=None, sub_file=None, media_title=None, get_s
         except Exception:
             break
     if stop_sec:
+        stop_sec = int(stop_sec) - 2 if int(stop_sec) > 5 else int(stop_sec)
+    else:
+        stop_sec = int(start_sec)
+    return stop_sec
+
+
+class MpcHTMLParser(HTMLParser):
+    id_value_dict = {}
+    _id = None
+
+    def handle_starttag(self, tag: str, attrs: list[tuple]) -> None:
+        if attrs and attrs[0][0] == 'id':
+            self._id = attrs[0][1]
+
+    def handle_data(self, data):
+        if self._id is not None:
+            data = int(data) if data.isdigit() else data.strip()
+            self.id_value_dict[self._id] = data
+            self._id = None
+
+
+def mpc_stop_sec():
+    url = 'http://localhost:13579/variables.html'
+    parser = MpcHTMLParser()
+    stop_sec = None
+    stack = [None, None]
+    first_time = True
+    while True:
+        try:
+            time_out = 1 if first_time else 0.2
+            first_time = False
+            context = requests_urllib(url, decode=True, timeout=time_out)
+            parser.feed(context)
+            data = parser.id_value_dict
+            position = data['position'] // 1000
+            stop_sec = position if data['state'] != '-1' else stop_sec
+            stack.pop(0)
+            stack.append(stop_sec)
+        except Exception:
+            log('final stop', stack[-2], stack)
+            # 播放器关闭时，webui 可能返回 0
+            return stack[-2]
+        time.sleep(0.3)
+
+
+def start_mpc_player(cmd, start_sec=None, sub_file=None, media_title=None, get_stop_sec=True):
+    if sub_file:
+        # '/dub "伴音名"	载入额外的音频文件'
+        cmd += ['/sub', f'"{sub_file}"']
+    if start_sec is not None:
+        cmd += ['/start', f'"{int(start_sec * 1000)}"']
+    if media_title:
+        pass
+    cmd[1] = f'"{cmd[1]}"'
+    cmd += ['/fullscreen', '/play', '/close']
+    log(cmd)
+    mpv_proc = subprocess.Popen(cmd, shell=False)
+    active_window_by_pid(mpv_proc.pid)
+    if not get_stop_sec:
+        return
+
+    stop_sec = mpc_stop_sec()
+    if stop_sec is not None:
         stop_sec = int(stop_sec) - 2 if int(stop_sec) > 5 else int(stop_sec)
     else:
         stop_sec = int(start_sec)
@@ -256,10 +329,10 @@ def emby_to_local_player(receive_info):
     start_sec = int(seek) / (10 ** 7) if seek else 0
     cmd = get_player_and_replace_path(media_path)
     player_path_lower = cmd[0].lower()
-    os_system_mode = False
     # 播放器特殊处理
-    if 'mpv' in player_path_lower:
-        stop_sec = start_mpv_player(cmd=cmd, start_sec=start_sec, sub_file=sub_file, media_title=media_title)
+    if 'mpv' in player_path_lower or 'mpc' in player_path_lower:
+        player_function = start_mpv_player if 'mpv' in player_path_lower else start_mpc_player
+        stop_sec = player_function(cmd=cmd, start_sec=start_sec, sub_file=sub_file, media_title=media_title)
         log('stop_sec', stop_sec)
         change_emby_play_position(
             scheme=scheme, netloc=netloc, item_id=item_id, api_key=api_key, stop_sec=stop_sec,
@@ -267,12 +340,6 @@ def emby_to_local_player(receive_info):
     else:
         if 'potplayer' in player_path_lower and sub_file:
             cmd.append(f'/sub={sub_file}')
-        elif 'mpc-be' in player_path_lower or 'mpc-hc' in player_path_lower:
-            os_system_mode = True
-            if sub_file:
-                # '/dub "伴音名"	载入额外的音频文件 /start ms		从"ms"(=毫秒)开始播放'
-                cmd.append(f'/sub "{sub_file}"')
-            cmd[1] = f'"{cmd[1]}"'
         elif 'vlc' in player_path_lower:
             # '--sub-file=<字符串> --input-title-format=<字符串>'
             if mount_disk_mode:
@@ -281,33 +348,28 @@ def emby_to_local_player(receive_info):
                 cmd.append(f'--input-title-format={media_title}')
                 # cmd.append(f'--sub-file={sub_file}')  # vlc不支持http字幕
         log(cmd)
-        if os_system_mode:
-            log('os_system_mode')
-            os.system(' '.join(cmd))
-        else:
-            player = subprocess.Popen(cmd, shell=False, stdout=subprocess.PIPE)
-            active_window_by_pid(player.pid)
+        player = subprocess.Popen(cmd, shell=False, stdout=subprocess.PIPE)
+        active_window_by_pid(player.pid)
     # set running flag to drop stuck requests
     PlayerRunningState().start()
 
 
-def list_pid_and_cmd(str_in='') -> list:
+def list_pid_and_cmd(name_re='.') -> list:
     cmd = 'Get-WmiObject Win32_Process | Select ProcessId,CommandLine | ConvertTo-Json'
     proc = subprocess.run(['powershell', '-Command', cmd], capture_output=True, encoding='gbk')
     if proc.returncode != 0:
         return []
     stdout = [(i['ProcessId'], i['CommandLine']) for i in json.loads(proc.stdout)
               if i['ProcessId'] and i['CommandLine']]
-    result = [(pid, _cmd) for (pid, _cmd) in stdout
-              if str_in in _cmd or 'active_video_player' in _cmd or 'mpv.exe' in _cmd]
+    result = [(pid, _cmd) for (pid, _cmd) in stdout if re.search(name_re, _cmd)]
     return result
 
 
-def kill_multi_process(name):
+def kill_multi_process(name_re):
     if os.name != 'nt':
         return
     my_pid = os.getpid()
-    pid_cmd = list_pid_and_cmd(name)
+    pid_cmd = list_pid_and_cmd(name_re)
     for pid, _ in pid_cmd:
         if pid != my_pid:
             os.kill(pid, signal.SIGABRT)
@@ -328,6 +390,7 @@ if __name__ == '__main__':
     ini = os.path.join(cwd, f'{file_name}.ini')
     log_path = os.path.join(cwd, f'{file_name}.log')
     player_is_running = False
-    kill_multi_process(file_name + '.py')
+    kill_multi_process(name_re=f'({file_name}.py' +
+                       r'|active_video_player|mpv.*exe|mpc-.*exe)')
     log(__file__)
     run_server()

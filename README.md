@@ -1,37 +1,32 @@
 # embyToLocalPlayer-Python
 
-需要 python。若用 mpv 播放，可更新服务器观看进度。
-
-**另外推荐**
-
-* qbittorrent\_webui\_open_file (
-  联动脚本，配置相同) [GreasyFork](https://greasyfork.org/zh-CN/scripts/450015-qbittorrent-webui-open-file?locale_override=1)
-* embyDouban [GreasyFork](https://greasyfork.org/zh-CN/scripts/449894-embydouban?locale_override=1)
-* Jellyfin MPV Shim [Github](https://github.com/jellyfin/jellyfin-mpv-shim)  
-  这个可以连接emby，只是每次打开浏览器需要点一下右上角的“播放到”按钮。  
-  开发比较成熟。体验更好。
+需要 Python。若用 mpv 或 MPC 播放，可更新服务器观看进度。
 
 **缺点**
 
-* 本地需要安装 python
-* 目前主要 windows 平台，linux简单测试过，其他尚未测试。
+* 本地需要安装 Python
+* 目前主要 Windows 平台，Linux 简单测试，macOS 请提供免费调用脚本及命令行播放文件的方法（底部有联系方式）。
 * 会提示没有兼容的流，可另装脚本自动关闭提示。
-* 一般还需要 AutoHotKey 用来激活 mpv 窗口，方便播放时直接使用键盘快捷键。如有其他方法麻烦告诉我，谢谢。
+* 一般还需要 AutoHotKey 用来激活播放器窗口，方便使用播放器快捷键和解决窗口可能不在前台的问题。如有其他方法麻烦告诉我，谢谢。
 
 **特性**
 
 * 在首页也可以播放。点击原来的播放按钮就可以。不改变页面布局。
-* 可回传播放进度到服务器。若需要此功能，配置文件里填 mpv 或 mpv.net 的播放器。
+* 可回传播放进度到服务器。若需要此功能，配置文件里填 mpv 或 mpv.net 或 MPC-HC[BE] 的播放器。
 * 文件本地或挂载或远端均可。（脚本菜单里选择）
-* mpv potplayer mpc 支持服务端的外挂字幕。(播放前先选择字幕)
+* mpv MPC potplayer 支持服务端的外挂字幕。(播放前先选择字幕)
 * 不影响其他功能使用。
 * 适配多视频版本，如 2160p 与 1080p 双文件的情况。
 
 **建议**
 
-* 最佳体验请用 mpv（纯快捷键）[发布页](https://sourceforge.net/projects/mpv-player-windows/files/release/) 或
-  mpv.net（可鼠标）[发布页](https://github.com/stax76/mpv.net/releases)  
-  **若正常运行但播放失败两者替换测试下** 。
+* 使用以下4款播放器。
+    * mpv（纯快捷键）[发布页](https://sourceforge.net/projects/mpv-player-windows/files/release/)
+    * mpv.net（可鼠标）[发布页](https://github.com/stax76/mpv.net/releases)   
+      **mpv 若正常运行但播放失败两者替换测试下** 。
+    * MPC-HC [发布页](https://github.com/clsid2/mpc-hc/releases)
+    * MPC-BE [发布页](https://sourceforge.net/projects/mpcbe/files/MPC-BE/Release%20builds/)
+
 * potplayer 播放 http 会疯狂写盘并把整个文件下载下来。非挂载不建议使用。
 
 ## 使用说明
@@ -42,6 +37,12 @@
 2. 安装油猴脚本。 [发布页](https://greasyfork.org/zh-CN/scripts/448648-embytolocalplayer?locale_override=1)
 3. 安装 python (勾选 add to path) [官网](https://www.python.org/downloads/)
 4. 配置 `embyToLocalPlayer.ini`
+
+> MPC 相关：开启 webui
+
+* 查看 > 选项 > Web 界面：  
+  ☑ 监听端口：13579  
+  ☑ 仅允许从 localhost 访问
 
 > [二选一] 简易模式 [推荐]
 
@@ -69,14 +70,13 @@
 
 * 备份好 `embyToLocalPlayer.ini` 。基础配置 > 步骤 1。
   同时看看 [embyToLocalPlayer.ini](https://github.com/kjtsune/embyToLocalPlayer/blob/main/embyToLocalPlayer.ini) 有没有新内容。
-* 一般新功能或者修复之前比较重要的问题才会触发油猴更新， github 会详细些。正常使用不更新也可以。（没什么问题也不怎么更新了）
+* 新功能或者修复之前比较重要的问题才会触发油猴更新提醒， github 会详细些。正常使用不更新也可以。（没什么问题也不怎么更新了）
 
 > 其他操作
 
 * 安装 `embyErrorWindows.js`
   可自动关闭提示没有兼容流的窗口。[发布页](https://greasyfork.org/zh-CN/scripts/448629-embyerrorwindows?locale_override=1)
-* 运行失败换 mpv.net 试试看。或者 mpv release 0.34.0 版本。
-* `portable_config` 文件夹是我的 mpv 配置，可将其与 `mpv.exe` 放在一起。
+* 若 mpv 运行失败，换 mpv.net 试试看。或者 mpv release 0.34.0 版本。
 * 问题反馈群，提问前先尽量自行排查一下。[https://t.me/embyToLocalPlayer](https://t.me/embyToLocalPlayer)
 
 > mpv.net 相关
@@ -84,10 +84,17 @@
 * 设置播放完自动关闭。不加载下个文件。因为回传进度由播放器关闭触发。
 * 右击 > Settings > Playback > idle:no, auto-load-folder:no （大概是这样
 
-> mpv portable_config 相关
+> [可选] portable_config 相关
 
+* `portable_config` 文件夹是我的 mpv 配置，可将其与 `mpv.exe` 放在一起。
 * 快捷键看 `input.conf`
 * 其他设置 `mpv.conf`
+
+**其他相关脚本**
+
+* qbittorrent\_webui\_open_file (
+  联动脚本，配置相同) [GreasyFork](https://greasyfork.org/zh-CN/scripts/450015-qbittorrent-webui-open-file?locale_override=1)
+* embyDouban [GreasyFork](https://greasyfork.org/zh-CN/scripts/449894-embydouban?locale_override=1)
 
 **感谢**
 
