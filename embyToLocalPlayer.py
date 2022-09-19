@@ -3,6 +3,7 @@ import os.path
 import re
 import signal
 import subprocess
+import sys
 import threading
 import time
 import urllib.parse
@@ -50,6 +51,9 @@ class _RequestHandler(BaseHTTPRequestHandler):
             log(self.path, ' not allow')
             return json.dumps({'success': True}).encode('utf-8')
 
+    def do_OPTIONS(self):
+        pass
+
 
 def log(*args):
     if not enable_log:
@@ -78,7 +82,8 @@ def play_media_file(data):
     if 'mpv' in player_path_lower:
         start_mpv_player(cmd, get_stop_sec=False)
         return
-    subprocess.run(cmd)
+    player = subprocess.Popen(cmd)
+    active_window_by_pid(player.pid)
 
 
 def explore(path):
@@ -113,20 +118,6 @@ def get_player_and_replace_path(media_path):
     return result
 
 
-def requests_urllib(host, params=None, _json=None, decode=False, timeout=2.0):
-    _json = json.dumps(_json).encode('utf-8') if _json else None
-    params = urllib.parse.urlencode(params) if params else None
-    host = host + '?' + params if params else host
-    req = urllib.request.Request(host)
-    if _json:
-        req.add_header('Content-Type', 'application/json; charset=utf-8')
-        response = urllib.request.urlopen(req, _json, timeout=timeout)
-    else:
-        response = urllib.request.urlopen(req, timeout=timeout)
-    if decode:
-        return response.read().decode()
-
-
 def active_window_by_pid(pid, scrip_name='active_video_player'):
     for script_type in '.exe', '.ahk':
         script_path = os.path.join(cwd, f'{scrip_name}{script_type}')
@@ -136,7 +127,7 @@ def active_window_by_pid(pid, scrip_name='active_video_player'):
             return
 
 
-def unparse_stream_mkv_url(scheme, netloc, item_id, api_key, media_source_id):
+def unparse_stream_mkv_url(scheme, netloc, item_id, api_key, media_source_id, is_emby=True):
     params = {
         # 'DeviceId': '30477019-ea16-490f-a915-f544f84a7b10',
         'MediaSourceId': media_source_id,
@@ -144,7 +135,7 @@ def unparse_stream_mkv_url(scheme, netloc, item_id, api_key, media_source_id):
         # 'PlaySessionId': '1fbf2f87976c4b1a8f7cee0c6875d60f',
         'api_key': api_key,
     }
-    path = f'/emby/videos/{item_id}/stream.mkv'
+    path = f'/emby/videos/{item_id}/stream.mkv' if is_emby else f'/Videos/{item_id}/stream.mp4'
     query = urllib.parse.urlencode(params, doseq=True)
     '(addressing scheme, network location, path, params='', query, fragment identifier='')'
     url = urllib.parse.urlunparse((scheme, netloc, path, '', query, ''))
@@ -155,6 +146,22 @@ def unparse_subtitle_url(scheme, netloc, item_id, api_key, media_source_id, sub_
     url = f'{scheme}://{netloc}/emby/Videos/{item_id}/{media_source_id}' \
           f'/Subtitles/{sub_index}/Stream.srt?api_key={api_key}'
     return url
+
+
+def requests_urllib(host, params=None, _json=None, decode=False, timeout=2.0, headers=None):
+    _json = json.dumps(_json).encode('utf-8') if _json else None
+    params = urllib.parse.urlencode(params) if params else None
+    host = host + '?' + params if params else host
+    req = urllib.request.Request(host)
+    if headers:
+        [req.add_header(k, v) for k, v in headers.items()]
+    if _json:
+        req.add_header('Content-Type', 'application/json; charset=utf-8')
+        response = urllib.request.urlopen(req, _json, timeout=timeout)
+    else:
+        response = urllib.request.urlopen(req, timeout=timeout)
+    if decode:
+        return response.read().decode()
 
 
 def change_emby_play_position(scheme, netloc, item_id, api_key, stop_sec, play_session_id, device_id):
@@ -183,6 +190,27 @@ def change_emby_play_position(scheme, netloc, item_id, api_key, stop_sec, play_s
                     })
 
 
+def change_jellyfin_play_position(scheme, netloc, item_id, stop_sec, play_session_id, headers):
+    ticks = stop_sec * 10 ** 7
+    requests_urllib(f'{scheme}://{netloc}/Sessions/Playing',
+                    headers=headers,
+                    _json={
+                        # 'PositionTicks': ticks,
+                        # 'PlaybackStartTimeTicks': ticks,
+                        'ItemId': item_id,
+                        'PlaySessionId': play_session_id,
+                        # 'MediaSourceId': 'a43d6333192f126508d93240ae5683c5',
+                    })
+    requests_urllib(f'{scheme}://{netloc}/Sessions/Playing/Stopped',
+                    headers=headers,
+                    _json={
+                        'PositionTicks': ticks,
+                        'ItemId': item_id,
+                        'PlaySessionId': play_session_id,
+                        # 'MediaSourceId': 'a43d6333192f126508d93240ae5683c5',
+                    })
+
+
 def start_mpv_player(cmd, start_sec=None, sub_file=None, media_title=None, get_stop_sec=True):
     pipe_name = 'embyToMpv'
     cmd_pipe = fr'\\.\pipe\{pipe_name}' if os.name == 'nt' else f'/tmp/{pipe_name}'
@@ -199,8 +227,8 @@ def start_mpv_player(cmd, start_sec=None, sub_file=None, media_title=None, get_s
         cmd.append(f'--start={start_sec}')
     cmd.append(fr'--input-ipc-server={cmd_pipe}')
 
-    mpv_proc = subprocess.Popen(cmd, shell=False, stdout=subprocess.PIPE)
-    active_window_by_pid(mpv_proc.pid)
+    player = subprocess.Popen(cmd, shell=False, stdout=subprocess.PIPE)
+    active_window_by_pid(player.pid)
 
     if not get_stop_sec:
         return
@@ -254,7 +282,7 @@ def mpc_stop_sec():
     first_time = True
     while True:
         try:
-            time_out = 1 if first_time else 0.2
+            time_out = 2 if first_time else 0.2
             first_time = False
             context = requests_urllib(url, decode=True, timeout=time_out)
             parser.feed(context)
@@ -281,8 +309,8 @@ def start_mpc_player(cmd, start_sec=None, sub_file=None, media_title=None, get_s
     cmd[1] = f'"{cmd[1]}"'
     cmd += ['/fullscreen', '/play', '/close']
     log(cmd)
-    mpv_proc = subprocess.Popen(cmd, shell=False)
-    active_window_by_pid(mpv_proc.pid)
+    player = subprocess.Popen(cmd, shell=False)
+    active_window_by_pid(player.pid)
     if not get_stop_sec:
         return
 
@@ -297,14 +325,22 @@ def start_mpc_player(cmd, start_sec=None, sub_file=None, media_title=None, get_s
 def emby_to_local_player(receive_info):
     mount_disk_mode = True if receive_info['mountDiskEnable'] == 'true' else False
     url = urllib.parse.urlparse(receive_info['playbackUrl'])
+    headers = receive_info['request']['headers']
+    is_emby = True if '/emby/' in url.path else False
+    jellyfin_auth = headers['X-Emby-Authorization'] if not is_emby else ''
+    jellyfin_auth = [i.replace('\'', '').replace('"', '').strip().split('=')
+                     for i in jellyfin_auth.split(',')] if not is_emby else []
+    jellyfin_auth = dict((i[0], i[1]) for i in jellyfin_auth if len(i) == 2)
+
     query = dict(urllib.parse.parse_qsl(url.query))
     query: dict
-    item_id = [i for i in url.path.split('/') if i.isdigit()][0]
+    item_id = [str(i) for i in url.path.split('/')]
+    item_id = item_id[item_id.index('Items') + 1]
     media_source_id = query.get('MediaSourceId')
-    api_key = query['X-Emby-Token']
+    api_key = query['X-Emby-Token'] if is_emby else jellyfin_auth['Token']
     netloc = url.netloc
     scheme = url.scheme
-    device_id = query['X-Emby-Device-Id']
+    device_id = query['X-Emby-Device-Id'] if is_emby else jellyfin_auth['DeviceId']
     sub_index = query.get('SubtitleStreamIndex')
 
     data = receive_info['playbackData']
@@ -317,7 +353,8 @@ def emby_to_local_player(receive_info):
         media_source_id = media_sources[0]['Id']
 
     stream_mkv_url = unparse_stream_mkv_url(scheme=scheme, netloc=netloc, item_id=item_id,
-                                            api_key=api_key, media_source_id=media_source_id)
+                                            api_key=api_key, media_source_id=media_source_id,
+                                            is_emby=is_emby)
     sub_file = unparse_subtitle_url(scheme=scheme, netloc=netloc, item_id=item_id,
                                     api_key=api_key, media_source_id=media_source_id,
                                     sub_index=sub_index
@@ -334,9 +371,14 @@ def emby_to_local_player(receive_info):
         player_function = start_mpv_player if 'mpv' in player_path_lower else start_mpc_player
         stop_sec = player_function(cmd=cmd, start_sec=start_sec, sub_file=sub_file, media_title=media_title)
         log('stop_sec', stop_sec)
-        change_emby_play_position(
-            scheme=scheme, netloc=netloc, item_id=item_id, api_key=api_key, stop_sec=stop_sec,
-            play_session_id=play_session_id, device_id=device_id)
+        if is_emby:
+            change_emby_play_position(
+                scheme=scheme, netloc=netloc, item_id=item_id, api_key=api_key, stop_sec=stop_sec,
+                play_session_id=play_session_id, device_id=device_id)
+        else:
+            change_jellyfin_play_position(
+                scheme=scheme, netloc=netloc, item_id=item_id, stop_sec=stop_sec,
+                play_session_id=play_session_id, headers=headers)
     else:
         if 'potplayer' in player_path_lower and sub_file:
             cmd.append(f'/sub={sub_file}')
@@ -356,7 +398,8 @@ def emby_to_local_player(receive_info):
 
 def list_pid_and_cmd(name_re='.') -> list:
     cmd = 'Get-WmiObject Win32_Process | Select ProcessId,CommandLine | ConvertTo-Json'
-    proc = subprocess.run(['powershell', '-Command', cmd], capture_output=True, encoding='gbk')
+    proc = subprocess.run(['powershell', '-Command', cmd], capture_output=True,
+                          encoding=sys.getdefaultencoding())
     if proc.returncode != 0:
         return []
     stdout = [(i['ProcessId'], i['CommandLine']) for i in json.loads(proc.stdout)
@@ -391,6 +434,6 @@ if __name__ == '__main__':
     log_path = os.path.join(cwd, f'{file_name}.log')
     player_is_running = False
     kill_multi_process(name_re=f'({file_name}.py' +
-                       r'|active_video_player|mpv.*exe|mpc-.*exe)')
+                               r'|active_video_player|mpv.*exe|mpc-.*exe)')
     log(__file__)
     run_server()
