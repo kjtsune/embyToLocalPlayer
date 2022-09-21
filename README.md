@@ -1,6 +1,6 @@
 # embyToLocalPlayer-Python
 
-需要 Python。若用 PotPlayer 或 mpv 或 MPC 或 VLC 播放，可更新服务器观看进度。
+需要 Python。若用 PotPlayer mpv MPC VLC 播放，可更新服务器观看进度。
 
 **缺点**
 
@@ -19,16 +19,17 @@
 
 **建议**
 
+* PotPlayer 播放 http 会疯狂写盘并把整个文件下载下来。推荐读取硬盘模式。
 * 使用以下6款播放器。
     * PotPlayer [发布页](https://potplayer.daum.net/)
+      若非读取硬盘播放，**可能提示地址关闭**，听说可以更新到 [220420](https://www.videohelp.com/software/PotPlayer/old-versions) 版。  
+      220914-64bit + win10 没问题，220914 或 220420 -32bit + win8 有问题，不测试了。
     * VLC（触屏相对友好）[发布页](https://www.videolan.org/vlc/)
     * mpv（纯快捷键）[发布页](https://sourceforge.net/projects/mpv-player-windows/files/release/)
     * mpv.net（可鼠标）[发布页](https://github.com/stax76/mpv.net/releases)   
       **mpv 若无报错但播放失败，换 mpv.net 测试下** 。
     * MPC-HC [发布页](https://github.com/clsid2/mpc-hc/releases)
     * MPC-BE [发布页](https://sourceforge.net/projects/mpcbe/files/MPC-BE/Release%20builds/)
-
-* PotPlayer 播放 http 会疯狂写盘并把整个文件下载下来。推荐挂载模式。
 
 ## 使用说明
 
@@ -41,8 +42,8 @@
 
 > 如何试用
 
-1. 双击 `embyToLocalPlayer.py`, 若正常运行，可播放测试。
-2. 若闪退，打开命令行，修改并输入 `python C:/<path_to>/embyToLocalPlayer.py` ，然后截图发群里。
+1. 双击 `embyToLocalPlayer_debug.bat`, 若无报错，可播放测试。  
+   报错就截图发群里。
 
 > 若用 MPC 播放：开启 webui
 
@@ -54,17 +55,18 @@
 
 1. 下载解压并点击 `Install.cmd` 安装 AutoHotKey
    v2 [官网](https://www.autohotkey.com/) [链接](https://www.autohotkey.com/download/ahk-v2.zip)
-2. 双击运行 `embyToLocalPlayer_debug.ahk`（窗口运行）
+2. 双击 `embyToLocalPlayer_debug.ahk` 或 `embyToLocalPlayer_debug.bat`（窗口运行）
 3. 现在可网页播放测试，若正常，创建 `embyToLocalPlayer.ahk`（无窗口运行）快捷方式，并放入开机启动文件夹即可。( `win + r` 输入 `shell:startup` 回车)
 4. 删除 `active_video_player.exe`
 
 > [二选一] Windows 一般模式
 
-1. 双击 `embyToLocalPlayer.py` ，或者打开命令行，修改并输入 `python C:/<path_to>/embyToLocalPlayer.py`
-2. 现在可网页播放测试，若正常，修改 `embyToLocalPlayer.vbs` 里的 Python 路径和 `.py` 文件路径。
-3. 双击 `.vbs` 会后台启动，再次测试播放。然后放入开机启动文件夹即可 ( `win + r` 输入 `shell:startup` 回车)
-4. 删除文件夹里所有 `.ahk` 的文件。
-5. 若不不需要激活窗口功能可删 `active_video_player.exe` ，PotPlayer MPC 可能不需要。
+1. 双击 `embyToLocalPlayer_debug.bat`  若无报错可网页播放测试。  
+   若正常，修改 `embyToLocalPlayer.vbs` 里的 Python 路径和 `.py` 文件路径。
+2. 双击 `.vbs` 会后台启动，再次测试播放。然后放入开机启动文件夹即可  
+   ( `win + r` 输入 `shell:startup` 回车)
+3. 删除文件夹里所有 `.ahk` 的文件。
+4. 若不需要激活窗口功能可删 `active_video_player.exe` ，PotPlayer MPC 可能不需要。
 
 > Linux
 
@@ -89,6 +91,9 @@
   没什么问题应该也不怎么更新了
 
 > PotPlayer 相关
+
+* 若非读取硬盘播放，可能提示地址关闭，听说可以更新到 [220420](https://www.videohelp.com/software/PotPlayer/old-versions) 版。  
+  220914-64bit + win10 没问题，220914 或 220420 -32bit + win8 都有问题，不测试了。
 
 * 选项 > 播放 > 播放窗口尺寸：全屏
 * 配置/语言/其他 > 收尾处理 > 播放完当前后退出（触发回传进度）
@@ -126,7 +131,7 @@
 * [linkDoubanTrakt](https://greasyfork.org/zh-CN/scripts/449899-linkdoubantrakt?locale_override=1)
   ：Douban Trakt 互相跳转链接
 * [qbittorrent\_webui\_open_file](https://greasyfork.org/zh-CN/scripts/450015-qbittorrent-webui-open-file?locale_override=1)
-  联动脚本，配置相同，QB 网页打开文件夹或播放
+  ：联动脚本，配置相同，QB 网页打开文件夹或播放
 
 **感谢**
 
