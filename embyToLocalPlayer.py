@@ -1,9 +1,8 @@
 import json
 import os.path
-import re
 import signal
+import socket
 import subprocess
-import sys
 import threading
 import time
 import urllib.parse
@@ -67,9 +66,13 @@ def log(*args):
 
 
 def open_local_folder(data):
+    if os.name != 'nt':
+        log('open folder only work in windows')
+        return
+    from windows_tool import open_in_explore
     path = data['info'][0]['content_path']
     translate_path = get_player_and_replace_path(path)[1]
-    explore(translate_path)
+    open_in_explore(translate_path)
     log('open folder', translate_path)
 
 
@@ -84,16 +87,6 @@ def play_media_file(data):
         return
     player = subprocess.Popen(cmd)
     active_window_by_pid(player.pid)
-
-
-def explore(path):
-    if os.name != 'nt':
-        log('open folder only work in windows')
-    # filebrowser = os.path.join(os.getenv('WINDIR'), 'explorer.exe')
-    path = os.path.normpath(path)
-    # cmd = [filebrowser, path] if os.path.isdir(path) else [filebrowser, '/select,', path]
-    cmd = f'explorer "{path}"' if os.path.isdir(path) else f'explorer /select, "{path}"'
-    os.system(cmd)
 
 
 def get_player_and_replace_path(media_path):
@@ -118,10 +111,22 @@ def get_player_and_replace_path(media_path):
     return result
 
 
-def active_window_by_pid(pid, scrip_name='active_video_player'):
+def active_window_by_pid(pid, is_mpv=False, scrip_name='active_video_player'):
+    if os.name != 'nt':
+        return
+    if not is_mpv:
+        # mpv vlc 不支持此模式
+        pass
+    #     time.sleep(1)
+    #     log('active by win32 api mode')
+    #     from windows_tool import activate_window_by_win32
+    #     # time.sleep(0.5)
+    #     activate_window_by_win32(pid)
+    #     return
+    # log('active by autohotkey mode')
     for script_type in '.exe', '.ahk':
         script_path = os.path.join(cwd, f'{scrip_name}{script_type}')
-        if os.path.exists(script_path) and os.name == 'nt':
+        if os.path.exists(script_path):
             log(script_path)
             subprocess.run([script_path, str(pid)], shell=True)
             return
@@ -298,6 +303,26 @@ def mpc_stop_sec():
         time.sleep(0.3)
 
 
+def vlc_stop_sec():
+    time.sleep(1)
+    stop_sec = None
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.settimeout(0.5)
+        sock.connect(('127.0.0.1', 58010))
+        while True:
+            try:
+                sock.sendall(bytes('get_time' + '\n', "utf-8"))
+                received = sock.recv(1024).decode().strip()
+                if len(received.splitlines()) == 1:
+                    stop_sec = received if received.isnumeric() else stop_sec
+                    time.sleep(0.3)
+            except Exception:
+                log('stop', stop_sec)
+                sock.close()
+                return stop_sec
+            time.sleep(0.1)
+
+
 def start_mpc_player(cmd, start_sec=None, sub_file=None, media_title=None, get_stop_sec=True):
     if sub_file:
         # '/dub "伴音名"	载入额外的音频文件'
@@ -315,6 +340,54 @@ def start_mpc_player(cmd, start_sec=None, sub_file=None, media_title=None, get_s
         return
 
     stop_sec = mpc_stop_sec()
+    if stop_sec is not None:
+        stop_sec = int(stop_sec) - 2 if int(stop_sec) > 5 else int(stop_sec)
+    else:
+        stop_sec = int(start_sec)
+    return stop_sec
+
+
+def start_vlc_player(cmd: list, start_sec=None, sub_file=None, media_title=None, get_stop_sec=True):
+    # '--sub-file=<字符串> --input-title-format=<字符串>'
+    cmd = [cmd[0], '-I', 'qt', '--extraintf', 'rc', '--rc-quiet',
+           '--rc-host', '127.0.0.1:58010', ] + cmd[1:]
+    if sub_file:
+        pass
+        # cmd.append(f'--sub-file={sub_file}')  # vlc不支持http字幕
+    if start_sec is not None:
+        cmd += ['--start-time', str(start_sec)]
+    if media_title:
+        pass
+    cmd += ['--fullscreen', 'vlc://quit']
+    log(cmd)
+    player = subprocess.Popen(cmd)
+    active_window_by_pid(player.pid)
+    if not get_stop_sec:
+        return
+
+    stop_sec = vlc_stop_sec()
+    if stop_sec is not None:
+        stop_sec = int(stop_sec) - 2 if int(stop_sec) > 5 else int(stop_sec)
+    else:
+        stop_sec = int(start_sec)
+    return stop_sec
+
+
+def start_potplayer(cmd: list, start_sec=None, sub_file=None, media_title=None, get_stop_sec=True):
+    if sub_file:
+        cmd.append(f'/sub={sub_file}')
+    if start_sec is not None:
+        cmd += [f'/seek={int(start_sec)}']
+    if media_title:
+        cmd += [f'/title={media_title}']
+    log(cmd)
+    player = subprocess.Popen(cmd)
+    active_window_by_pid(player.pid)
+    if not get_stop_sec:
+        return
+
+    from windows_tool import get_potplayer_stop_sec
+    stop_sec = get_potplayer_stop_sec(player.pid)
     if stop_sec is not None:
         stop_sec = int(stop_sec) - 2 if int(stop_sec) > 5 else int(stop_sec)
     else:
@@ -367,8 +440,22 @@ def emby_to_local_player(receive_info):
     cmd = get_player_and_replace_path(media_path)
     player_path_lower = cmd[0].lower()
     # 播放器特殊处理
-    if 'mpv' in player_path_lower or 'mpc' in player_path_lower:
-        player_function = start_mpv_player if 'mpv' in player_path_lower else start_mpc_player
+    player_name = [i for i in ('mpv', 'mpc', 'vlc', 'potplayer') if i in player_path_lower]
+    if player_name:
+        player_name = player_name[0]
+        function_dict = dict(mpv=start_mpv_player,
+                             mpc=start_mpc_player,
+                             vlc=start_vlc_player,
+                             potplayer=start_potplayer)
+        player_function = function_dict[player_name]
+        if player_name == 'vlc':
+            # cmd.append('--no-video-title-show')
+            if mount_disk_mode:
+                # cmd.append(f'--input-title-format={cmd[1]}')
+                cmd[1] = f'file:///{cmd[1]}'
+            else:
+                cmd.append(f'--input-title-format={media_title}')
+                cmd.append(f'--video-title={media_title}')
         stop_sec = player_function(cmd=cmd, start_sec=start_sec, sub_file=sub_file, media_title=media_title)
         log('stop_sec', stop_sec)
         if is_emby:
@@ -380,15 +467,6 @@ def emby_to_local_player(receive_info):
                 scheme=scheme, netloc=netloc, item_id=item_id, stop_sec=stop_sec,
                 play_session_id=play_session_id, headers=headers)
     else:
-        if 'potplayer' in player_path_lower and sub_file:
-            cmd.append(f'/sub={sub_file}')
-        elif 'vlc' in player_path_lower:
-            # '--sub-file=<字符串> --input-title-format=<字符串>'
-            if mount_disk_mode:
-                cmd[1] = f'file:///{cmd[1]}'
-            else:
-                cmd.append(f'--input-title-format={media_title}')
-                # cmd.append(f'--sub-file={sub_file}')  # vlc不支持http字幕
         log(cmd)
         player = subprocess.Popen(cmd, shell=False, stdout=subprocess.PIPE)
         active_window_by_pid(player.pid)
@@ -396,21 +474,10 @@ def emby_to_local_player(receive_info):
     PlayerRunningState().start()
 
 
-def list_pid_and_cmd(name_re='.') -> list:
-    cmd = 'Get-WmiObject Win32_Process | Select ProcessId,CommandLine | ConvertTo-Json'
-    proc = subprocess.run(['powershell', '-Command', cmd], capture_output=True,
-                          encoding=sys.getdefaultencoding())
-    if proc.returncode != 0:
-        return []
-    stdout = [(i['ProcessId'], i['CommandLine']) for i in json.loads(proc.stdout)
-              if i['ProcessId'] and i['CommandLine']]
-    result = [(pid, _cmd) for (pid, _cmd) in stdout if re.search(name_re, _cmd)]
-    return result
-
-
 def kill_multi_process(name_re):
     if os.name != 'nt':
         return
+    from windows_tool import list_pid_and_cmd
     my_pid = os.getpid()
     pid_cmd = list_pid_and_cmd(name_re)
     for pid, _ in pid_cmd:
@@ -433,7 +500,7 @@ if __name__ == '__main__':
     ini = os.path.join(cwd, f'{file_name}.ini')
     log_path = os.path.join(cwd, f'{file_name}.log')
     player_is_running = False
-    kill_multi_process(name_re=f'({file_name}.py' +
-                               r'|active_video_player|mpv.*exe|mpc-.*exe)')
+    kill_multi_process(name_re=f'({file_name}.py|active_video_player|' +
+                               r'mpv.*exe|mpc-.*exe|vlc.exe|PotPlayer.*exe)')
     log(__file__)
     run_server()
