@@ -91,7 +91,7 @@ def play_media_file(data):
 
 def get_player_and_replace_path(media_path):
     config = ConfigParser()
-    config.read(ini, encoding='utf-8')
+    config.read(ini, encoding='utf-8-sig')
     player = config['emby']['player']
     exe = config['exe'][player]
     log(media_path, 'raw')
@@ -170,6 +170,9 @@ def requests_urllib(host, params=None, _json=None, decode=False, timeout=2.0, he
 
 
 def change_emby_play_position(scheme, netloc, item_id, api_key, stop_sec, play_session_id, device_id):
+    if stop_sec > 10 * 60 * 60:
+        log('stop_sec error, check it')
+        return
     ticks = stop_sec * 10 ** 7
     requests_urllib(f'{scheme}://{netloc}/emby/Sessions/Playing',
                     params={
@@ -196,6 +199,9 @@ def change_emby_play_position(scheme, netloc, item_id, api_key, stop_sec, play_s
 
 
 def change_jellyfin_play_position(scheme, netloc, item_id, stop_sec, play_session_id, headers):
+    if stop_sec > 10 * 60 * 60:
+        log('stop_sec error, check it')
+        return
     ticks = stop_sec * 10 ** 7
     requests_urllib(f'{scheme}://{netloc}/Sessions/Playing',
                     headers=headers,
@@ -268,7 +274,7 @@ class MpcHTMLParser(HTMLParser):
     id_value_dict = {}
     _id = None
 
-    def handle_starttag(self, tag: str, attrs: list[tuple]) -> None:
+    def handle_starttag(self, tag: str, attrs: list):
         if attrs and attrs[0][0] == 'id':
             self._id = attrs[0][1]
 
