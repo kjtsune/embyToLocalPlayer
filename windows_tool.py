@@ -101,10 +101,10 @@ def get_potplayer_stop_sec(pid=None):
         player_pid = pid_cmd[0][0] if not pid else pid
         while True:
             if not check_process_running(player_pid):
-                print('pot not running')
+                # print('pot not running')
                 break
             potplayer_time_by_pid(player_pid)
-            print(stop_sec)
+            # print(stop_sec)
             time.sleep(0.3)
     return stop_sec
 
