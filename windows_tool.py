@@ -6,7 +6,6 @@ import locale
 import os
 import re
 import subprocess
-import sys
 import time
 
 stop_sec = None
@@ -24,7 +23,7 @@ def open_in_explore(path):
 
 def list_pid_and_cmd(name_re='.') -> list:
     default_encoding = locale.getpreferredencoding()
-    encoding = 'gbk' if default_encoding == 'cp936' else 'utf-8'
+    # encoding = 'gbk' if default_encoding == 'cp936' else 'utf-8'
     cmd = 'Get-WmiObject Win32_Process | Select ProcessId,CommandLine | ConvertTo-Json'
     proc = subprocess.run(['powershell', '-Command', cmd], capture_output=True,
                           encoding=default_encoding)
@@ -107,7 +106,3 @@ def get_potplayer_stop_sec(pid=None):
             # print(stop_sec)
             time.sleep(0.3)
     return stop_sec
-
-
-if __name__ == "__main__":
-    print(os.de)
