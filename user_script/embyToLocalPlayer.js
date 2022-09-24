@@ -3,10 +3,10 @@
 // @name:zh-CN   embyToLocalPlayer
 // @name:en      embyToLocalPlayer
 // @namespace    https://github.com/kjtsune/embyToLocalPlayer
-// @version      1.0.6
-// @description  需要python。若用 PotPlayer VLC  mpv MPC 播放，可更新服务器观看进度。支持 Jellyfin。
-// @description:zh-CN 需要python。若用 PotPlayer VLC  mpv MPC 播放，可更新服务器观看进度。支持 Jellyfin。
-// @description:en  Require python. If you use PotPlayer or VLC or mpv or MPC , will update watch history to emby server. Support Jellyfin.
+// @version      1.0.7
+// @description  需要python。若用 PotPlayer VLC mpv MPC 播放，可更新服务器观看进度。支持 Jellyfin Plex。
+// @description:zh-CN 需要python。若用 PotPlayer VLC mpv MPC 播放，可更新服务器观看进度。支持 Jellyfin Plex。
+// @description:en  Require python. If you use PotPlayer or VLC or mpv or MPC , will update watch history to emby server. Support Jellyfin Plex.
 // @author       Kjtsune
 // @match        *://*/web/index.html*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=emby.media
@@ -21,11 +21,15 @@
 /*
 更新的同时要去 github 下载文件，方法详见介绍里的 [更新] 部分
 
+2022-09-24:
+1. 增加 Plex 支持。
+
 2022-09-21:
 1. 增加 PotPlayer 回传进度支持。
 2. 增加 VLC 回传进度支持。
 3. 修复首次启动时系统编码判断问题。
 4. 修复 `.ini` 被记事本修改后可能编码错误
+
 2022-09-19:
 1. 增加 Jellyfin 支持。
 
@@ -40,7 +44,6 @@
 3. 挂载盘可设优先级（一般用不到）
 4. 更新 portable_config 修复一些注释有误的。
 */
-
 
 function switchLocalStorage(key, defaultValue = 'true', trueValue = 'true', falseValue = 'false') {
     if (key in localStorage) {
@@ -66,31 +69,14 @@ function setModeSwitchMenu(storageKey, menuStart = '', menuEnd = '', defaultValu
 
 const originFetch = fetch;
 unsafeWindow.fetch = async (url, request) => {
+    // console.log('%c%o%s', 'background:yellow;', url, ' MYLOG')
     if (url.indexOf('/PlaybackInfo?UserId') > -1 && url.indexOf('IsPlayback=true') > -1
         && localStorage.getItem('webPlayerEnable') != 'true') {
         let response = await originFetch(url, request);
         let data = await response.clone().json()
         embyToLocalPlayer(url, request, data);
-        console.log('%c%o%s', "color:orange;", 'headers ', response, typeof (response))
-
-        // // 不知道回传什么数据 jellyfin 才不会网页播放，且不转圈。emby 会弹无兼容数据流
-        // if (url.indexOf('Emby-Token') != -1) { return '' }
-        // data.MediaSources[0].SupportsTranscoding = false;
-        // data.MediaSources[0].SupportsDirectPlay = false;
-        // data.MediaSources[0].SupportsProbing = false;
-        // data.MediaSources[0].Container = 'mkv';
-        // console.log('%c%o%s', "color:orange;", 'data ', JSON.stringify(data), typeof (data))
-        // var myBlob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-        // var init = { "status" : 200 , "statusText" : "SuperSmashingGreat!" };
-        // var myResponse = new Response(myBlob, init);
-        // return myResponse
-
-    }
-    // else if (localStorage.getItem('webPlayerEnable') != 'true' && url.indexOf('/stream') != -1) {
-    //     console.log('%c%o%s', "color:orange;", 'url', url)
-    //     return
-    // }
-    else {
+    } else {
+        // console.log('%c%o%s', "color:orange;", 'url ', url)
         return originFetch(url, request);
     }
 }
@@ -127,5 +113,44 @@ function sendDataToLocalServer(data, path) {
     });
 }
 
-setModeSwitchMenu('webPlayerEnable', '网页播放模式已经')
-setModeSwitchMenu('mountDiskEnable', '读取硬盘模式已经')
+function initXMLHttpRequest() {
+    let open = XMLHttpRequest.prototype.open;
+    XMLHttpRequest.prototype.open = function (...args) {
+        // 正常请求不匹配的网址       
+        // console.log(args, "---all_args");
+        let url = args[1]
+        if (url.indexOf('playQueues?type=video') == -1 ) {
+            return open.apply(this, args);
+        }
+        // 请求前拦截
+        if (url.indexOf('playQueues?type=video') != -1
+        && localStorage.getItem('webPlayerEnable') != 'true') {
+            // console.log(args, "-----args");
+            fetch(url, {
+                method: args[0],
+                headers: {
+                    'Accept': 'application/json',
+                }
+            })
+                .then(response => response.json())
+                .then((res) => {
+                    let data = {
+                        playbackData: res,
+                        playbackUrl: url,
+                        mountDiskEnable: localStorage.getItem('mountDiskEnable'),
+                
+                    };
+                    sendDataToLocalServer(data, 'plexToLocalPlayer');
+                    // console.log(data, "-----data")
+                });
+            return ;                
+        }
+        return open.apply(this, args);
+    }
+}
+
+// 初始化请求并拦截 plex
+initXMLHttpRequest()
+
+setModeSwitchMenu('webPlayerEnable', '网页播放模式已经 ')
+setModeSwitchMenu('mountDiskEnable', '读取硬盘模式已经 ')

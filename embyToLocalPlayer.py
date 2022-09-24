@@ -11,6 +11,7 @@ from configparser import ConfigParser
 from html.parser import HTMLParser
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
+from plexToLocalPlayer import plex_to_local_player
 from python_mpv_jsonipc import MPV
 
 
@@ -40,8 +41,10 @@ class _RequestHandler(BaseHTTPRequestHandler):
         if player_is_running:
             log('reject post when running')
             return
-        if 'embyToLocalPlayer' in self.path and not player_is_running:
+        if 'embyToLocalPlayer' in self.path:
             emby_to_local_player(data)
+        elif 'plexToLocalPlayer' in self.path:
+            start_play_and_change_position(plex_to_local_player(data))
         elif 'openFolder' in self.path:
             open_local_folder(data)
         elif 'playMediaFile' in self.path:
@@ -222,6 +225,35 @@ def change_jellyfin_play_position(scheme, netloc, item_id, stop_sec, play_sessio
                     })
 
 
+def change_plex_play_position(scheme, netloc, api_key, stop_sec, rating_key, client_id, duration):
+    if stop_sec > 10 * 60 * 60:
+        log('stop_sec error, check it')
+        return
+    ticks = stop_sec * 10 ** 3
+    requests_urllib(f'{scheme}://{netloc}/:/timeline',
+                    decode=True,
+                    headers={'Accept': 'application/json'},
+                    params={
+                        'ratingKey': rating_key,
+                        'state': 'stopped',
+                        # 'state': 'playing',
+                        'time': ticks,
+                        'duration': duration,
+                        'X-Plex-Client-Identifier': client_id,
+                        'X-Plex-Token': api_key,
+                    })
+    if stop_sec > 30:
+        return
+    requests_urllib(f'{scheme}://{netloc}/:/unscrobble',
+                    headers={'Accept': 'application/json'},
+                    params={
+                        'key': rating_key,
+                        'X-Plex-Client-Identifier': client_id,
+                        'X-Plex-Token': api_key,
+                        'identifier': 'com.plexapp.plugins.library',
+                    })
+
+
 def start_mpv_player(cmd, start_sec=None, sub_file=None, media_title=None, get_stop_sec=True):
     pipe_name = 'embyToMpv'
     cmd_pipe = fr'\\.\pipe\{pipe_name}' if os.name == 'nt' else f'/tmp/{pipe_name}'
@@ -237,7 +269,7 @@ def start_mpv_player(cmd, start_sec=None, sub_file=None, media_title=None, get_s
     if start_sec is not None:
         cmd.append(f'--start={start_sec}')
     cmd.append(fr'--input-ipc-server={cmd_pipe}')
-
+    log(cmd)
     player = subprocess.Popen(cmd, shell=False, stdout=subprocess.PIPE)
     active_window_by_pid(player.pid)
 
@@ -383,7 +415,8 @@ def start_potplayer(cmd: list, start_sec=None, sub_file=None, media_title=None, 
     if sub_file:
         cmd.append(f'/sub={sub_file}')
     if start_sec is not None:
-        cmd += [f'/seek={int(start_sec)}']
+        format_time = time.strftime('%H:%M:%S', time.gmtime(int(start_sec)))
+        cmd += [f'/seek={format_time}']
     if media_title:
         cmd += [f'/title={media_title}']
     log(cmd)
@@ -442,7 +475,38 @@ def emby_to_local_player(receive_info):
     media_title = os.path.basename(file_path) if not mount_disk_mode else None  # 播放http时覆盖标题
 
     seek = query['StartTimeTicks']
-    start_sec = int(seek) / (10 ** 7) if seek else 0
+    start_sec = int(seek) // (10 ** 7) if seek else 0
+    server = 'emby' if is_emby else 'jellyfin'
+    result = dict(
+        server=server,
+        mount_disk_mode=mount_disk_mode,
+        api_key=api_key,
+        scheme=scheme,
+        netloc=netloc,
+        media_path=media_path,
+        start_sec=start_sec,
+        sub_file=sub_file,
+        media_title=media_title,
+        play_session_id=play_session_id,
+        device_id=device_id,
+        headers=headers,
+        item_id=item_id,
+    )
+    start_play_and_change_position(result)
+    return result
+
+
+def start_play_and_change_position(data):
+    scheme = data['scheme']
+    netloc = data['netloc']
+    api_key = data['api_key']
+    mount_disk_mode = data['mount_disk_mode']
+    media_path = data['media_path']
+    start_sec = data['start_sec']
+    sub_file = data['sub_file']
+    media_title = data['media_title']
+    server = data['server']
+
     cmd = get_player_and_replace_path(media_path)
     player_path_lower = cmd[0].lower()
     # 播放器特殊处理
@@ -464,14 +528,18 @@ def emby_to_local_player(receive_info):
                 cmd.append(f'--video-title={media_title}')
         stop_sec = player_function(cmd=cmd, start_sec=start_sec, sub_file=sub_file, media_title=media_title)
         log('stop_sec', stop_sec)
-        if is_emby:
+        if server == 'emby':
             change_emby_play_position(
-                scheme=scheme, netloc=netloc, item_id=item_id, api_key=api_key, stop_sec=stop_sec,
-                play_session_id=play_session_id, device_id=device_id)
-        else:
+                scheme=scheme, netloc=netloc, item_id=data['item_id'], api_key=api_key, stop_sec=stop_sec,
+                play_session_id=data['play_session_id'], device_id=data['device_id'])
+        elif server == 'jellyfin':
             change_jellyfin_play_position(
-                scheme=scheme, netloc=netloc, item_id=item_id, stop_sec=stop_sec,
-                play_session_id=play_session_id, headers=headers)
+                scheme=scheme, netloc=netloc, item_id=data['item_id'], stop_sec=stop_sec,
+                play_session_id=data['play_session_id'], headers=data['headers'])
+        elif server == 'plex':
+            change_plex_play_position(scheme=scheme, netloc=netloc, api_key=api_key, stop_sec=stop_sec,
+                                      rating_key=data['rating_key'], client_id=data['client_id'],
+                                      duration=data['duration'])
     else:
         log(cmd)
         player = subprocess.Popen(cmd, shell=False, stdout=subprocess.PIPE)
