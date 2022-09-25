@@ -4,9 +4,9 @@
 // @name:en      embyToLocalPlayer
 // @namespace    https://github.com/kjtsune/embyToLocalPlayer
 // @version      1.0.7
-// @description  需要python。若用 PotPlayer VLC mpv MPC 播放，可更新服务器观看进度。支持 Jellyfin Plex。
-// @description:zh-CN 需要python。若用 PotPlayer VLC mpv MPC 播放，可更新服务器观看进度。支持 Jellyfin Plex。
-// @description:en  Require python. If you use PotPlayer or VLC or mpv or MPC , will update watch history to emby server. Support Jellyfin Plex.
+// @description  需要 Python。若用 PotPlayer VLC mpv MPC 播放，可回传播放进度。支持 Jellyfin Plex。
+// @description:zh-CN 需要 Python。若用 PotPlayer VLC mpv MPC 播放，可回传播放进度。支持 Jellyfin Plex。
+// @description:en  Require Python. If you use PotPlayer or VLC or mpv or MPC , will update watch history to emby server. Support Jellyfin Plex.
 // @author       Kjtsune
 // @match        *://*/web/index.html*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=emby.media
@@ -23,6 +23,7 @@
 
 2022-09-24:
 1. 增加 Plex 支持。
+2. _debug.ahk 可创建开机启动项
 
 2022-09-21:
 1. 增加 PotPlayer 回传进度支持。
