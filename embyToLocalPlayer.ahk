@@ -13,7 +13,7 @@ ArgsArrayToString(Args) {
 
     return Result
 }
-CopySelfToDebugAndNot() {
+CopySelfToDebugOrNot() {
     if (InStr(A_ScriptName, 'python_runner')) {
         name := InputBox('1: 输入需要运行的python文件名 `n'
             '2: 与同名python脚本放一起`n'
@@ -33,7 +33,7 @@ CopySelfToDebugAndNot() {
     }
 
 }
-CopySelfToDebugAndNot()
+CopySelfToDebugOrNot()
 hideOrNot := InStr(A_ScriptFullPath, '_debug') ? '' : 'hide'
 argument := ArgsArrayToString(A_Args)
 pythonScriptPath := StrReplace(A_ScriptFullPath, '_debug', '')

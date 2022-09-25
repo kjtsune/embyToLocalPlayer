@@ -41,7 +41,7 @@
 
 > 如何试用
 
-* 双击 `embyToLocalPlayer_debug.bat`, 若无报错，可播放测试。  
+* 双击 `embyToLocalPlayer_debug.bat`（窗口运行）后按 1, 若无报错，可播放测试。  
   报错就截图发群里。
 * 若用 MPC 播放：开启 WebUI，详见 FAQ
 
@@ -49,23 +49,23 @@
 
 1. 下载解压并点击 `Install.cmd` 安装 AutoHotKey
    v2 [官网](https://www.autohotkey.com/) [链接](https://www.autohotkey.com/download/ahk-v2.zip)
-2. 双击 `embyToLocalPlayer_debug.ahk` 或 `embyToLocalPlayer_debug.bat`（窗口运行）
-3. 现在可网页播放测试，若正常，创建 `embyToLocalPlayer.ahk`（无窗口运行）快捷方式，并放入开机启动文件夹即可。( `win + r` 输入 `shell:startup` 回车)
-4. 删除 `active_video_player.exe`
+2. 双击 `embyToLocalPlayer_debug.bat` 或 `embyToLocalPlayer_debug.ahk`（窗口运行）。
+3. 现在可网页播放测试，若正常，运行 `embyToLocalPlayer_debug.ahk` 创建开机启动项。
+4. 双击 `embyToLocalPlayer.ahk`（无窗口运行）
+5. 删除 `active_video_player.exe`（不删也行）
 
 > [二选一] Windows 一般模式
 
 1. 双击 `embyToLocalPlayer_debug.bat`  若无报错可网页播放测试。  
    若正常，修改 `embyToLocalPlayer.vbs` 里的 Python 路径和 `.py` 文件路径。
-2. 双击 `.vbs` 会后台启动，再次测试播放。然后放入开机启动文件夹即可  
-   ( `win + r` 输入 `shell:startup` 回车)
+2. 双击 `.vbs` 会（无窗口运行），再次测试播放。然后放入开机启动文件夹即可  
 3. 删除文件夹里所有 `.ahk` 的文件。（没报错不删也可以）
 4. 若不需要激活窗口功能可删 `active_video_player.exe` ，PotPlayer MPC 可能不需要。
 
 > 其他操作
 
 * [embyErrorWindows.js](https://greasyfork.org/zh-CN/scripts/448629-embyerrorwindows?locale_override=1)
-  可自动关闭 emby 没有兼容流的窗口 和 jellyfin 转圈提示。
+  可自动关闭 Emby 没有兼容流的窗口 和 Jellyfin 转圈提示。~~Plex 回放错误通过自动刷新页面解决。~~
 * 若 mpv 运行失败，换 mpv.net 试试看。或者 mpv release 0.34.0 版本。
 * 问题反馈群，提问前先尽量自行排查一下。[https://t.me/embyToLocalPlayer](https://t.me/embyToLocalPlayer)
 
@@ -82,7 +82,7 @@
 * 点击浏览器油猴插件图标，会有菜单
 * 网页播放模式：开启 > 禁用脚本。
 * 读取硬盘模式：关闭 > 调用本地播放器但使用服务器网络链接。（默认）
-* 读取硬盘模式：开启 > 调用本地播放器并转换服务器路径为本地文件地址。（需要 `.ini` 里填好路径替换规则）
+* 读取硬盘模式：开启 > 调用本地播放器并转换服务器路径为本地文件地址。（需要 `.ini` 里填好路径替换规则，服务端在本地则不用填）
 
 > 如何更新
 
