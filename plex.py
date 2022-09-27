@@ -2,6 +2,8 @@ import os.path
 import urllib.parse
 import urllib.request
 
+import embyToLocalPlayer
+
 
 def plex_to_local_player(receive_info):
     mount_disk_mode = True if receive_info['mountDiskEnable'] == 'true' else False
@@ -21,6 +23,8 @@ def plex_to_local_player(receive_info):
     stream_mkv_url = f'{scheme}://{netloc}{stream_path}?download=1&X-Plex-Token={api_key}'
     sub_path = [i['key'] for i in data['Part'][0]['Stream'] if i.get('key') and i.get('selected')]
     sub_file = f'{scheme}://{netloc}{sub_path[0]}?download=1&X-Plex-Token={api_key}' if sub_path else None
+
+    mount_disk_mode = True if embyToLocalPlayer.force_disk_mode_by_path(file_path) else mount_disk_mode
     media_path = file_path if mount_disk_mode else stream_mkv_url
     media_title = os.path.basename(file_path) if not mount_disk_mode else None  # 播放 http 时覆盖标题
 
@@ -42,5 +46,6 @@ def plex_to_local_player(receive_info):
         client_id=client_id,
         duration=duration,
         rating_key=rating_key,
+        file_path=file_path,
     )
     return result
