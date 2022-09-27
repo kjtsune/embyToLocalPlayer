@@ -3,10 +3,10 @@
 // @name:zh-CN   embyDouban
 // @name:en      embyDouban
 // @namespace    https://github.com/kjtsune/embyToLocalPlayer/tree/main/embyDouban
-// @version      0.1.1
+// @version      0.1.2
 // @description  emby 里展示豆瓣 评分 链接 评论(可关)
 // @description:zh-CN  emby 里展示豆瓣 评分 链接 评论(可关)
-// @description:en  show douban ratings and comment[optional] on emby
+// @description:en  show douban ratings and comment[optional] in emby
 // @author       Kjtsune
 // @match        *://*/web/index.html*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=emby.media
