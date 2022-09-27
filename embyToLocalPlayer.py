@@ -11,7 +11,7 @@ from configparser import ConfigParser
 from html.parser import HTMLParser
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
-from plexToLocalPlayer import plex_to_local_player
+import plex
 from python_mpv_jsonipc import MPV
 
 
@@ -42,9 +42,9 @@ class _RequestHandler(BaseHTTPRequestHandler):
             log('reject post when running')
             return
         if 'embyToLocalPlayer' in self.path:
-            emby_to_local_player(data)
+            start_play_and_change_position(emby_to_local_player(data))
         elif 'plexToLocalPlayer' in self.path:
-            start_play_and_change_position(plex_to_local_player(data))
+            start_play_and_change_position(plex.plex_to_local_player(data))
         elif 'openFolder' in self.path:
             open_local_folder(data)
         elif 'playMediaFile' in self.path:
@@ -74,7 +74,7 @@ def open_local_folder(data):
         return
     from windows_tool import open_in_explore
     path = data['info'][0]['content_path']
-    translate_path = get_player_and_replace_path(path)[1]
+    translate_path = get_player_and_replace_path(path)['cmd'][1]
     open_in_explore(translate_path)
     log('open folder', translate_path)
 
@@ -83,7 +83,7 @@ def play_media_file(data):
     save_path = data['info'][0]['save_path']
     big_file = sorted(data['file'], key=lambda i: i['size'], reverse=True)[0]['name']
     path = os.path.join(save_path, big_file)
-    cmd = get_player_and_replace_path(path)
+    cmd = get_player_and_replace_path(path, path)['cmd']
     player_path_lower = cmd[0].lower()
     if 'mpv' in player_path_lower:
         start_mpv_player(cmd, get_stop_sec=False)
@@ -92,29 +92,59 @@ def play_media_file(data):
     active_window_by_pid(player.pid)
 
 
-def get_player_and_replace_path(media_path):
+def force_disk_mode_by_path(file_path):
+    config = ConfigParser()
+    config.read(ini, encoding='utf-8-sig')
+    if 'force_disk_mode' not in config or not config['force_disk_mode'].getboolean('enable'):
+        return False
+    disk_mode = config['force_disk_mode']
+    check = [file_path.startswith(disk_mode[key]) for key in disk_mode if key.startswith('path_') and disk_mode[key]]
+    log('disk_mode check', check)
+    return any(check)
+
+
+def use_dandan_exe_by_path(config, file_path):
+    dandan = config['dandan'] if 'dandan' in config.sections() else {}
+    if not dandan or not file_path:
+        return False
+    dandan_path_true = [file_path.startswith(dandan[key])
+                        for key in [i for i in dandan if i.startswith('path_')] if dandan[key]]
+    dandan_all_empty = [(not dandan[key])
+                        for key in [i for i in dandan if i.startswith('path_')]]
+    log('check_dandan', dandan_path_true, dandan_all_empty)
+    if dandan and dandan.getboolean('enable') and (any(dandan_path_true) or all(dandan_all_empty)):
+        return dandan['exe']
+
+
+def get_player_and_replace_path(media_path, file_path=''):
     config = ConfigParser()
     config.read(ini, encoding='utf-8-sig')
     player = config['emby']['player']
     exe = config['exe'][player]
+    exe = config['dandan']['exe'] if use_dandan_exe_by_path(config, file_path) else exe
     log(media_path, 'raw')
     if 'src' in config and 'dst' in config and not media_path.startswith('http'):
         src = config['src']
         dst = config['dst']
         # 貌似是有序字典
         for k, src_prefix in src.items():
-            if src_prefix in media_path:
-                dst_prefix = dst[k]
-                tmp_path = media_path.replace(src_prefix, dst_prefix, 1)
-                if os.path.exists(tmp_path):
-                    media_path = tmp_path
-                    break
-    result = [exe, media_path]
-    log(result, 'cmd')
+            if src_prefix not in media_path:
+                continue
+            dst_prefix = dst[k]
+            tmp_path = media_path.replace(src_prefix, dst_prefix, 1)
+            if os.path.exists(tmp_path):
+                media_path = os.path.abspath(tmp_path)
+                break
+            else:
+                log(tmp_path, 'not found')
+    result = dict(cmd=[exe, media_path], file_path=file_path)
+    log(result['cmd'], 'cmd')
+    if not media_path.startswith('http') and not os.path.exists(media_path):
+        raise FileNotFoundError(media_path)
     return result
 
 
-def active_window_by_pid(pid, is_mpv=False, scrip_name='active_video_player'):
+def active_window_by_pid(pid, is_mpv=False, scrip_name='autohotkey_tool'):
     if os.name != 'nt':
         return
     if not is_mpv:
@@ -131,7 +161,7 @@ def active_window_by_pid(pid, is_mpv=False, scrip_name='active_video_player'):
         script_path = os.path.join(cwd, f'{scrip_name}{script_type}')
         if os.path.exists(script_path):
             log(script_path)
-            subprocess.run([script_path, str(pid)], shell=True)
+            subprocess.run([script_path, 'activate', str(pid)], shell=True)
             return
 
 
@@ -317,7 +347,7 @@ class MpcHTMLParser(HTMLParser):
             self._id = None
 
 
-def mpc_stop_sec():
+def stop_sec_mpc():
     url = 'http://localhost:13579/variables.html'
     parser = MpcHTMLParser()
     stop_sec = None
@@ -341,7 +371,7 @@ def mpc_stop_sec():
         time.sleep(0.3)
 
 
-def vlc_stop_sec():
+def stop_sec_vlc():
     time.sleep(1)
     stop_sec = None
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
@@ -361,6 +391,58 @@ def vlc_stop_sec():
             time.sleep(0.1)
 
 
+def stop_sec_dandan(start_sec=None, is_http=None):
+    config = ConfigParser()
+    config.read(ini, encoding='utf-8-sig')
+    dandan = config['dandan']
+    api_key = dandan['api_key']
+    headers = {'Authorization': f'Bearer {api_key}'} if api_key else None
+    close_percent = float(dandan.get('close_at', '100')) / 100
+    stop_sec = None
+    base_url = f'http://127.0.0.1:{dandan["port"]}'
+    status = f'{base_url}/api/v1/current/video'
+    time.sleep(5)
+    from windows_tool import find_pid_by_process_name, process_is_running_by_pid
+    pid = find_pid_by_process_name('dandanplay.exe')
+    while True:
+        try:
+            if requests_urllib(status, headers=headers, decode=True, timeout=0.2):
+                break
+        except Exception:
+            print('.', end='')
+            if not process_is_running_by_pid(pid):
+                log('dandan player exited')
+                return start_sec
+            time.sleep(0.3)
+    if start_sec and is_http and dandan.getboolean('http_seek'):
+        seek_time = f'{base_url}/api/v1/control/seek/{start_sec * 1000}'
+        requests_urllib(seek_time, headers=headers)
+    print('\n', 'dandan api started')
+    while True:
+        try:
+            response = requests_urllib(status, headers=headers, decode=True, timeout=0.2)
+            data = json.loads(response)
+            position = data['Position']
+            duration = data['Duration']
+            tmp_sec = int(duration * position // 1000)
+            stop_sec = tmp_sec if tmp_sec else stop_sec
+            if position > close_percent:
+                print('kill dandan by percent')
+                os.kill(pid, signal.SIGABRT)
+            elif position > 0.98:
+                break
+            else:
+                time.sleep(0.5)
+            # print(tmp_sec, stop_sec, duration, round(position, 2), close_percent)
+        except Exception:
+            if process_is_running_by_pid(pid):
+                print('dandan exception found')
+                time.sleep(0.5)
+                continue
+            break
+    return stop_sec
+
+
 def start_mpc_player(cmd, start_sec=None, sub_file=None, media_title=None, get_stop_sec=True):
     if sub_file:
         # '/dub "伴音名"	载入额外的音频文件'
@@ -377,7 +459,7 @@ def start_mpc_player(cmd, start_sec=None, sub_file=None, media_title=None, get_s
     if not get_stop_sec:
         return
 
-    stop_sec = mpc_stop_sec()
+    stop_sec = stop_sec_mpc()
     if stop_sec is not None:
         stop_sec = int(stop_sec) - 2 if int(stop_sec) > 5 else int(stop_sec)
     else:
@@ -403,7 +485,7 @@ def start_vlc_player(cmd: list, start_sec=None, sub_file=None, media_title=None,
     if not get_stop_sec:
         return
 
-    stop_sec = vlc_stop_sec()
+    stop_sec = stop_sec_vlc()
     if stop_sec is not None:
         stop_sec = int(stop_sec) - 2 if int(stop_sec) > 5 else int(stop_sec)
     else:
@@ -427,6 +509,36 @@ def start_potplayer(cmd: list, start_sec=None, sub_file=None, media_title=None, 
 
     from windows_tool import get_potplayer_stop_sec
     stop_sec = get_potplayer_stop_sec(player.pid)
+    if stop_sec is not None:
+        stop_sec = int(stop_sec) - 2 if int(stop_sec) > 5 else int(stop_sec)
+    else:
+        stop_sec = int(start_sec)
+    return stop_sec
+
+
+def start_dandan_player(cmd: list, start_sec=None, sub_file=None, media_title=None, get_stop_sec=True):
+    if sub_file:
+        pass
+    if media_title:
+        cmd[1] += f'|filePath={media_title}'
+    if cmd[1].startswith('http'):
+        cmd[0] = 'start'
+        cmd[1] = 'ddplay:' + urllib.parse.quote(cmd[1])
+        subprocess.run(cmd, shell=True)
+        is_http = True
+        from windows_tool import find_pid_by_process_name
+        time.sleep(1)
+        active_window_by_pid(find_pid_by_process_name('dandanplay.exe'))
+    else:
+        player = subprocess.Popen(cmd)
+        active_window_by_pid(player.pid)
+        is_http = False
+    log(cmd)
+
+    if not get_stop_sec:
+        return
+
+    stop_sec = stop_sec_dandan(start_sec=start_sec, is_http=is_http)
     if stop_sec is not None:
         stop_sec = int(stop_sec) - 2 if int(stop_sec) > 5 else int(stop_sec)
     else:
@@ -471,6 +583,7 @@ def emby_to_local_player(receive_info):
                                     api_key=api_key, media_source_id=media_source_id,
                                     sub_index=sub_index
                                     ) if sub_index else None  # 选择外挂字幕
+    mount_disk_mode = True if force_disk_mode_by_path(file_path) else mount_disk_mode
     media_path = file_path if mount_disk_mode else stream_mkv_url
     media_title = os.path.basename(file_path) if not mount_disk_mode else None  # 播放http时覆盖标题
 
@@ -491,8 +604,8 @@ def emby_to_local_player(receive_info):
         device_id=device_id,
         headers=headers,
         item_id=item_id,
+        file_path=file_path,
     )
-    start_play_and_change_position(result)
     return result
 
 
@@ -507,16 +620,17 @@ def start_play_and_change_position(data):
     media_title = data['media_title']
     server = data['server']
 
-    cmd = get_player_and_replace_path(media_path)
+    cmd = get_player_and_replace_path(media_path, data.get('file_path'))['cmd']
     player_path_lower = cmd[0].lower()
     # 播放器特殊处理
-    player_name = [i for i in ('mpv', 'mpc', 'vlc', 'potplayer') if i in player_path_lower]
+    player_name = [i for i in ('mpv', 'mpc', 'vlc', 'potplayer', 'dandanplay') if i in player_path_lower]
     if player_name:
         player_name = player_name[0]
         function_dict = dict(mpv=start_mpv_player,
                              mpc=start_mpc_player,
                              vlc=start_vlc_player,
-                             potplayer=start_potplayer)
+                             potplayer=start_potplayer,
+                             dandanplay=start_dandan_player)
         player_function = function_dict[player_name]
         if player_name == 'vlc':
             # cmd.append('--no-video-title-show')
@@ -542,7 +656,7 @@ def start_play_and_change_position(data):
                                       duration=data['duration'])
     else:
         log(cmd)
-        player = subprocess.Popen(cmd, shell=False, stdout=subprocess.PIPE)
+        player = subprocess.Popen(cmd, shell=False)
         active_window_by_pid(player.pid)
     # set running flag to drop stuck requests
     PlayerRunningState().start()
@@ -574,7 +688,7 @@ if __name__ == '__main__':
     ini = os.path.join(cwd, f'{file_name}.ini')
     log_path = os.path.join(cwd, f'{file_name}.log')
     player_is_running = False
-    kill_multi_process(name_re=f'({file_name}.py|active_video_player|' +
-                               r'mpv.*exe|mpc-.*exe|vlc.exe|PotPlayer.*exe)')
+    kill_multi_process(name_re=f'({file_name}.py|autohotkey_tool|' +
+                               r'mpv.*exe|mpc-.*exe|vlc.exe|PotPlayer.*exe|dandanplay.exe)')
     log(__file__)
     run_server()

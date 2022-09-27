@@ -1,6 +1,6 @@
 # embyToLocalPlayer-Python
 
-需要python。若用 PotPlayer VLC mpv MPC 播放，可更新服务器观看进度。支持 Jellyfin Plex。
+需要 Python。若用 PotPlayer mpv MPC VLC 播放，可回传播放进度。支持 Jellyfin Plex 弹弹play。
 
 **缺点**
 
@@ -11,11 +11,12 @@
 
 **特性**
 
-* 在首页也可以播放。点击原来的播放按钮就可以。不改变页面布局。
+* 在首页也可以播放。点击原来的播放按钮就可以。播放无需二次确认。
 * 可回传播放进度到服务器。
 * 视频文件 可本地 可挂载 可远端。（点击油猴插件有菜单）
 * mpv MPC PotPlayer 支持服务端的外挂字幕。(播放前先选择字幕)
 * 适配多视频版本，如 2160p 与 1080p 双文件的情况。(Plex 不支持)
+* 适配 弹弹play（动漫弹幕），可回传。（详见 FAQ）
 
 **建议**
 
@@ -52,15 +53,15 @@
 2. 双击 `embyToLocalPlayer_debug.bat` 或 `embyToLocalPlayer_debug.ahk`（窗口运行）。
 3. 现在可网页播放测试，若正常，运行 `embyToLocalPlayer_debug.ahk` 创建开机启动项。
 4. 双击 `embyToLocalPlayer.ahk`（无窗口运行）
-5. 删除 `active_video_player.exe`（不删也行）
+5. 删除 `autohotkey_tool.exe`（不删也行）
 
 > [二选一] Windows 一般模式
 
 1. 双击 `embyToLocalPlayer_debug.bat`  若无报错可网页播放测试。  
    若正常，修改 `embyToLocalPlayer.vbs` 里的 Python 路径和 `.py` 文件路径。
-2. 双击 `.vbs` 会（无窗口运行），再次测试播放。然后放入开机启动文件夹即可  
+2. 双击 `.vbs` 会（无窗口运行），再次测试播放。然后放入开机启动文件夹即可
 3. 删除文件夹里所有 `.ahk` 的文件。（没报错不删也可以）
-4. 若不需要激活窗口功能可删 `active_video_player.exe` ，PotPlayer MPC 可能不需要。
+4. 若不需要激活窗口功能可删 `autohotkey_tool.exe` ，PotPlayer MPC 可能不需要。
 
 > 其他操作
 
@@ -139,6 +140,20 @@
 * PotPlayer  
   播放 http 时无法读取外挂字幕，读取硬盘模式却可以。（字幕手动上传的，本地硬盘没有，比较玄学）
 * 会提示回放错误，随便点一下就会消失。也可以安装下面脚本，通过自动刷新页面来解决。（比较粗暴）
+
+> 弹弹play 相关
+
+* 可回传播放记录。
+* 读取硬盘模式体验会比较好。（若自动下一集则只回传上一集记录）
+* 若通过 http 播放，有以下缺点：
+    1. 每次播放需要选择弹幕。（已把文件名发送给播放器匹配）
+    2. 启动时无法及时跳转到 emby 开始时间，需要播放开始后等待15秒。（每次看完一集则不影响）
+    3. 无法加载外挂字幕。
+* 以上缺点若有需求可以尝试反馈给 弹弹play 开发者 [Github](https://github.com/kaedei/dandanplay-libraryindex/issues) ：  
+  因为我不知道是否有人需要这个功能。~~可能 emby 是别人分享来的用户需要。~~
+    1. 请求命令行或专用链增加 fileHash 参数。
+    2. 请求命令行或专用链增加 startTime 参数。
+    3. 请求命令行或专用链增加 subFile 参数。（我们可以下载字幕到本地）
 
 **其他相关脚本**
 
