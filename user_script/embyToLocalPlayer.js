@@ -3,10 +3,10 @@
 // @name:zh-CN   embyToLocalPlayer
 // @name:en      embyToLocalPlayer
 // @namespace    https://github.com/kjtsune/embyToLocalPlayer
-// @version      1.0.7
-// @description  需要 Python。若用 PotPlayer VLC mpv MPC 播放，可回传播放进度。支持 Jellyfin Plex。
-// @description:zh-CN 需要 Python。若用 PotPlayer VLC mpv MPC 播放，可回传播放进度。支持 Jellyfin Plex。
-// @description:en  Require Python. If you use PotPlayer or VLC or mpv or MPC , will update watch history to emby server. Support Jellyfin Plex.
+// @version      1.0.8
+// @description  需要 Python。若用 PotPlayer mpv MPC VLC 播放，可回传播放进度。支持 Jellyfin Plex 弹弹play。
+// @description:zh-CN 需要 Python。若用 PotPlayer mpv MPC VLC 播放，可回传播放进度。支持 Jellyfin Plex 弹弹play。
+// @description:en  Require Python. If you use PotPlayer mpv MPC VLC , will update watch history to emby server. Support Jellyfin Plex 弹弹play.
 // @author       Kjtsune
 // @match        *://*/web/index.html*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=emby.media
@@ -20,6 +20,10 @@
 'use strict';
 /*
 更新的同时要去 github 下载文件，方法详见介绍里的 [更新] 部分
+
+2022-09-27:
+1. 增加 弹弹play 支持。（动漫弹幕播放器）
+2. 增加 网络模式 与 读盘模式 混合功能。
 
 2022-09-24:
 1. 增加 Plex 支持。
