@@ -11,7 +11,6 @@ from configparser import ConfigParser
 from html.parser import HTMLParser
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
-import plex
 from python_mpv_jsonipc import MPV
 
 
@@ -44,7 +43,7 @@ class _RequestHandler(BaseHTTPRequestHandler):
         if 'embyToLocalPlayer' in self.path:
             start_play_and_change_position(emby_to_local_player(data))
         elif 'plexToLocalPlayer' in self.path:
-            start_play_and_change_position(plex.plex_to_local_player(data))
+            start_play_and_change_position(plex_to_local_player(data))
         elif 'openFolder' in self.path:
             open_local_folder(data)
         elif 'playMediaFile' in self.path:
@@ -284,54 +283,6 @@ def change_plex_play_position(scheme, netloc, api_key, stop_sec, rating_key, cli
                     })
 
 
-def start_mpv_player(cmd, start_sec=None, sub_file=None, media_title=None, get_stop_sec=True):
-    pipe_name = 'embyToMpv'
-    cmd_pipe = fr'\\.\pipe\{pipe_name}' if os.name == 'nt' else f'/tmp/{pipe_name}'
-    pipe_name = pipe_name if os.name == 'nt' else cmd_pipe
-    # cmd.append(f'--http-proxy=http://127.0.0.1:7890')
-    if sub_file:
-        cmd.append(f'--sub-file={sub_file}')
-    if media_title:
-        cmd.append(f'--force-media-title={media_title}')
-        cmd.append(f'--osd-playing-msg={media_title}')
-    else:
-        cmd.append('--osd-playing-msg=${path}')
-    if start_sec is not None:
-        cmd.append(f'--start={start_sec}')
-    cmd.append(fr'--input-ipc-server={cmd_pipe}')
-    log(cmd)
-    player = subprocess.Popen(cmd, shell=False, stdout=subprocess.PIPE)
-    active_window_by_pid(player.pid)
-
-    if not get_stop_sec:
-        return
-
-    try:
-        time.sleep(0.1)
-        mpv = MPV(start_mpv=False, ipc_socket=pipe_name)
-    except Exception as e:
-        log(e)
-        time.sleep(1)
-        mpv = MPV(start_mpv=False, ipc_socket=pipe_name)
-
-    stop_sec = 0
-    while True:
-        try:
-            _stop_sec = mpv.command('get_property', 'time-pos')
-            if not _stop_sec:
-                print('.', end='')
-            else:
-                stop_sec = _stop_sec
-            time.sleep(0.5)
-        except Exception:
-            break
-    if stop_sec:
-        stop_sec = int(stop_sec) - 2 if int(stop_sec) > 5 else int(stop_sec)
-    else:
-        stop_sec = int(start_sec)
-    return stop_sec
-
-
 class MpcHTMLParser(HTMLParser):
     id_value_dict = {}
     _id = None
@@ -440,6 +391,54 @@ def stop_sec_dandan(start_sec=None, is_http=None):
                 time.sleep(0.5)
                 continue
             break
+    return stop_sec
+
+
+def start_mpv_player(cmd, start_sec=None, sub_file=None, media_title=None, get_stop_sec=True):
+    pipe_name = 'embyToMpv'
+    cmd_pipe = fr'\\.\pipe\{pipe_name}' if os.name == 'nt' else f'/tmp/{pipe_name}'
+    pipe_name = pipe_name if os.name == 'nt' else cmd_pipe
+    # cmd.append(f'--http-proxy=http://127.0.0.1:7890')
+    if sub_file:
+        cmd.append(f'--sub-file={sub_file}')
+    if media_title:
+        cmd.append(f'--force-media-title={media_title}')
+        cmd.append(f'--osd-playing-msg={media_title}')
+    else:
+        cmd.append('--osd-playing-msg=${path}')
+    if start_sec is not None:
+        cmd.append(f'--start={start_sec}')
+    cmd.append(fr'--input-ipc-server={cmd_pipe}')
+    log(cmd)
+    player = subprocess.Popen(cmd, shell=False, stdout=subprocess.PIPE)
+    active_window_by_pid(player.pid)
+
+    if not get_stop_sec:
+        return
+
+    try:
+        time.sleep(0.1)
+        mpv = MPV(start_mpv=False, ipc_socket=pipe_name)
+    except Exception as e:
+        log(e)
+        time.sleep(1)
+        mpv = MPV(start_mpv=False, ipc_socket=pipe_name)
+
+    stop_sec = 0
+    while True:
+        try:
+            _stop_sec = mpv.command('get_property', 'time-pos')
+            if not _stop_sec:
+                print('.', end='')
+            else:
+                stop_sec = _stop_sec
+            time.sleep(0.5)
+        except Exception:
+            break
+    if stop_sec:
+        stop_sec = int(stop_sec) - 2 if int(stop_sec) > 5 else int(stop_sec)
+    else:
+        stop_sec = int(start_sec)
     return stop_sec
 
 
@@ -604,6 +603,52 @@ def emby_to_local_player(receive_info):
         device_id=device_id,
         headers=headers,
         item_id=item_id,
+        file_path=file_path,
+    )
+    return result
+
+
+def plex_to_local_player(receive_info):
+    mount_disk_mode = True if receive_info['mountDiskEnable'] == 'true' else False
+    url = urllib.parse.urlparse(receive_info['playbackUrl'])
+    query = dict(urllib.parse.parse_qsl(url.query))
+    query: dict
+    api_key = query['X-Plex-Token']
+    client_id = query['X-Plex-Client-Identifier']
+    netloc = url.netloc
+    scheme = url.scheme
+    meta = receive_info['playbackData']['MediaContainer']['Metadata'][0]
+    data = meta['Media'][0]
+    item_id = data['id']
+    duration = data['duration']
+    file_path = data['Part'][0]['file']
+    stream_path = data['Part'][0]['key']
+    stream_mkv_url = f'{scheme}://{netloc}{stream_path}?download=1&X-Plex-Token={api_key}'
+    sub_path = [i['key'] for i in data['Part'][0]['Stream'] if i.get('key') and i.get('selected')]
+    sub_file = f'{scheme}://{netloc}{sub_path[0]}?download=1&X-Plex-Token={api_key}' if sub_path else None
+
+    mount_disk_mode = True if force_disk_mode_by_path(file_path) else mount_disk_mode
+    media_path = file_path if mount_disk_mode else stream_mkv_url
+    media_title = os.path.basename(file_path) if not mount_disk_mode else None  # 播放 http 时覆盖标题
+
+    seek = meta.get('viewOffset')
+    rating_key = meta['ratingKey']
+    start_sec = int(seek) // (10 ** 3) if seek and not query.get('extrasPrefixCount') else 0
+
+    result = dict(
+        server='plex',
+        mount_disk_mode=mount_disk_mode,
+        api_key=api_key,
+        scheme=scheme,
+        netloc=netloc,
+        media_path=media_path,
+        start_sec=start_sec,
+        sub_file=sub_file,
+        media_title=media_title,
+        item_id=item_id,
+        client_id=client_id,
+        duration=duration,
+        rating_key=rating_key,
         file_path=file_path,
     )
     return result
