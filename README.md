@@ -16,10 +16,11 @@
 * 视频文件 可本地 可挂载 可远端。（点击油猴插件有菜单）
 * mpv MPC PotPlayer 支持服务端的外挂字幕。(播放前先选择字幕)
 * 适配多视频版本，如 2160p 与 1080p 双文件的情况。(Plex 不支持)
-* 适配 弹弹play（动漫弹幕），可回传。（详见 FAQ）
+* 适配 弹弹play（动漫弹幕播放器），可回传。（详见 FAQ）
 
 **建议**
 
+* emby 关联 Trakt，在线永久保存观看记录。跨平台，设备损坏可以导回来。（详见 FAQ）
 * PotPlayer 播放 http 会疯狂写盘并把整个文件下载下来。推荐读取硬盘模式。
 * 使用以下6款播放器。
     * PotPlayer [发布页](https://potplayer.daum.net/)
@@ -38,7 +39,7 @@
 1. 下载 `embyToLocalPlayer.zip` 并解压到任意文件夹 [发布页](https://github.com/kjtsune/embyToLocalPlayer/releases)
 2. 安装油猴脚本。 [发布页](https://greasyfork.org/zh-CN/scripts/448648-embytolocalplayer?locale_override=1)
 3. 安装 Python (勾选 add to path) [官网](https://www.python.org/downloads/)
-4. 填写播放器路径与名称 `embyToLocalPlayer.ini`
+4. 填写播放器路径与名称 `embyToLocalPlayer_config.ini`
 
 > 如何试用
 
@@ -52,7 +53,7 @@
    v2 [官网](https://www.autohotkey.com/) [链接](https://www.autohotkey.com/download/ahk-v2.zip)
 2. 双击 `embyToLocalPlayer_debug.bat` 或 `embyToLocalPlayer_debug.ahk`（窗口运行）。
 3. 现在可网页播放测试，若正常，运行 `embyToLocalPlayer_debug.ahk` 创建开机启动项。
-4. 双击 `embyToLocalPlayer.ahk`（无窗口运行）
+4. 双击 `embyToLocalPlayer_hide.ahk`（无窗口运行）
 5. 删除 `autohotkey_tool.exe`（不删也行）
 
 > [二选一] Windows 一般模式
@@ -87,10 +88,20 @@
 
 > 如何更新
 
-* 除了 `embyToLocalPlayer.ini`，其他全删除。再次去 github 下载解压当前文件夹，注意跳过 `.ini`。  
-  同时看看 [embyToLocalPlayer.ini](https://github.com/kjtsune/embyToLocalPlayer/blob/main/embyToLocalPlayer.ini) 有没有新内容。
+* 除了 `embyToLocalPlayer_config.ini`，其他全删除。再次去 github 下载解压当前文件夹，注意跳过 `.ini`。  
+  同时看看 [embyToLocalPlayer_config.ini](https://github.com/kjtsune/embyToLocalPlayer/blob/main/embyToLocalPlayer_config.ini) 有没有新内容。
 * 新功能或者修复之前比较重要的问题才会触发油猴更新提醒， github 会详细些。正常使用不更新也可以。  
   没什么问题应该也不怎么更新了
+
+> Trakt 相关
+
+* 这是为自用的配置，可根据自己需求。我只用来同步观看记录，其他都不用。
+* 插件 > 目录 > Trakt > 安装。
+* 插件 > Trakt > Get PIN > 仅选中：Skip unwatched import from Trakt。其他取消。> 保存。
+* 计划任务 > Sync library to trakt.tv > 删除。
+* 计划任务 > Import playstates from Trakt.tv > 开启。（设备迁移，或多平台，从 Trakt 导入播放记录）
+* 可能有豆瓣迁移 Trakt 的脚本。 
+~~或者用 [linkDoubanTrakt](https://greasyfork.org/zh-CN/scripts/449899-linkdoubantrakt?locale_override=1) 一个一个点。~~
 
 > PotPlayer 相关
 
