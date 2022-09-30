@@ -106,13 +106,13 @@ def use_dandan_exe_by_path(config, file_path):
     dandan = config['dandan'] if 'dandan' in config.sections() else {}
     if not dandan or not file_path:
         return False
-    dandan_path_true = [file_path.startswith(dandan[key])
-                        for key in [i for i in dandan if i.startswith('path_')] if dandan[key]]
+    dandan_path_match = [file_path.startswith(dandan[key])
+                         for key in [i for i in dandan if i.startswith('path_')] if dandan[key]]
     dandan_all_empty = [(not dandan[key])
                         for key in [i for i in dandan if i.startswith('path_')]]
-    log('check_dandan', dandan_path_true, dandan_all_empty)
-    if dandan and dandan.getboolean('enable') and (any(dandan_path_true) or all(dandan_all_empty)):
+    if dandan and dandan.getboolean('enable') and (any(dandan_path_match) or all(dandan_all_empty)):
         return dandan['exe']
+    log('check_dandan match', dandan_path_match, 'all empty', dandan_all_empty)
 
 
 def get_player_and_replace_path(media_path, file_path=''):
@@ -148,6 +148,7 @@ def active_window_by_pid(pid, is_mpv=False, scrip_name='autohotkey_tool'):
         return
     if not is_mpv:
         # mpv vlc 不支持此模式
+        # win32 api 激活窗口到前台的前提是：提出请求的进程需要在前台之类的。或者有输入什么的。
         pass
     #     time.sleep(1)
     #     log('active by win32 api mode')
@@ -564,7 +565,7 @@ def emby_to_local_player(receive_info):
     netloc = url.netloc
     scheme = url.scheme
     device_id = query['X-Emby-Device-Id'] if is_emby else jellyfin_auth['DeviceId']
-    sub_index = query.get('SubtitleStreamIndex')
+    sub_index = int(query.get('SubtitleStreamIndex', -1))
 
     data = receive_info['playbackData']
     media_sources = data['MediaSources']
@@ -581,7 +582,7 @@ def emby_to_local_player(receive_info):
     sub_file = unparse_subtitle_url(scheme=scheme, netloc=netloc, item_id=item_id,
                                     api_key=api_key, media_source_id=media_source_id,
                                     sub_index=sub_index
-                                    ) if sub_index else None  # 选择外挂字幕
+                                    ) if sub_index >= 0 else None  # 选择外挂字幕
     mount_disk_mode = True if force_disk_mode_by_path(file_path) else mount_disk_mode
     media_path = file_path if mount_disk_mode else stream_mkv_url
     media_title = os.path.basename(file_path) if not mount_disk_mode else None  # 播放http时覆盖标题
@@ -730,7 +731,8 @@ if __name__ == '__main__':
     print_only = True
     cwd = os.path.dirname(__file__)
     file_name = os.path.basename(__file__)[:-3]
-    ini = os.path.join(cwd, f'{file_name}.ini')
+    ini = [os.path.join(cwd, file_name + i) for i in ('.ini', '_config.ini')]
+    ini = [i for i in ini if os.path.exists(i)][0]
     log_path = os.path.join(cwd, f'{file_name}.log')
     player_is_running = False
     kill_multi_process(name_re=f'({file_name}.py|autohotkey_tool|' +
