@@ -6,7 +6,7 @@ opetation :=  A_Args[1]
 activateWindowsByPid(pid) {
     win_title := 'ahk_pid ' pid
     try {
-        if WinWait(win_title, , 10) {
+        if WinWait(win_title, , 30) {
             WinActivate()
             WinMoveTop()
             processName := WinGetProcessName()
