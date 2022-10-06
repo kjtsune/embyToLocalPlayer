@@ -1,5 +1,7 @@
 import json
 import os.path
+import platform
+import re
 import signal
 import socket
 import subprocess
@@ -38,12 +40,12 @@ class _RequestHandler(BaseHTTPRequestHandler):
         self._set_headers()
         self.wfile.write(json.dumps({'success': True}).encode('utf-8'))
         if player_is_running:
-            log('reject post when running')
+            log('reject post when player is running')
             return
         if 'embyToLocalPlayer' in self.path:
-            start_play_and_change_position(emby_to_local_player(data))
+            start_play_and_change_position(parse_received_data_emby(data))
         elif 'plexToLocalPlayer' in self.path:
-            start_play_and_change_position(plex_to_local_player(data))
+            start_play_and_change_position(parse_received_data_plex(data))
         elif 'openFolder' in self.path:
             open_local_folder(data)
         elif 'playMediaFile' in self.path:
@@ -145,6 +147,7 @@ def get_player_and_replace_path(media_path, file_path=''):
 
 def active_window_by_pid(pid, is_mpv=False, scrip_name='autohotkey_tool'):
     if os.name != 'nt':
+        time.sleep(1.5)
         return
     if not is_mpv:
         # mpv vlc 不支持此模式
@@ -396,8 +399,12 @@ def stop_sec_dandan(start_sec=None, is_http=None):
 
 
 def start_mpv_player(cmd, start_sec=None, sub_file=None, media_title=None, get_stop_sec=True):
-    pipe_name = 'embyToMpv'
-    cmd_pipe = fr'\\.\pipe\{pipe_name}' if os.name == 'nt' else f'/tmp/{pipe_name}'
+    is_darwin = True if platform.system() == 'Darwin' else False
+    is_iina = True if 'iina-cli' in cmd[0] else False
+    _t = str(time.time())
+    pipe_name = 'embyToMpv' + chr(98 + int(_t[-1])) + chr(98 + int(_t[-2]))
+    # pipe_name = 'embyToMpv'
+    cmd_pipe = fr'\\.\pipe\{pipe_name}' if os.name == 'nt' else f'/tmp/{pipe_name}.pipe'
     pipe_name = pipe_name if os.name == 'nt' else cmd_pipe
     # cmd.append(f'--http-proxy=http://127.0.0.1:7890')
     if sub_file:
@@ -409,7 +416,10 @@ def start_mpv_player(cmd, start_sec=None, sub_file=None, media_title=None, get_s
         cmd.append('--osd-playing-msg=${path}')
     if start_sec is not None:
         cmd.append(f'--start={start_sec}')
+    if is_darwin:
+        cmd.append('--focus-on-open')
     cmd.append(fr'--input-ipc-server={cmd_pipe}')
+    cmd = ['--mpv-' + i.replace('--', '', 1) if is_darwin and is_iina and i.startswith('--') else i for i in cmd]
     log(cmd)
     player = subprocess.Popen(cmd, shell=False, stdout=subprocess.PIPE)
     active_window_by_pid(player.pid)
@@ -418,11 +428,11 @@ def start_mpv_player(cmd, start_sec=None, sub_file=None, media_title=None, get_s
         return
 
     try:
-        time.sleep(0.1)
+        time.sleep(1)
         mpv = MPV(start_mpv=False, ipc_socket=pipe_name)
     except Exception as e:
-        log(e)
-        time.sleep(1)
+        log(e, 'init mpv error')
+        time.sleep(0.5)
         mpv = MPV(start_mpv=False, ipc_socket=pipe_name)
 
     stop_sec = 0
@@ -468,6 +478,7 @@ def start_mpc_player(cmd, start_sec=None, sub_file=None, media_title=None, get_s
 
 
 def start_vlc_player(cmd: list, start_sec=None, sub_file=None, media_title=None, get_stop_sec=True):
+    is_darwin = True if platform.system() == 'Darwin' else False
     # '--sub-file=<字符串> --input-title-format=<字符串>'
     cmd = [cmd[0], '-I', 'qt', '--extraintf', 'rc', '--rc-quiet',
            '--rc-host', '127.0.0.1:58010', ] + cmd[1:]
@@ -479,6 +490,8 @@ def start_vlc_player(cmd: list, start_sec=None, sub_file=None, media_title=None,
     if media_title:
         pass
     cmd += ['--fullscreen', 'vlc://quit']
+    if is_darwin:
+        cmd = [i for i in cmd if i not in ('-I', 'qt', '--rc-quiet', 'vlc://quit')]
     log(cmd)
     player = subprocess.Popen(cmd)
     active_window_by_pid(player.pid)
@@ -546,10 +559,10 @@ def start_dandan_player(cmd: list, start_sec=None, sub_file=None, media_title=No
     return stop_sec
 
 
-def emby_to_local_player(receive_info):
-    mount_disk_mode = True if receive_info['mountDiskEnable'] == 'true' else False
-    url = urllib.parse.urlparse(receive_info['playbackUrl'])
-    headers = receive_info['request']['headers']
+def parse_received_data_emby(received_data):
+    mount_disk_mode = True if received_data['mountDiskEnable'] == 'true' else False
+    url = urllib.parse.urlparse(received_data['playbackUrl'])
+    headers = received_data['request']['headers']
     is_emby = True if '/emby/' in url.path else False
     jellyfin_auth = headers['X-Emby-Authorization'] if not is_emby else ''
     jellyfin_auth = [i.replace('\'', '').replace('"', '').strip().split('=')
@@ -567,7 +580,7 @@ def emby_to_local_player(receive_info):
     device_id = query['X-Emby-Device-Id'] if is_emby else jellyfin_auth['DeviceId']
     sub_index = int(query.get('SubtitleStreamIndex', -1))
 
-    data = receive_info['playbackData']
+    data = received_data['playbackData']
     media_sources = data['MediaSources']
     play_session_id = data['PlaySessionId']
     if media_source_id:
@@ -609,16 +622,16 @@ def emby_to_local_player(receive_info):
     return result
 
 
-def plex_to_local_player(receive_info):
-    mount_disk_mode = True if receive_info['mountDiskEnable'] == 'true' else False
-    url = urllib.parse.urlparse(receive_info['playbackUrl'])
+def parse_received_data_plex(received_data):
+    mount_disk_mode = True if received_data['mountDiskEnable'] == 'true' else False
+    url = urllib.parse.urlparse(received_data['playbackUrl'])
     query = dict(urllib.parse.parse_qsl(url.query))
     query: dict
     api_key = query['X-Plex-Token']
     client_id = query['X-Plex-Client-Identifier']
     netloc = url.netloc
     scheme = url.scheme
-    meta = receive_info['playbackData']['MediaContainer']['Metadata'][0]
+    meta = received_data['playbackData']['MediaContainer']['Metadata'][0]
     data = meta['Media'][0]
     item_id = data['id']
     duration = data['duration']
@@ -669,10 +682,11 @@ def start_play_and_change_position(data):
     cmd = get_player_and_replace_path(media_path, data.get('file_path'))['cmd']
     player_path_lower = cmd[0].lower()
     # 播放器特殊处理
-    player_name = [i for i in ('mpv', 'mpc', 'vlc', 'potplayer', 'dandanplay') if i in player_path_lower]
+    player_name = [i for i in ('mpv', 'mpc', 'vlc', 'potplayer', 'dandanplay', 'iina') if i in player_path_lower]
     if player_name:
         player_name = player_name[0]
         function_dict = dict(mpv=start_mpv_player,
+                             iina=start_mpv_player,
                              mpc=start_mpc_player,
                              vlc=start_vlc_player,
                              potplayer=start_potplayer,
@@ -708,15 +722,22 @@ def start_play_and_change_position(data):
     PlayerRunningState().start()
 
 
-def kill_multi_process(name_re):
-    if os.name != 'nt':
-        return
-    from windows_tool import list_pid_and_cmd
+def kill_multi_process(name_re, not_re=None):
+    if os.name == 'nt':
+        from windows_tool import list_pid_and_cmd
+        pid_cmd = list_pid_and_cmd(name_re)
+    else:
+        ps_out = subprocess.Popen(['ps', '-eo', 'pid,command'], stdout=subprocess.PIPE,
+                                  encoding='utf-8').stdout.readlines()
+        pid_cmd = [i.strip().split(maxsplit=1) for i in ps_out[1:]]
+        pid_cmd = [(int(pid), cmd) for (pid, cmd) in pid_cmd if re.search(name_re, cmd)]
+    pid_cmd = [(int(pid), cmd) for (pid, cmd) in pid_cmd if not re.search(not_re, cmd)] if not_re else pid_cmd
     my_pid = os.getpid()
-    pid_cmd = list_pid_and_cmd(name_re)
     for pid, _ in pid_cmd:
         if pid != my_pid:
+            log('kill', pid, _)
             os.kill(pid, signal.SIGABRT)
+    time.sleep(1)
 
 
 def run_server():
@@ -736,6 +757,8 @@ if __name__ == '__main__':
     log_path = os.path.join(cwd, f'{file_name}.log')
     player_is_running = False
     kill_multi_process(name_re=f'({file_name}.py|autohotkey_tool|' +
-                               r'mpv.*exe|mpc-.*exe|vlc.exe|PotPlayer.*exe|dandanplay.exe)')
+                               r'mpv.*exe|mpc-.*exe|vlc.exe|PotPlayer.*exe|dandanplay.exe|' +
+                               r'/IINA|/VLC|/mpv)',
+                       not_re='(screen|tmux)')
     log(__file__)
     run_server()

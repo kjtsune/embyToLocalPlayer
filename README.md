@@ -1,11 +1,10 @@
 # embyToLocalPlayer-Python
 
-需要 Python。若用 PotPlayer mpv MPC VLC 播放，可回传播放进度。支持 Jellyfin Plex 弹弹play。
+需要 Python。若用 PotPlayer mpv IINA MPC VLC 播放，可回传播放进度。支持 Jellyfin Plex。
 
 **缺点**
 
 * 本地需要安装 Python
-* 主要 Windows 平台，Linux 简单测试，macOS 请协助提供调用脚本及命令行播放文件的方法
 * 点击播放时会有未兼容流提示或转圈。 可另装 [脚本](https://greasyfork.org/zh-CN/scripts/448629-embyerrorwindows?locale_override=1) 自动关闭。
 * 问题反馈群，提问前先尽量自行排查一下。[https://t.me/embyToLocalPlayer](https://t.me/embyToLocalPlayer)
 
@@ -22,13 +21,15 @@
 
 * emby 关联 Trakt，在线永久保存观看记录。跨平台，设备损坏可以导回来。（详见 FAQ）
 * PotPlayer 播放 http 会疯狂写盘并把整个文件下载下来。推荐读取硬盘模式。
-* 使用以下6款播放器。
+* 使用以下 7 款播放器。
     * PotPlayer [发布页](https://potplayer.daum.net/)
       若非读取硬盘播放，**可能提示地址关闭**， 解决方法在 FAQ。
-    * VLC（触屏相对友好）[发布页](https://www.videolan.org/vlc/)
-    * mpv（纯快捷键）[发布页](https://sourceforge.net/projects/mpv-player-windows/files/release/)
+    * mpv（纯快捷键）[Windows](https://sourceforge.net/projects/mpv-player-windows/files/release/) 。 macOS
+      解压后拖到应用程序即可 [macOS](https://laboratory.stolendata.net/~djinn/mpv_osx/)
+    * IINA （macOS）[发布页](https://iina.io/) 非读盘模式不支持外挂字幕文件（mpv 支持）
     * mpv.net（可鼠标）[发布页](https://github.com/stax76/mpv.net/releases)   
       **mpv 若无报错但播放失败，换 mpv.net 测试下** 。
+    * VLC [发布页](https://www.videolan.org/vlc/)
     * MPC-HC [发布页](https://github.com/clsid2/mpc-hc/releases)
     * MPC-BE [发布页](https://sourceforge.net/projects/mpcbe/files/MPC-BE/Release%20builds/)
 
@@ -43,26 +44,46 @@
 
 > 如何试用
 
-* 双击 `embyToLocalPlayer_debug.bat`（窗口运行）后按 1, 若无报错，可播放测试。  
-  报错就截图发群里。
-* 若用 MPC 播放：开启 WebUI，详见 FAQ
+* 报错就截图发群里。
+* Windows：双击 `embyToLocalPlayer_debug.bat`后按 1。若无报错，可播放测试。
+* macOS：
+    1. 刚才保存的文件夹 > 右击 > 新建位于文件夹的终端窗口 > `chmod +x emby_script_run.command` 回车。
+    2. 双击 `emby_script_run.command`。 若无报错，可播放测试。
+* Linux：双击运行`embyToLocalPlayer.py`，或终端运行。若无报错，可播放测试。
+* IINA 播放完要退出。
+* 若用 MPC 播放：开启 WebUI，详见 FAQ。
 
-> [二选一] Windows 简易模式
+> Windows [二选一] 简易模式
 
 1. 下载解压并点击 `Install.cmd` 安装 AutoHotKey
    v2 [官网](https://www.autohotkey.com/) [链接](https://www.autohotkey.com/download/ahk-v2.zip)
 2. 双击 `embyToLocalPlayer_debug.bat` 或 `embyToLocalPlayer_debug.ahk`（窗口运行）。
 3. 现在可网页播放测试，若正常，运行 `embyToLocalPlayer_debug.ahk` 创建开机启动项。
 4. 双击 `embyToLocalPlayer_hide.ahk`（无窗口运行）
-5. 删除 `autohotkey_tool.exe`（不删也行）
+5. [可选] 删除 `autohotkey_tool.exe`
 
-> [二选一] Windows 一般模式
+> Windows [二选一] 一般模式
 
 1. 双击 `embyToLocalPlayer_debug.bat`  若无报错可网页播放测试。  
    若正常，修改 `embyToLocalPlayer.vbs` 里的 Python 路径和 `.py` 文件路径。
 2. 双击 `.vbs` 会（无窗口运行），再次测试播放。然后放入开机启动文件夹即可
-3. 删除文件夹里所有 `.ahk` 的文件。（没报错不删也可以）
-4. 若不需要激活窗口功能可删 `autohotkey_tool.exe` ，PotPlayer MPC 可能不需要。
+3. [可选] 删除文件夹里所有 `.ahk` 的文件。（若已删除 `autohotkey_tool.exe` 则为必选）
+4. [可选] 若不需要激活窗口功能可删 `autohotkey_tool.exe` ，PotPlayer MPC 可能不需要。
+
+> macOS
+
+1. 刚才保存的文件夹 > 右击 > 新建位于文件夹的终端窗口 > `chmod +x emby_script_run.command` 回车。
+2. 双击 `emby_script_run.command`, 若无报错，可播放测试。
+3. 开机后台自启：
+    1. 启动台 > 自动操作 > 文件 > 新建 > 应用程序 > 运行 Shell 脚本 >   
+       把 `emby_script_run.command` 文件拖入 > 点击运行后测试播放 > 文件 > 存储 > 取名并保存到应用程序。
+    2. 启动台 > 刚才的应用 > 双击后台运行后再次播放测试。
+    3. 系统偏好设置 > 用户与群组 > 登录项 > 添加刚才的应用。
+
+> Linux
+
+1. 双击运行`embyToLocalPlayer.py`，或终端运行。
+2. 正常播放后，用 `emby_script_tmux.command` 来开机启动。（还没测试）
 
 > 其他操作
 
@@ -70,12 +91,6 @@
   可自动关闭 Emby 没有兼容流的窗口 和 Jellyfin 转圈提示。~~Plex 回放错误通过自动刷新页面解决。~~
 * 若 mpv 运行失败，换 mpv.net 试试看。或者 mpv release 0.34.0 版本。
 * 问题反馈群，提问前先尽量自行排查一下。[https://t.me/embyToLocalPlayer](https://t.me/embyToLocalPlayer)
-
-> Linux
-
-1. 删除所有`.ahk .exe .vbs` 的文件。（没报错不删也可以）
-2. 双击运行`embyToLocalPlayer.py`，或终端运行。
-3. 正常播放后写 systemd 文件来开机启动（尚未测试）
 
 ## FAQ
 
@@ -89,7 +104,8 @@
 > 如何更新
 
 * 除了 `embyToLocalPlayer_config.ini`，其他全删除。再次去 github 下载解压当前文件夹，注意跳过 `.ini`。  
-  同时看看 [embyToLocalPlayer_config.ini](https://github.com/kjtsune/embyToLocalPlayer/blob/main/embyToLocalPlayer_config.ini) 有没有新内容。
+  同时看看 [embyToLocalPlayer_config.ini](https://github.com/kjtsune/embyToLocalPlayer/blob/main/embyToLocalPlayer_config.ini)
+  有没有新内容。
 * 新功能或者修复之前比较重要的问题才会触发油猴更新提醒， github 会详细些。正常使用不更新也可以。  
   没什么问题应该也不怎么更新了
 
@@ -98,10 +114,10 @@
 * 这是为自用的配置，可根据自己需求。我只用来同步观看记录，其他都不用。
 * 插件 > 目录 > Trakt > 安装。
 * 插件 > Trakt > Get PIN > 仅选中：Skip unwatched import from Trakt。其他取消。> 保存。
-* 计划任务 > Sync library to trakt.tv > 删除。
+* 计划任务 > Sync library to trakt.tv > 删除。(可能首次使用 Trakt 的用户需要，把存在 Emby 的记录都传上去，我不确定，欢迎测试后告诉我。)
 * 计划任务 > Import playstates from Trakt.tv > 开启。（设备迁移，或多平台，从 Trakt 导入播放记录）
-* 可能有豆瓣迁移 Trakt 的脚本。 
-~~或者用 [linkDoubanTrakt](https://greasyfork.org/zh-CN/scripts/449899-linkdoubantrakt?locale_override=1) 一个一个点。~~
+* 可能有豆瓣迁移 Trakt 的脚本。
+  ~~或者用 [linkDoubanTrakt](https://greasyfork.org/zh-CN/scripts/449899-linkdoubantrakt?locale_override=1) 一个一个点。~~
 
 > PotPlayer 相关
 
@@ -113,7 +129,20 @@
 * 选项 > 播放 > 播放窗口尺寸：全屏
 * 配置/语言/其他 > 收尾处理 > 播放完当前后退出（触发回传进度）
 
-> 若用 MPC 播放：开启 WebUI
+> 字幕相关
+
+* 经常碰到播放器字幕不选择中文。   
+  在电影详情页播放时，Emby 会自动选中一个字幕，我无法分辨字幕是你选的还是自动选的。故当作外挂字幕处理。 播放器一般会优先使用外挂字幕。
+    1. Emby 设置 > 字幕 > 首选字幕语言：中文 ｜ 字幕模式：智能或关（若关则交由播放器自己判断内置字幕）
+    2. 或者别进详情播放，这样子 Emby 也不会帮你选字幕。
+    3. 播放器自己一般也可以配置字幕优先的语言。
+
+> IINA 相关
+
+* 退出播放器才会回传进度。
+* 非读盘模式不支持外挂字幕文件（mpv 支持）
+
+> MPC 相关：开启 WebUI
 
 * 查看 > 选项 > Web 界面：  
   打勾 监听端口：13579  
