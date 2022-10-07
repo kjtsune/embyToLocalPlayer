@@ -335,9 +335,10 @@ def stop_sec_vlc():
         while True:
             try:
                 sock.sendall(bytes('get_time' + '\n', "utf-8"))
-                received = sock.recv(1024).decode().strip()
-                if len(received.splitlines()) == 1:
-                    stop_sec = received if received.isnumeric() else stop_sec
+                received = sock.recv(1024).decode().replace('>', '').strip()
+                # print('<-', received, '->')
+                if len(received.splitlines()) == 1 and received.isnumeric():
+                    stop_sec = received
                     time.sleep(0.3)
             except Exception:
                 log('stop', stop_sec)
@@ -478,7 +479,7 @@ def start_mpc_player(cmd, start_sec=None, sub_file=None, media_title=None, get_s
 
 
 def start_vlc_player(cmd: list, start_sec=None, sub_file=None, media_title=None, get_stop_sec=True):
-    is_darwin = True if platform.system() == 'Darwin' else False
+    is_nt = True if os.name == 'nt' else False
     # '--sub-file=<字符串> --input-title-format=<字符串>'
     cmd = [cmd[0], '-I', 'qt', '--extraintf', 'rc', '--rc-quiet',
            '--rc-host', '127.0.0.1:58010', ] + cmd[1:]
@@ -490,8 +491,10 @@ def start_vlc_player(cmd: list, start_sec=None, sub_file=None, media_title=None,
     if media_title:
         pass
     cmd += ['--fullscreen', 'vlc://quit']
-    if is_darwin:
-        cmd = [i for i in cmd if i not in ('-I', 'qt', '--rc-quiet', 'vlc://quit')]
+    cmd = cmd if is_nt else [i for i in cmd if i not in ('-I', 'qt', '--rc-quiet')]
+    # # test in vm :P
+    # if not is_nt:
+    #     cmd.append('--no-audio')
     log(cmd)
     player = subprocess.Popen(cmd)
     active_window_by_pid(player.pid)
