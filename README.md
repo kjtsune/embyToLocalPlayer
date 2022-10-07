@@ -10,18 +10,19 @@
 
 **特性**
 
+* 适配 Windows Linux macOS。
 * 在首页也可以播放。点击原来的播放按钮就可以。播放无需二次确认。
 * 可回传播放进度到服务器。
 * 视频文件 可本地 可挂载 可远端。（点击油猴插件有菜单）
 * mpv MPC PotPlayer 支持服务端的外挂字幕。(播放前先选择字幕)
 * 适配多视频版本，如 2160p 与 1080p 双文件的情况。(Plex 不支持)
-* 适配 弹弹play（动漫弹幕播放器），可回传。（详见 FAQ）
+* [一般用不到] 适配 弹弹play（动漫弹幕播放器）。（详见 FAQ）
 
 **建议**
 
 * emby 关联 Trakt，在线永久保存观看记录。跨平台，设备损坏可以导回来。（详见 FAQ）
 * PotPlayer 播放 http 会疯狂写盘并把整个文件下载下来。推荐读取硬盘模式。
-* 使用以下 7 款播放器。
+* 使用以下 7 款播放器。（个人（Windows）觉得 mpv 舒服些，不过手动切换音轨字幕经常会卡死，偶尔启动时间会久，不知为何）
     * PotPlayer [发布页](https://potplayer.daum.net/)
       若非读取硬盘播放，**可能提示地址关闭**， 解决方法在 FAQ。
     * mpv（纯快捷键）[Windows](https://sourceforge.net/projects/mpv-player-windows/files/release/) 。 macOS
@@ -32,6 +33,7 @@
     * VLC [发布页](https://www.videolan.org/vlc/)
     * MPC-HC [发布页](https://github.com/clsid2/mpc-hc/releases)
     * MPC-BE [发布页](https://sourceforge.net/projects/mpcbe/files/MPC-BE/Release%20builds/)
+* 其他播放器一般也支持，只是不会回传进度。
 
 ## 使用说明
 
@@ -47,10 +49,10 @@
 * 报错就截图发群里。
 * Windows：双击 `embyToLocalPlayer_debug.bat`后按 1。若无报错，可播放测试。
 * macOS：
-    1. 刚才保存的文件夹 > 右击 > 新建位于文件夹的终端窗口 > `chmod +x emby_script_run.command` 回车。
+    1. 刚才保存的文件夹 > 右击 > 新建位于文件夹的终端窗口 > `chmod +x *.command` 回车。
     2. 双击 `emby_script_run.command`。 若无报错，可播放测试。
 * Linux：双击运行`embyToLocalPlayer.py`，或终端运行。若无报错，可播放测试。
-* IINA 播放完要退出。
+* 播放结束播放器要退出。
 * 若用 MPC 播放：开启 WebUI，详见 FAQ。
 
 > Windows [二选一] 简易模式
@@ -72,7 +74,7 @@
 
 > macOS
 
-1. 刚才保存的文件夹 > 右击 > 新建位于文件夹的终端窗口 > `chmod +x emby_script_run.command` 回车。
+1. 刚才保存的文件夹 > 右击 > 新建位于文件夹的终端窗口 > `chmod chmod +x *.command` 回车。
 2. 双击 `emby_script_run.command`, 若无报错，可播放测试。
 3. 开机后台自启：
     1. 启动台 > 自动操作 > 文件 > 新建 > 应用程序 > 运行 Shell 脚本 >   
@@ -83,7 +85,8 @@
 > Linux
 
 1. 双击运行`embyToLocalPlayer.py`，或终端运行。
-2. 正常播放后，用 `emby_script_tmux.command` 来开机启动。（还没测试）
+2. 正常播放后，用 `emby_script_tmux.command` 来开机启动。  
+   Debian_Xfce：设置 > 会话和启动 > 应用程序自启动
 
 > 其他操作
 
@@ -155,8 +158,8 @@
 
 > mpv.net 相关
 
-* 设置播放完自动关闭。不加载下个文件。（触发回传进度）
-* 右击 > Settings > Playback > idle:no, auto-load-folder:no （大概是这样
+* 设置播放完自动关闭。不加载下个文件。（触发回传进度）  
+  右击 > Settings > Playback > idle:no, auto-load-folder:no （大概是这样
 * bug: 影响很小。如果 save-position-on-quit = yes 会导致开始播放时间由播放器强制保存，原版 mpv 没这问题。
 
 > [可选] mpv 相关

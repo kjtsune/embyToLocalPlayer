@@ -3,10 +3,10 @@
 // @name:zh-CN   embyToLocalPlayer
 // @name:en      embyToLocalPlayer
 // @namespace    https://github.com/kjtsune/embyToLocalPlayer
-// @version      1.0.8
-// @description  需要 Python。若用 PotPlayer mpv MPC VLC 播放，可回传播放进度。支持 Jellyfin Plex 弹弹play。
-// @description:zh-CN 需要 Python。若用 PotPlayer mpv MPC VLC 播放，可回传播放进度。支持 Jellyfin Plex 弹弹play。
-// @description:en  Require Python. If you use PotPlayer mpv MPC VLC , will update watch history to emby server. Support Jellyfin Plex 弹弹play.
+// @version      1.0.9
+// @description  需要 Python。若用 PotPlayer mpv IINA MPC VLC 播放，可回传播放进度。支持 Jellyfin Plex。
+// @description:zh-CN 需要 Python。若用 PotPlayer mpv IINA MPC VLC 播放，可回传播放进度。支持 Jellyfin Plex。
+// @description:en  Require Python. If you use PotPlayer mpv IINA MPC VLC , will update watch history to emby server. Support Jellyfin Plex.
 // @author       Kjtsune
 // @match        *://*/web/index.html*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=emby.media
