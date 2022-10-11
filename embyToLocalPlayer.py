@@ -90,7 +90,7 @@ def play_media_file(data):
         start_mpv_player(cmd, get_stop_sec=False)
         return
     player = subprocess.Popen(cmd)
-    active_window_by_pid(player.pid)
+    activate_window_by_pid(player.pid)
 
 
 def force_disk_mode_by_path(file_path):
@@ -115,6 +115,14 @@ def use_dandan_exe_by_path(config, file_path):
     if dandan and dandan.getboolean('enable') and (any(dandan_path_match) or all(dandan_all_empty)):
         return dandan['exe']
     log('check_dandan match', dandan_path_match, 'all empty', dandan_all_empty)
+
+
+def check_stop_sec(start_sec, stop_sec):
+    if stop_sec is not None:
+        stop_sec = int(stop_sec) - 2 if int(stop_sec) > 5 else int(stop_sec)
+    else:
+        stop_sec = int(start_sec)
+    return stop_sec
 
 
 def get_player_and_replace_path(media_path, file_path=''):
@@ -145,7 +153,7 @@ def get_player_and_replace_path(media_path, file_path=''):
     return result
 
 
-def active_window_by_pid(pid, is_mpv=False, scrip_name='autohotkey_tool'):
+def activate_window_by_pid(pid, is_mpv=False, scrip_name='autohotkey_tool'):
     if os.name != 'nt':
         time.sleep(1.5)
         return
@@ -176,7 +184,7 @@ def unparse_stream_mkv_url(scheme, netloc, item_id, api_key, media_source_id, is
         # 'PlaySessionId': '1fbf2f87976c4b1a8f7cee0c6875d60f',
         'api_key': api_key,
     }
-    path = f'/emby/videos/{item_id}/stream.mkv' if is_emby else f'/Videos/{item_id}/stream.mp4'
+    path = f'/emby/videos/{item_id}/stream.mkv' if is_emby else f'/Videos/{item_id}/stream.mkv'
     query = urllib.parse.urlencode(params, doseq=True)
     '(addressing scheme, network location, path, params='', query, fragment identifier='')'
     url = urllib.parse.urlunparse((scheme, netloc, path, '', query, ''))
@@ -423,7 +431,7 @@ def start_mpv_player(cmd, start_sec=None, sub_file=None, media_title=None, get_s
     cmd = ['--mpv-' + i.replace('--', '', 1) if is_darwin and is_iina and i.startswith('--') else i for i in cmd]
     log(cmd)
     player = subprocess.Popen(cmd, shell=False, stdout=subprocess.PIPE)
-    active_window_by_pid(player.pid)
+    activate_window_by_pid(player.pid)
 
     if not get_stop_sec:
         return
@@ -466,16 +474,12 @@ def start_mpc_player(cmd, start_sec=None, sub_file=None, media_title=None, get_s
     cmd += ['/fullscreen', '/play', '/close']
     log(cmd)
     player = subprocess.Popen(cmd, shell=False)
-    active_window_by_pid(player.pid)
+    activate_window_by_pid(player.pid)
     if not get_stop_sec:
         return
 
     stop_sec = stop_sec_mpc()
-    if stop_sec is not None:
-        stop_sec = int(stop_sec) - 2 if int(stop_sec) > 5 else int(stop_sec)
-    else:
-        stop_sec = int(start_sec)
-    return stop_sec
+    return check_stop_sec(start_sec, stop_sec)
 
 
 def start_vlc_player(cmd: list, start_sec=None, sub_file=None, media_title=None, get_stop_sec=True):
@@ -497,16 +501,12 @@ def start_vlc_player(cmd: list, start_sec=None, sub_file=None, media_title=None,
     #     cmd.append('--no-audio')
     log(cmd)
     player = subprocess.Popen(cmd)
-    active_window_by_pid(player.pid)
+    activate_window_by_pid(player.pid)
     if not get_stop_sec:
         return
 
     stop_sec = stop_sec_vlc()
-    if stop_sec is not None:
-        stop_sec = int(stop_sec) - 2 if int(stop_sec) > 5 else int(stop_sec)
-    else:
-        stop_sec = int(start_sec)
-    return stop_sec
+    return check_stop_sec(start_sec, stop_sec)
 
 
 def start_potplayer(cmd: list, start_sec=None, sub_file=None, media_title=None, get_stop_sec=True):
@@ -519,17 +519,13 @@ def start_potplayer(cmd: list, start_sec=None, sub_file=None, media_title=None, 
         cmd += [f'/title={media_title}']
     log(cmd)
     player = subprocess.Popen(cmd)
-    active_window_by_pid(player.pid)
+    activate_window_by_pid(player.pid)
     if not get_stop_sec:
         return
 
     from windows_tool import get_potplayer_stop_sec
     stop_sec = get_potplayer_stop_sec(player.pid)
-    if stop_sec is not None:
-        stop_sec = int(stop_sec) - 2 if int(stop_sec) > 5 else int(stop_sec)
-    else:
-        stop_sec = int(start_sec)
-    return stop_sec
+    return check_stop_sec(start_sec, stop_sec)
 
 
 def start_dandan_player(cmd: list, start_sec=None, sub_file=None, media_title=None, get_stop_sec=True):
@@ -544,10 +540,10 @@ def start_dandan_player(cmd: list, start_sec=None, sub_file=None, media_title=No
         is_http = True
         from windows_tool import find_pid_by_process_name
         time.sleep(1)
-        active_window_by_pid(find_pid_by_process_name('dandanplay.exe'))
+        activate_window_by_pid(find_pid_by_process_name('dandanplay.exe'))
     else:
         player = subprocess.Popen(cmd)
-        active_window_by_pid(player.pid)
+        activate_window_by_pid(player.pid)
         is_http = False
     log(cmd)
 
@@ -555,11 +551,7 @@ def start_dandan_player(cmd: list, start_sec=None, sub_file=None, media_title=No
         return
 
     stop_sec = stop_sec_dandan(start_sec=start_sec, is_http=is_http)
-    if stop_sec is not None:
-        stop_sec = int(stop_sec) - 2 if int(stop_sec) > 5 else int(stop_sec)
-    else:
-        stop_sec = int(start_sec)
-    return stop_sec
+    return check_stop_sec(start_sec, stop_sec)
 
 
 def parse_received_data_emby(received_data):
@@ -720,7 +712,7 @@ def start_play_and_change_position(data):
     else:
         log(cmd)
         player = subprocess.Popen(cmd, shell=False)
-        active_window_by_pid(player.pid)
+        activate_window_by_pid(player.pid)
     # set running flag to drop stuck requests
     PlayerRunningState().start()
 
