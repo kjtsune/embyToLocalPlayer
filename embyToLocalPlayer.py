@@ -176,27 +176,6 @@ def activate_window_by_pid(pid, is_mpv=False, scrip_name='autohotkey_tool'):
             return
 
 
-def unparse_stream_mkv_url(scheme, netloc, item_id, api_key, media_source_id, is_emby=True):
-    params = {
-        # 'DeviceId': '30477019-ea16-490f-a915-f544f84a7b10',
-        'MediaSourceId': media_source_id,
-        'Static': 'true',
-        # 'PlaySessionId': '1fbf2f87976c4b1a8f7cee0c6875d60f',
-        'api_key': api_key,
-    }
-    path = f'/emby/videos/{item_id}/stream.mkv' if is_emby else f'/Videos/{item_id}/stream.mkv'
-    query = urllib.parse.urlencode(params, doseq=True)
-    '(addressing scheme, network location, path, params='', query, fragment identifier='')'
-    url = urllib.parse.urlunparse((scheme, netloc, path, '', query, ''))
-    return url
-
-
-def unparse_subtitle_url(scheme, netloc, item_id, api_key, media_source_id, sub_index):
-    url = f'{scheme}://{netloc}/emby/Videos/{item_id}/{media_source_id}' \
-          f'/Subtitles/{sub_index}/Stream.srt?api_key={api_key}'
-    return url
-
-
 def requests_urllib(host, params=None, _json=None, decode=False, timeout=2.0, headers=None):
     _json = json.dumps(_json).encode('utf-8') if _json else None
     params = urllib.parse.urlencode(params) if params else None
@@ -579,20 +558,20 @@ def parse_received_data_emby(received_data):
     media_sources = data['MediaSources']
     play_session_id = data['PlaySessionId']
     if media_source_id:
-        file_path = [i['Path'] for i in media_sources if i['Id'] == media_source_id][0]
+        media_source_info = [i for i in media_sources if i['Id'] == media_source_id][0]
     else:
-        file_path = media_sources[0]['Path']
-        media_source_id = media_sources[0]['Id']
-
-    stream_mkv_url = unparse_stream_mkv_url(scheme=scheme, netloc=netloc, item_id=item_id,
-                                            api_key=api_key, media_source_id=media_source_id,
-                                            is_emby=is_emby)
-    sub_file = unparse_subtitle_url(scheme=scheme, netloc=netloc, item_id=item_id,
-                                    api_key=api_key, media_source_id=media_source_id,
-                                    sub_index=sub_index
-                                    ) if sub_index >= 0 else None  # 选择外挂字幕
+        media_source_info = media_sources[0]
+        media_source_id = media_source_info['Id']
+    file_path = media_source_info['Path']
+    # stream_video_url = f'{scheme}://{netloc}{media_source_info["DirectStreamUrl"]}'
+    stream_video_url = f'{scheme}://{netloc}/videos/{item_id}/stream.{media_source_info["Container"]}' \
+                       f'?MediaSourceId={media_source_id}&Static=true&api_key={api_key}'
+    # 避免将内置字幕转为外挂字幕，内置字幕选择由播放器决定
+    sub_index = sub_index if sub_index < 0 or media_source_info['MediaStreams'][sub_index]['IsExternal'] else -1
+    sub_delivery_url = media_source_info['MediaStreams'][sub_index]['DeliveryUrl'] if sub_index >= 0 else None
+    sub_file = f'{scheme}://{netloc}{sub_delivery_url}' if sub_delivery_url else None
     mount_disk_mode = True if force_disk_mode_by_path(file_path) else mount_disk_mode
-    media_path = file_path if mount_disk_mode else stream_mkv_url
+    media_path = file_path if mount_disk_mode else stream_video_url
     media_title = os.path.basename(file_path) if not mount_disk_mode else None  # 播放http时覆盖标题
 
     seek = query['StartTimeTicks']
