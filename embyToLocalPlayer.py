@@ -9,11 +9,11 @@ import threading
 import time
 import urllib.parse
 import urllib.request
-from configparser import ConfigParser
 from html.parser import HTMLParser
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
-from python_mpv_jsonipc import MPV
+from utils.python_mpv_jsonipc import MPV
+from utils.tools import Configs
 
 
 class PlayerRunningState(threading.Thread):
@@ -42,10 +42,13 @@ class _RequestHandler(BaseHTTPRequestHandler):
         if player_is_running:
             log('reject post when player is running')
             return
+        configs.update()
         if 'embyToLocalPlayer' in self.path:
-            start_play_and_change_position(parse_received_data_emby(data))
+            data = parse_received_data_emby(data)
+            update_server_playback_progress(stop_sec=data['start_sec'], data=data)
+            start_play(data)
         elif 'plexToLocalPlayer' in self.path:
-            start_play_and_change_position(parse_received_data_plex(data))
+            start_play(parse_received_data_plex(data))
         elif 'openFolder' in self.path:
             open_local_folder(data)
         elif 'playMediaFile' in self.path:
@@ -58,13 +61,14 @@ class _RequestHandler(BaseHTTPRequestHandler):
         pass
 
 
-def log(*args):
+def log(*args, enable_log=True, print_only=True):
     if not enable_log:
         return
     log_str = f'{time.ctime()} {str(args)}\n'
     if print_only:
         print(log_str, end='')
         return
+    log_path = os.path.join(cwd, f'{file_name}.log')
     with open(log_path, 'a', encoding='utf-8') as f:
         f.write(log_str)
 
@@ -73,7 +77,7 @@ def open_local_folder(data):
     if os.name != 'nt':
         log('open folder only work in windows')
         return
-    from windows_tool import open_in_explore
+    from utils.windows_tool import open_in_explore
     path = data['info'][0]['content_path']
     translate_path = get_player_and_replace_path(path)['cmd'][1]
     open_in_explore(translate_path)
@@ -94,8 +98,7 @@ def play_media_file(data):
 
 
 def force_disk_mode_by_path(file_path):
-    config = ConfigParser()
-    config.read(ini, encoding='utf-8-sig')
+    config = configs.raw
     if 'force_disk_mode' not in config or not config['force_disk_mode'].getboolean('enable'):
         return False
     disk_mode = config['force_disk_mode']
@@ -126,8 +129,7 @@ def check_stop_sec(start_sec, stop_sec):
 
 
 def get_player_and_replace_path(media_path, file_path=''):
-    config = ConfigParser()
-    config.read(ini, encoding='utf-8-sig')
+    config = configs.raw
     player = config['emby']['player']
     exe = config['exe'][player]
     exe = config['dandan']['exe'] if use_dandan_exe_by_path(config, file_path) else exe
@@ -169,7 +171,7 @@ def activate_window_by_pid(pid, is_mpv=False, scrip_name='autohotkey_tool'):
     #     return
     # log('active by autohotkey mode')
     for script_type in '.exe', '.ahk':
-        script_path = os.path.join(cwd, f'{scrip_name}{script_type}')
+        script_path = os.path.join(cwd, 'utils', f'{scrip_name}{script_type}')
         if os.path.exists(script_path):
             log(script_path)
             subprocess.run([script_path, 'activate', str(pid)], shell=True)
@@ -192,7 +194,7 @@ def requests_urllib(host, params=None, _json=None, decode=False, timeout=2.0, he
         return response.read().decode()
 
 
-def change_emby_play_position(scheme, netloc, item_id, api_key, stop_sec, play_session_id, device_id):
+def change_emby_play_position(scheme, netloc, item_id, api_key, stop_sec, play_session_id, device_id, **_):
     if stop_sec > 10 * 60 * 60:
         log('stop_sec error, check it')
         return
@@ -221,7 +223,7 @@ def change_emby_play_position(scheme, netloc, item_id, api_key, stop_sec, play_s
                     })
 
 
-def change_jellyfin_play_position(scheme, netloc, item_id, stop_sec, play_session_id, headers):
+def change_jellyfin_play_position(scheme, netloc, item_id, stop_sec, play_session_id, headers, **_):
     if stop_sec > 10 * 60 * 60:
         log('stop_sec error, check it')
         return
@@ -245,7 +247,7 @@ def change_jellyfin_play_position(scheme, netloc, item_id, stop_sec, play_sessio
                     })
 
 
-def change_plex_play_position(scheme, netloc, api_key, stop_sec, rating_key, client_id, duration):
+def change_plex_play_position(scheme, netloc, api_key, stop_sec, rating_key, client_id, duration, **_):
     if stop_sec > 10 * 60 * 60:
         log('stop_sec error, check it')
         return
@@ -335,8 +337,7 @@ def stop_sec_vlc():
 
 
 def stop_sec_dandan(start_sec=None, is_http=None):
-    config = ConfigParser()
-    config.read(ini, encoding='utf-8-sig')
+    config = configs.raw
     dandan = config['dandan']
     api_key = dandan['api_key']
     headers = {'Authorization': f'Bearer {api_key}'} if api_key else None
@@ -345,7 +346,7 @@ def stop_sec_dandan(start_sec=None, is_http=None):
     base_url = f'http://127.0.0.1:{dandan["port"]}'
     status = f'{base_url}/api/v1/current/video'
     time.sleep(5)
-    from windows_tool import find_pid_by_process_name, process_is_running_by_pid
+    from utils.windows_tool import find_pid_by_process_name, process_is_running_by_pid
     pid = find_pid_by_process_name('dandanplay.exe')
     while True:
         try:
@@ -502,7 +503,7 @@ def start_potplayer(cmd: list, start_sec=None, sub_file=None, media_title=None, 
     if not get_stop_sec:
         return
 
-    from windows_tool import get_potplayer_stop_sec
+    from utils.windows_tool import get_potplayer_stop_sec
     stop_sec = get_potplayer_stop_sec(player.pid)
     return check_stop_sec(start_sec, stop_sec)
 
@@ -517,7 +518,7 @@ def start_dandan_player(cmd: list, start_sec=None, sub_file=None, media_title=No
         cmd[1] = 'ddplay:' + urllib.parse.quote(cmd[1])
         subprocess.run(cmd, shell=True)
         is_http = True
-        from windows_tool import find_pid_by_process_name
+        from utils.windows_tool import find_pid_by_process_name
         time.sleep(1)
         activate_window_by_pid(find_pid_by_process_name('dandanplay.exe'))
     else:
@@ -642,16 +643,22 @@ def parse_received_data_plex(received_data):
     return result
 
 
-def start_play_and_change_position(data):
-    scheme = data['scheme']
-    netloc = data['netloc']
-    api_key = data['api_key']
+def update_server_playback_progress(stop_sec, data):
+    server = data['server']
+    if server == 'emby':
+        change_emby_play_position(stop_sec=stop_sec, **data)
+    elif server == 'jellyfin':
+        change_jellyfin_play_position(stop_sec=stop_sec, **data)
+    elif server == 'plex':
+        change_plex_play_position(stop_sec=stop_sec, **data)
+
+
+def start_play(data):
     mount_disk_mode = data['mount_disk_mode']
     media_path = data['media_path']
     start_sec = data['start_sec']
     sub_file = data['sub_file']
     media_title = data['media_title']
-    server = data['server']
 
     cmd = get_player_and_replace_path(media_path, data.get('file_path'))['cmd']
     player_path_lower = cmd[0].lower()
@@ -676,18 +683,7 @@ def start_play_and_change_position(data):
                 cmd.append(f'--video-title={media_title}')
         stop_sec = player_function(cmd=cmd, start_sec=start_sec, sub_file=sub_file, media_title=media_title)
         log('stop_sec', stop_sec)
-        if server == 'emby':
-            change_emby_play_position(
-                scheme=scheme, netloc=netloc, item_id=data['item_id'], api_key=api_key, stop_sec=stop_sec,
-                play_session_id=data['play_session_id'], device_id=data['device_id'])
-        elif server == 'jellyfin':
-            change_jellyfin_play_position(
-                scheme=scheme, netloc=netloc, item_id=data['item_id'], stop_sec=stop_sec,
-                play_session_id=data['play_session_id'], headers=data['headers'])
-        elif server == 'plex':
-            change_plex_play_position(scheme=scheme, netloc=netloc, api_key=api_key, stop_sec=stop_sec,
-                                      rating_key=data['rating_key'], client_id=data['client_id'],
-                                      duration=data['duration'])
+        update_server_playback_progress(stop_sec=stop_sec, data=data)
     else:
         log(cmd)
         player = subprocess.Popen(cmd, shell=False)
@@ -698,7 +694,7 @@ def start_play_and_change_position(data):
 
 def kill_multi_process(name_re, not_re=None):
     if os.name == 'nt':
-        from windows_tool import list_pid_and_cmd
+        from utils.windows_tool import list_pid_and_cmd
         pid_cmd = list_pid_and_cmd(name_re)
     else:
         ps_out = subprocess.Popen(['ps', '-eo', 'pid,command'], stdout=subprocess.PIPE,
@@ -722,13 +718,9 @@ def run_server():
 
 
 if __name__ == '__main__':
-    enable_log = True
-    print_only = True
     cwd = os.path.dirname(__file__)
     file_name = os.path.basename(__file__)[:-3]
-    ini = [os.path.join(cwd, file_name + i) for i in ('.ini', '_config.ini')]
-    ini = [i for i in ini if os.path.exists(i)][0]
-    log_path = os.path.join(cwd, f'{file_name}.log')
+    configs = Configs(cwd=cwd, file_name=file_name)
     player_is_running = False
     kill_multi_process(name_re=f'({file_name}.py|autohotkey_tool|' +
                                r'mpv.*exe|mpc-.*exe|vlc.exe|PotPlayer.*exe|dandanplay.exe|' +
