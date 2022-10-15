@@ -8,7 +8,6 @@ import re
 import subprocess
 import time
 
-stop_sec = None
 user32 = ctypes.windll.user32
 kernel32 = ctypes.windll.kernel32
 
@@ -56,24 +55,6 @@ def activate_window_by_win32(pid):
         return 1
 
     proc = EnumWindowsProc(each_window)
-    user32.EnumWindows(proc, 0)
-
-
-def potplayer_time_by_pid(pid):
-    def send_message(hwnd):
-        global stop_sec
-        target_pid = ctypes.c_ulong()
-        user32.GetWindowThreadProcessId(hwnd, ctypes.byref(target_pid))
-        if pid == target_pid.value:
-            message = user32.SendMessageW(hwnd, 0x400, 0x5004, 1)
-            if message:
-                stop_sec = message // 1000
-
-    def for_each_window(hwnd, _):
-        send_message(hwnd)
-        return True
-
-    proc = EnumWindowsProc(for_each_window)
     user32.EnumWindows(proc, 0)
 
 
@@ -152,9 +133,27 @@ def get_window_thread_process_name(hwnd):
 
 
 def get_potplayer_stop_sec(pid=None):
-    pid_cmd = list_pid_and_cmd('PotPlayerMini64.exe') if not pid else pid
+    def potplayer_time_by_pid(_pid):
+        def send_message(hwnd):
+            nonlocal stop_sec
+            target_pid = ctypes.c_ulong()
+            user32.GetWindowThreadProcessId(hwnd, ctypes.byref(target_pid))
+            if _pid == target_pid.value:
+                message = user32.SendMessageW(hwnd, 0x400, 0x5004, 1)
+                if message:
+                    stop_sec = message // 1000
+
+        def for_each_window(hwnd, _):
+            send_message(hwnd)
+            return True
+
+        proc = EnumWindowsProc(for_each_window)
+        user32.EnumWindows(proc, 0)
+
+    stop_sec = None
+    pid_cmd = pid or list_pid_and_cmd('PotPlayerMini64.exe')
     if pid_cmd:
-        player_pid = pid_cmd[0][0] if not pid else pid
+        player_pid = pid or pid_cmd[0][0]
         while True:
             if not process_is_running_by_pid(player_pid):
                 # print('pot not running')
