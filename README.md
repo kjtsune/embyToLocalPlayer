@@ -22,7 +22,7 @@
 
 * emby 关联 Trakt，永久保存观看记录。跨平台，设备损坏可以导回来。（详见 FAQ）
 * PotPlayer 播放 http 会疯狂写盘并把整个文件下载下来。推荐读取硬盘模式。
-* 以下 7 款播放器支持回传进度。
+* 以下播放器支持回传进度。
     * PotPlayer [发布页](https://potplayer.daum.net/)
       若非读取硬盘播放，**可能提示地址关闭**， 解决方法在 FAQ。
     * mpv（纯快捷键）[Windows](https://sourceforge.net/projects/mpv-player-windows/files/release/) 。 macOS
@@ -48,7 +48,7 @@
 > 前置说明
 
 * 播放结束播放器要退出。
-* 报错就截图发群里。自动关闭未兼容流提示详见 FAQ。
+* 报错就截图发群里。｜ [可选] 自动关闭未兼容流提示详见 FAQ。
 * 若用 MPC 播放：开启 WebUI，详见 FAQ。
 
 > Windows
@@ -79,6 +79,7 @@
 
 * [embyErrorWindows.js](https://greasyfork.org/zh-CN/scripts/448629-embyerrorwindows)
   可自动关闭 Emby 没有兼容流的窗口 和 Jellyfin 转圈提示。~~Plex 回放错误通过自动刷新页面解决。~~
+* 同服务器同时开启多个浏览器标签页，会造成回传进度失败假象。手动刷新一下页面，或者只开一个标签。
 * Windows：若 mpv 运行失败，换 mpv.net 试试看。或者 mpv release 0.34.0 版本。
 * 问题反馈群，提问前先尽量自行排查一下。[https://t.me/embyToLocalPlayer](https://t.me/embyToLocalPlayer)
 
@@ -97,15 +98,15 @@
 
 > 字幕相关
 
-* emby 里字幕选择无效。   
+* emby 里字幕选择无效。  
+  外挂字幕选择有效，内置字幕会被忽略，由播放器选择。  
   视频文件的内置字幕当作外挂字幕处理会导致播放器语言设置失效。（外挂字幕最优先）  
-  正常播放器都可以设置语言优先顺序。  
-  所以内置字幕交由播放器自行处理比较好。 有需求可以反馈，到时候设置成选项。
+  正常播放器都可以设置语言优先顺序。
 
 > mpv 相关
 
 * Windows：手动切换音轨字幕经常会卡死，偶尔启动时间会久，不知为何。~~mpv.net 好像不会~~）
-* [portable_config](https://github.com/kjtsune/embyToLocalPlayer/tree/main/portable_config)
+* [可选] [portable_config](https://github.com/kjtsune/embyToLocalPlayer/tree/main/portable_config)
   文件夹是我用的 mpv 配置，可将整个文件夹与 `mpv.exe` 放在一起。
 * 快捷键看 `input.conf`
 * 其他设置 `mpv.conf`
