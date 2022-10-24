@@ -4,8 +4,8 @@
 // @name:en      embyToLocalPlayer
 // @namespace    https://github.com/kjtsune/embyToLocalPlayer
 // @version      1.1.0
-// @description  需要 Python。调用本地播放器，并回传播放记录。支持：纯本地 | 网络 | 持久性缓存 ｜下载。适配 Jellyfin Plex。
-// @description:zh-CN 需要 Python。调用本地播放器，并回传播放记录。支持：纯本地 | 网络 | 持久性缓存 ｜下载。适配 Jellyfin Plex。
+// @description  需要 Python。调用本地播放器，并回传播放记录。支持：纯本地｜网络｜持久性缓存｜下载。适配 Jellyfin Plex。
+// @description:zh-CN 需要 Python。调用本地播放器，并回传播放记录。支持：纯本地｜网络｜持久性缓存｜下载。适配 Jellyfin Plex。
 // @description:en  Require Python. Play by disk or network. Update watch history to emby server (PotPlayer mpv IINA MPC VLC). Support Jellyfin Plex.
 // @author       Kjtsune
 // @match        *://*/web/index.html*

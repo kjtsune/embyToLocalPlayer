@@ -101,7 +101,7 @@ def start_play(data):
 
 
 if __name__ == '__main__':
-    dl_manager = DownloadManager(configs.cache_path, speed_limit=5)
+    dl_manager = DownloadManager(configs.cache_path, speed_limit=0)
     cwd = os.path.dirname(__file__)
     file_name = os.path.basename(__file__)[:-3]
     player_is_running = False
