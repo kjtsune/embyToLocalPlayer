@@ -8,9 +8,11 @@ import re
 import subprocess
 import time
 
+from utils.configs import MyLogger
+
+logger = MyLogger()
 user32 = ctypes.windll.user32
 kernel32 = ctypes.windll.kernel32
-
 EnumWindowsProc = ctypes.WINFUNCTYPE(ctypes.c_int, ctypes.POINTER(ctypes.c_int), ctypes.POINTER(ctypes.c_int))
 
 
@@ -90,7 +92,7 @@ def find_pid_by_windows_title(title):
                 target_pid = ctypes.c_ulong()
                 user32.GetWindowThreadProcessId(hwnd, ctypes.byref(target_pid))
                 pid = target_pid.value
-                print(title, pid)
+                logger.debug(f'{title=} {pid=}')
         return True
 
     proc = EnumWindowsProc(for_each_window)
@@ -156,9 +158,9 @@ def get_potplayer_stop_sec(pid=None):
         player_pid = pid or pid_cmd[0][0]
         while True:
             if not process_is_running_by_pid(player_pid):
-                # print('pot not running')
+                logger.debug('pot not running')
                 break
             potplayer_time_by_pid(player_pid)
-            # print(stop_sec)
+            logger.debug(stop_sec)
             time.sleep(0.3)
     return stop_sec
