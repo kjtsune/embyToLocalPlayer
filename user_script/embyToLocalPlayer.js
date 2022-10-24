@@ -3,10 +3,10 @@
 // @name:zh-CN   embyToLocalPlayer
 // @name:en      embyToLocalPlayer
 // @namespace    https://github.com/kjtsune/embyToLocalPlayer
-// @version      1.0.9
-// @description  需要 Python。若用 PotPlayer mpv IINA MPC VLC 播放，可回传播放进度。支持 Jellyfin Plex。
-// @description:zh-CN 需要 Python。若用 PotPlayer mpv IINA MPC VLC 播放，可回传播放进度。支持 Jellyfin Plex。
-// @description:en  Require Python. If you use PotPlayer mpv IINA MPC VLC , will update watch history to emby server. Support Jellyfin Plex.
+// @version      1.1.0
+// @description  需要 Python。调用本地播放器，并回传播放记录。支持：纯本地 | 网络 | 持久性缓存 ｜下载。适配 Jellyfin Plex。
+// @description:zh-CN 需要 Python。调用本地播放器，并回传播放记录。支持：纯本地 | 网络 | 持久性缓存 ｜下载。适配 Jellyfin Plex。
+// @description:en  Require Python. Play by disk or network. Update watch history to emby server (PotPlayer mpv IINA MPC VLC). Support Jellyfin Plex.
 // @author       Kjtsune
 // @match        *://*/web/index.html*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=emby.media
@@ -19,11 +19,23 @@
 // ==/UserScript==
 'use strict';
 /*
-更新的同时要去 github 下载文件，方法详见 FAQ 里的 [更新] 部分
+* **如何更新**：  
+  将 `_config.ini` 重命名为 `.ini`，其他全删除。再次 github 下载解压当前文件夹。（`.ini` 优先于 `_config.ini`  ）  
+* 以前通过 `ahk` 自启的用户，运行`_debug.bat ` 重新添加启动项并手动删除旧的就可以。
+
+2022-10-24
+1. 增加持久性缓存（边下边播）详见 FAQ。
+2. 附带下载功能及下载管理。
+
+2022-10-15:
+1. Windows：`_debug.bat` 增加一键后台自启，减少 ahk 依赖。  
+2. 不再将内置字幕转为外挂字幕。正常播放器都可以设置字幕语言优先顺序。
+3. 修复 emby 4.7.8 播放时时间被重置。
 
 2022-10-06:
 1. 增加 macOS 支持。mpv VLC。
 2. 增加 IINA 支持。
+3. 修复 Linux VLC 播放时间获取。
 
 2022-09-27:
 1. 增加 弹弹play 支持。（动漫弹幕播放器）
@@ -37,21 +49,7 @@
 1. 增加 PotPlayer 回传进度支持。
 2. 增加 VLC 回传进度支持。
 3. 修复首次启动时系统编码判断问题。
-4. 修复 `.ini` 被记事本修改后可能编码错误
-
-2022-09-19:
-1. 增加 Jellyfin 支持。
-
-2022-09-07:
-1. 增加 mpc-hc mpc-be 回传进度支持。
-2. 修复 mpv 窗口激活置顶可能失败，无需配置 `ontop = yes`。
-3. 修复 mpc 未在前台启动，自动全屏。
-
-2022-09-05：
-1. 修复 .vbs .ahk 文件内路径含空格问题。
-2. 首次启动会自动关闭之前的进程，方便调试，减少错误。
-3. 挂载盘可设优先级（一般用不到）
-4. 更新 portable_config 修复一些注释有误的。
+4. 修复 `.ini` 被记事本修改后可能编码错误。
 */
 
 function switchLocalStorage(key, defaultValue = 'true', trueValue = 'true', falseValue = 'false') {
@@ -128,12 +126,12 @@ function initXMLHttpRequest() {
         // 正常请求不匹配的网址       
         // console.log(args, "---all_args");
         let url = args[1]
-        if (url.indexOf('playQueues?type=video') == -1 ) {
+        if (url.indexOf('playQueues?type=video') == -1) {
             return open.apply(this, args);
         }
         // 请求前拦截
         if (url.indexOf('playQueues?type=video') != -1
-        && localStorage.getItem('webPlayerEnable') != 'true') {
+            && localStorage.getItem('webPlayerEnable') != 'true') {
             // console.log(args, "-----args");
             fetch(url, {
                 method: args[0],
@@ -147,12 +145,12 @@ function initXMLHttpRequest() {
                         playbackData: res,
                         playbackUrl: url,
                         mountDiskEnable: localStorage.getItem('mountDiskEnable'),
-                
+
                     };
                     sendDataToLocalServer(data, 'plexToLocalPlayer');
                     // console.log(data, "-----data")
                 });
-            return ;                
+            return;
         }
         return open.apply(this, args);
     }
