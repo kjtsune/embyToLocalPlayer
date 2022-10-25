@@ -3,7 +3,6 @@ import threading
 from http.server import BaseHTTPRequestHandler
 
 from utils.downloader import DownloadManager
-from utils.gui import show_ask_button
 from utils.players import player_function_dict
 from utils.tools import *
 
@@ -40,7 +39,8 @@ class _RequestHandler(BaseHTTPRequestHandler):
             logger.info(self.path, gui_cmd)
             thread_dict[gui_cmd].start()
         elif 'ToLocalPlayer' in self.path:
-            if configs.gui_is_enable():
+            if configs.gui_is_enable:
+                from utils.gui import show_ask_button
                 if configs.platform != 'Darwin':
                     threading.Thread(target=show_ask_button, args=(data,), daemon=True).start()
                 else:
@@ -89,7 +89,7 @@ def start_play(data):
         stop_sec = player_function(cmd=cmd, start_sec=start_sec, sub_file=sub_file, media_title=media_title)
         logger.info('stop_sec', stop_sec)
         update_server_playback_progress(stop_sec=stop_sec, data=data)
-        if configs.gui_is_enable() and stop_sec / data['total_sec'] * 100 > configs.raw.getint('gui', 'delete_at'):
+        if configs.gui_is_enable and stop_sec / data['total_sec'] * 100 > configs.raw.getint('gui', 'delete_at'):
             if media_path.startswith(configs.raw['gui']['cache_path']):
                 logger.info('watched, delete cache')
                 threading.Thread(target=dl_manager.delete, args=(data,), daemon=True).start()
@@ -101,14 +101,14 @@ def start_play(data):
 
 
 if __name__ == '__main__':
-    dl_manager = DownloadManager(configs.cache_path, speed_limit=0)
+    dl_manager = DownloadManager(configs.cache_path, speed_limit=configs.speed_limit)
     cwd = os.path.dirname(__file__)
     file_name = os.path.basename(__file__)[:-3]
     player_is_running = False
     kill_multi_process(name_re=f'({file_name}.py|autohotkey_tool|' +
                                r'mpv.*exe|mpc-.*exe|vlc.exe|PotPlayer.*exe|dandanplay.exe|' +
                                r'/IINA|/VLC|/mpv)',
-                       not_re='(screen|tmux)')
+                       not_re='(screen|tmux|firefox|chrome)')
     logger = MyLogger()
     logger.info(__file__)
     run_server(_RequestHandler)

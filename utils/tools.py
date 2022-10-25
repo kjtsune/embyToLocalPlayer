@@ -39,7 +39,7 @@ def load_json_file(file, error_return='list', encoding='utf-8'):
         with open(file, encoding=encoding) as f:
             _json = json.load(f)
     except (FileNotFoundError, ValueError):
-        print('load_json_file error')
+        print(f'load json file fail, fallback to {error_return}')
         return dict(list=[], dict={})[error_return]
     else:
         return _json
