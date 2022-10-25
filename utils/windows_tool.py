@@ -161,6 +161,6 @@ def get_potplayer_stop_sec(pid=None):
                 logger.debug('pot not running')
                 break
             potplayer_time_by_pid(player_pid)
-            logger.debug(stop_sec)
+            logger.debug(f'pot {stop_sec=}')
             time.sleep(0.3)
     return stop_sec

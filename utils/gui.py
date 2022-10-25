@@ -1,5 +1,4 @@
 import time
-import tkinter
 import tkinter as tk
 import tkinter.font as tk_front
 
@@ -114,9 +113,9 @@ class App:
         self.root.title('缓存任务管理')
         self.set_window_size(888, 600)
 
-        list_box = tkinter.Listbox(self.root, width=108, height=16, selectmode=tk.EXTENDED)
+        list_box = tk.Listbox(self.root, width=108, height=16, selectmode=tk.EXTENDED)
 
-        scrollbar = tkinter.Scrollbar(self.root, orient='vertical')
+        scrollbar = tk.Scrollbar(self.root, orient='vertical')
         scrollbar.config(command=list_box.yview)
         scrollbar.place(x=self.width - 20, y=0, height=self.height - 30)
 

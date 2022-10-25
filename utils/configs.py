@@ -41,13 +41,15 @@ class Configs:
         self.path = [i for i in self.path if os.path.exists(i)][0]
         print(f'ini path: {self.path}')
         self.raw: ConfigParser = self.update()
-        self.debug_mode = self.raw.getboolean('emby', 'debug', fallback=None)
+        self.speed_limit = self.raw.getfloat('dev', 'speed_limit', fallback=0)
+        self.debug_mode = self.raw.getboolean('dev', 'debug', fallback=False)
+        self.disable_audio = self.raw.getboolean('dev', 'disable_audio', fallback=False)  # test in vm
+        self.gui_is_enable = self.raw.getboolean('gui', 'enable', fallback=False)
         self.cache_path = self.raw.get('gui', 'cache_path', fallback=None)
-        self.cache_db = os.path.join(self.cache_path, '.embyToLocalPlayer.json') if self.cache_path else None
+        _cache_db = os.path.join(self.cache_path, '.embyToLocalPlayer.json') if self.cache_path else None
         _dev_cache_db = os.path.join(self.cwd, 'z_cache.json')
-        self.cache_db = _dev_cache_db if os.path.exists(_dev_cache_db) else self.cache_db
+        self.cache_db = _dev_cache_db if os.path.exists(_dev_cache_db) else _cache_db
         self.http_proxy = self.raw.get('gui', 'http_proxy', fallback=None)
-        self.disable_audio = self.raw.get('dev', 'disable_audio', fallback=None)  # test in vm
         if self.debug_mode:
             print('download_http_proxy:', self.http_proxy)
             print('cache_db:', self.cache_db)
@@ -57,9 +59,6 @@ class Configs:
         config.read(self.path, encoding='utf-8-sig')
         self.raw = config
         return config
-
-    def gui_is_enable(self):
-        return 'gui' in self.raw and self.raw.getboolean('gui', 'enable')
 
 
 configs = Configs()

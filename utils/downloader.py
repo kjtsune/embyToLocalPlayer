@@ -33,7 +33,7 @@ class Downloader:
         sleep = 1 / speed if speed else 0
         if start == 0:
             if safe_deleter(self.file):
-                logger.info(self.file)
+                logger.info(f'delete by start 0, {self.file}')
         open_mode = 'r+b' if os.path.exists(self.file) else 'wb'
         header_start = start - 1 if start else 0
         headers = {'Range': f'bytes={header_start}-{end}'}
@@ -103,9 +103,11 @@ class Downloader:
         dd = f'dd if=/dev/zero of={self.file} bs={size} count=1'.split()
         cmd = cmd if os.name == 'nt' else dd
         subprocess.run(cmd, capture_output=True)
-        logger.info('create a empty file')
+        logger.info('create an empty file')
 
     def download_fist_last(self):
+        # if os.name == 'nt': # 注意 safe_deleter
+        #     self.generate_empty_file(size=self.size)
         self.percent_download(0, 0.01, update=False)
         self.percent_download(0.99, 1, update=False)
         self.progress = 0.01
@@ -125,9 +127,10 @@ class DownloadManager:
         self.db_path = configs.cache_db
         self.update_loop_lock = False
         self.speed_limit = speed_limit
-        os.path.exists(cache_path) or os.mkdir(cache_path)
-        self.load_db()
-        threading.Thread(target=self.update_db_loop, daemon=True).start()
+        if configs.gui_is_enable:
+            os.path.exists(cache_path) or os.mkdir(cache_path)
+            self.load_db()
+            threading.Thread(target=self.update_db_loop, daemon=True).start()
         if configs.raw.getboolean('gui', 'auto_resume'):
             threading.Thread(target=self.resume_or_pause, kwargs={'resume_from_db': True}).start()
 
