@@ -1,8 +1,8 @@
 # embyToLocalPlayer-Python
 
-需要 Python。emby 调用外部本地播放器。  
-若用 PotPlayer mpv IINA MPC VLC 播放，可回传播放进度（可关）。支持 Jellyfin Plex。  
-支持：纯本地｜网络｜持久性缓存｜下载 多种模式。
+* 需要 Python。emby 调用外部本地播放器。
+* 若用 PotPlayer mpv IINA MPC VLC 播放，可回传播放进度（可关）。支持 Jellyfin Plex。
+* 支持：纯本地｜网络｜持久性缓存｜下载 多种模式。
 
 **缺点**
 
@@ -18,7 +18,7 @@
 * mpv MPC PotPlayer 通过网络播放时也支持外挂字幕。(播放前先选择字幕)
 * 适配多视频版本，如 2160p 与 1080p 双文件的情况。(Plex 不支持)
 * 其他播放器一般也能用，只是不会回传进度。
-* （一般用不到）适配 弹弹play（动漫弹幕播放器）。（详见 FAQ）
+* （一般用不到）适配 弹弹play（动漫弹幕播放器）。
 
 **建议**
 
