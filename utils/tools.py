@@ -275,6 +275,8 @@ def change_plex_play_position(scheme, netloc, api_key, stop_sec, rating_key, cli
 
 
 def update_server_playback_progress(stop_sec, data):
+    if not configs.raw.getboolean('emby', 'update_progress', fallback=True):
+        return
     server = data['server']
     if server == 'emby':
         change_emby_play_position(stop_sec=stop_sec, **data)
