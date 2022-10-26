@@ -3,10 +3,10 @@
 // @name:zh-CN   embyToLocalPlayer
 // @name:en      embyToLocalPlayer
 // @namespace    https://github.com/kjtsune/embyToLocalPlayer
-// @version      1.1.0
-// @description  需要 Python。调用本地播放器，并回传播放记录。支持：纯本地｜网络｜持久性缓存｜下载。适配 Jellyfin Plex。
-// @description:zh-CN 需要 Python。调用本地播放器，并回传播放记录。支持：纯本地｜网络｜持久性缓存｜下载。适配 Jellyfin Plex。
-// @description:en  Require Python. Play by disk or network. Update watch history to emby server (PotPlayer mpv IINA MPC VLC). Support Jellyfin Plex.
+// @version      1.1.1
+// @description  需要 Python。调用外部本地播放器，并回传播放记录。支持：纯本地｜网络｜持久性缓存｜下载。适配 Jellyfin Plex。
+// @description:zh-CN 需要 Python。调用外部本地播放器，并回传播放记录。支持：纯本地｜网络｜持久性缓存｜下载。适配 Jellyfin Plex。
+// @description:en  Require Python. Play in an external player. Update watch history to emby server. Support Jellyfin Plex.
 // @author       Kjtsune
 // @match        *://*/web/index.html*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=emby.media
@@ -23,9 +23,14 @@
   将 `_config.ini` 重命名为 `.ini`，其他全删除。再次 github 下载解压当前文件夹。（`.ini` 优先于 `_config.ini`  ）  
 * 以前通过 `ahk` 自启的用户，运行`_debug.bat ` 重新添加启动项并手动删除旧的就可以。
 
-2022-10-24
+2022-10-26:
+1. 可选是否回传播放记录。
+2. 修复 1.1.0 版本原版 mpv 意外卡死。
+
+2022-10-24:
 1. 增加持久性缓存（边下边播）详见 FAQ。
 2. 附带下载功能及下载管理。
+3. 改为多线程运行。
 
 2022-10-15:
 1. Windows：`_debug.bat` 增加一键后台自启，减少 ahk 依赖。  
