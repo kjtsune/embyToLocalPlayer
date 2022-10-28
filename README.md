@@ -8,7 +8,8 @@
 
 * 本地需要安装 Python
 * 点击播放时会有未兼容流提示或转圈。 可另装 [脚本](https://greasyfork.org/zh-CN/scripts/448629-embyerrorwindows) 自动关闭。
-* 更新提醒频道及问题反馈群，提问前先把 FAQ 看一遍，不含敏感数据不私聊。[https://t.me/embyToLocalPlayer](https://t.me/embyToLocalPlayer)
+* 问题反馈群，提问前先把 FAQ 看一遍，不含敏感数据不私聊。  
+  小更新只会发频道，不会更新版本。[https://t.me/embyToLocalPlayer](https://t.me/embyToLocalPlayer)
 
 **特性**
 
@@ -31,7 +32,6 @@
       解压后拖到应用程序即可 [macOS](https://laboratory.stolendata.net/~djinn/mpv_osx/)
     * IINA（macOS）[发布页](https://iina.io/) 若使用 http 播放不支持外挂字幕文件（mpv 支持）
     * mpv.net（可鼠标）[发布页](https://github.com/stax76/mpv.net/releases)   
-      **若 mpv 无报错但播放失败，换 mpv.net 测试下** 。
     * VLC [发布页](https://www.videolan.org/vlc/)
     * MPC-HC [发布页](https://github.com/clsid2/mpc-hc/releases)
     * MPC-BE [发布页](https://sourceforge.net/projects/mpcbe/files/MPC-BE/Release%20builds/)
@@ -86,8 +86,9 @@
 * 用鼠标手势软件关闭播放器体验更舒服一点。
 * 播放器是否自动全屏大部分播放器自己可以设置。
 * 同服务器同时开启多个浏览器标签页，会造成回传进度失败假象。手动刷新一下页面，或者只开一个标签。
-* Windows：若 mpv 运行失败，换 mpv.net 试试看。或者 mpv release 0.34.0 版本。
-* 更新提醒频道及问题反馈群，提问前先把 FAQ 看一遍，不含敏感数据不私聊。[https://t.me/embyToLocalPlayer](https://t.me/embyToLocalPlayer)
+* 问题反馈群，提问前先把 FAQ 看一遍，不含敏感数据不私聊。  
+  小更新只会发频道，不会更新版本。[https://t.me/embyToLocalPlayer](https://t.me/embyToLocalPlayer)
+
 
 ### 如何切换模式
 
