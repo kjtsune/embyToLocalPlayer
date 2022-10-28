@@ -2,7 +2,9 @@
 // @name         embyErrorWindows
 // @namespace    http://tampermonkey.net/
 // @version      0.1.4
-// @description  auto close emby error windows
+// @description  自动关闭 Emby 播放错误 没有兼容的流的窗口提示。
+// @description:zh-CN 自动关闭 Emby 播放错误 没有兼容的流的窗口提示。
+// @description:en auto close emby error windows.
 // @author       Kjtsune
 // @match        *://*/web/index.html*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=emby.media
