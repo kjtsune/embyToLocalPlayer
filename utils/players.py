@@ -210,20 +210,24 @@ def stop_sec_vlc():
     stop_sec = None
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
         sock.settimeout(0.5)
-        sock.connect(('127.0.0.1', 58010))
-        while True:
-            try:
-                sock.sendall(bytes('get_time' + '\n', "utf-8"))
-                received = sock.recv(1024).decode().replace('>', '').strip()
-                # print('<-', received, '->')
-                if len(received.splitlines()) == 1 and received.isnumeric():
-                    stop_sec = received
-                    time.sleep(0.3)
-            except Exception:
-                logger.info('stop', stop_sec)
-                sock.close()
-                return stop_sec
-            time.sleep(0.1)
+        try:
+            sock.connect(('127.0.0.1', 58010))
+            while True:
+                try:
+                    sock.sendall(bytes('get_time' + '\n', "utf-8"))
+                    received = sock.recv(1024).decode().replace('>', '').strip()
+                    # print('<-', received, '->')
+                    if len(received.splitlines()) == 1 and received.isnumeric():
+                        stop_sec = received
+                        time.sleep(0.3)
+                except Exception:
+                    logger.info('stop', stop_sec)
+                    sock.close()
+                    return stop_sec
+                time.sleep(0.1)
+        except Exception:
+            logger.info('vlc crashed', 0)
+            return 0
 
 
 def stop_sec_dandan(start_sec=None, is_http=None):
