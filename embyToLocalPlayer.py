@@ -23,6 +23,9 @@ class _RequestHandler(BaseHTTPRequestHandler):
         if 'ToLocalPlayer' in self.path:
             data = parse_received_data_emby(data) if self.path.startswith('emby') else parse_received_data_emby(data)
             update_server_playback_progress(stop_sec=data['start_sec'], data=data)
+            if configs.disable_gui_by_netloc(data['netloc']):
+                threading.Thread(target=start_play, args=(data,), daemon=True).start()
+                return True
         thread_dict = {
             'play': threading.Thread(target=start_play, args=(data,)),
             'play_check': threading.Thread(target=dl_manager.play_check, args=(data,)),
@@ -108,7 +111,7 @@ if __name__ == '__main__':
     kill_multi_process(name_re=f'({file_name}.py|autohotkey_tool|' +
                                r'mpv.*exe|mpc-.*exe|vlc.exe|PotPlayer.*exe|dandanplay.exe|' +
                                r'/IINA|/VLC|/mpv)',
-                       not_re='(screen|tmux|firefox|chrome)')
+                       not_re='(screen|tmux|greasyfork|github)')
     logger = MyLogger()
     logger.info(__file__)
     run_server(_RequestHandler)

@@ -51,7 +51,7 @@ class Configs:
         self.cache_db = _dev_cache_db if os.path.exists(_dev_cache_db) else _cache_db
         self.http_proxy = self.raw.get('gui', 'http_proxy', fallback=None)
         if self.debug_mode:
-            print('download_http_proxy:', self.http_proxy)
+            print('http_proxy:', self.http_proxy)
             print('cache_db:', self.cache_db)
 
     def update(self):
@@ -59,6 +59,13 @@ class Configs:
         config.read(self.path, encoding='utf-8-sig')
         self.raw = config
         return config
+
+    def disable_gui_by_netloc(self, netloc):
+        ini_url = self.raw.get('gui', 'except_host', fallback='').replace('，', ',')
+        loc_list = [i.strip() for i in ini_url.split(',') if i]
+        if loc_list and any([i for i in loc_list if i in netloc]):
+            print(f'skip launch gui. {netloc=} {loc_list=}')
+            return True
 
 
 configs = Configs()
