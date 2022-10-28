@@ -1,14 +1,13 @@
 # embyToLocalPlayer-Python
 
-* 需要 Python。emby 调用外部本地播放器。
-* 若用 PotPlayer mpv IINA MPC VLC 播放，可回传播放进度（可关）。支持 Jellyfin Plex。
+* emby 调用 PotPlayer mpv IINA MPC VLC 播放，并回传播放进度（可关）。适配 Jellyfin Plex。
 * 支持：纯本地｜网络｜持久性缓存｜下载 多种模式。
 
 **缺点**
 
 * 本地需要安装 Python
 * 点击播放时会有未兼容流提示或转圈。 可另装 [脚本](https://greasyfork.org/zh-CN/scripts/448629-embyerrorwindows) 自动关闭。
-* 问题反馈群，提问前先把 FAQ 看一遍，不含敏感数据不私聊。  
+* 讨论群组在频道置顶，提问前先把 FAQ 看一遍，不含敏感数据不私聊。  
   小更新只会发频道，不会更新版本。[https://t.me/embyToLocalPlayer](https://t.me/embyToLocalPlayer)
 
 **特性**
@@ -86,7 +85,7 @@
 * 用鼠标手势软件关闭播放器体验更舒服一点。
 * 播放器是否自动全屏大部分播放器自己可以设置。
 * 同服务器同时开启多个浏览器标签页，会造成回传进度失败假象。手动刷新一下页面，或者只开一个标签。
-* 问题反馈群，提问前先把 FAQ 看一遍，不含敏感数据不私聊。  
+* 讨论群组在频道置顶，提问前先把 FAQ 看一遍，不含敏感数据不私聊。  
   小更新只会发频道，不会更新版本。[https://t.me/embyToLocalPlayer](https://t.me/embyToLocalPlayer)
 
 
