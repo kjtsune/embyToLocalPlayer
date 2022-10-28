@@ -8,7 +8,7 @@
 
 * 本地需要安装 Python
 * 点击播放时会有未兼容流提示或转圈。 可另装 [脚本](https://greasyfork.org/zh-CN/scripts/448629-embyerrorwindows) 自动关闭。
-* 问题反馈群，提问前先把 FAQ 看一遍，不含敏感数据不私聊。[https://t.me/embyToLocalPlayer](https://t.me/embyToLocalPlayer)
+* 更新提醒频道及问题反馈群，提问前先把 FAQ 看一遍，不含敏感数据不私聊。[https://t.me/embyToLocalPlayer](https://t.me/embyToLocalPlayer)
 
 **特性**
 
@@ -87,7 +87,7 @@
 * 播放器是否自动全屏大部分播放器自己可以设置。
 * 同服务器同时开启多个浏览器标签页，会造成回传进度失败假象。手动刷新一下页面，或者只开一个标签。
 * Windows：若 mpv 运行失败，换 mpv.net 试试看。或者 mpv release 0.34.0 版本。
-* 问题反馈群，提问前先把 FAQ 看一遍，不含敏感数据不私聊。[https://t.me/embyToLocalPlayer](https://t.me/embyToLocalPlayer)
+* 更新提醒频道及问题反馈群，提问前先把 FAQ 看一遍，不含敏感数据不私聊。[https://t.me/embyToLocalPlayer](https://t.me/embyToLocalPlayer)
 
 ### 如何切换模式
 
@@ -95,6 +95,7 @@
 * 网页播放模式：开启 > 禁用脚本。
 * 读取硬盘模式：关闭 > 调用本地播放器但使用服务器网络链接。（默认）
 * 读取硬盘模式：开启 > 调用本地播放器并转换服务器路径为本地文件地址。（需要 `.ini` 里填好路径替换规则，服务端在本地则不用填）
+* 持久性缓存模式只看配置文件，与油猴设置不冲突，不需要开启读取硬盘模式。
 
 ### 如何更新
 
@@ -147,10 +148,7 @@
 
 ### mpv 相关
 
-* Windows：  
-  手动切换音轨字幕经常会卡死，偶尔启动时间会久，不知为何。（如果你没出现这问题，告诉我版本号）  
-  必须窗口置顶（已设置），不然会在后台播放。  
-  ~~这两个问题 mpv.net 好像都不会~~
+* Windows：必须窗口置顶（已设置），不然会在后台播放。
 * [可选] [portable_config](https://github.com/kjtsune/embyToLocalPlayer/tree/main/portable_config)
   文件夹是我用的 mpv 配置，可将整个文件夹与 `mpv.exe` 放在一起。
 * 快捷键看 `input.conf`
