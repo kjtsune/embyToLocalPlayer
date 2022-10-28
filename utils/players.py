@@ -44,7 +44,7 @@ def start_mpv_player(cmd, start_sec=None, sub_file=None, media_title=None, get_s
         # cmd.append('--no-video')
     cmd = ['--mpv-' + i.replace('--', '', 1) if is_darwin and is_iina and i.startswith('--') else i for i in cmd]
     logger.info(cmd)
-    player = subprocess.Popen(cmd, stdout=subprocess.PIPE)
+    player = subprocess.Popen(cmd)
     activate_window_by_pid(player.pid)
 
     if not get_stop_sec:
