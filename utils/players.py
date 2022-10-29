@@ -226,8 +226,8 @@ def stop_sec_vlc():
                     return stop_sec
                 time.sleep(0.1)
         except Exception:
-            logger.info('vlc crashed', 0)
-            return 0
+            logger.info('vlc crashed', stop_sec)
+            return stop_sec
 
 
 def stop_sec_dandan(start_sec=None, is_http=None):
