@@ -67,7 +67,6 @@ def start_play(data):
     if player_is_running:
         logger.error('player_is_running, skip')
         return
-    player_is_running = True
     mount_disk_mode = data['mount_disk_mode']
     media_path = data['media_path']
     start_sec = data['start_sec']
@@ -77,6 +76,7 @@ def start_play(data):
     cmd = get_player_and_replace_path(media_path, data.get('file_path'))['cmd']
     player_path_lower = cmd[0].lower()
     # 播放器特殊处理
+    player_is_running = True
     player_name = [i for i in player_function_dict if i in player_path_lower]
     if player_name:
         player_name = player_name[0]
@@ -92,7 +92,7 @@ def start_play(data):
         stop_sec = player_function(cmd=cmd, start_sec=start_sec, sub_file=sub_file, media_title=media_title)
         logger.info('stop_sec', stop_sec)
         update_server_playback_progress(stop_sec=stop_sec, data=data)
-        if configs.gui_is_enable and stop_sec / data['total_sec'] * 100 > configs.raw.getint('gui', 'delete_at'):
+        if configs.gui_is_enable and stop_sec / data['total_sec'] * 100 > configs.raw.getfloat('gui', 'delete_at'):
             if media_path.startswith(configs.raw['gui']['cache_path']):
                 logger.info('watched, delete cache')
                 threading.Thread(target=dl_manager.delete, args=(data,), daemon=True).start()
