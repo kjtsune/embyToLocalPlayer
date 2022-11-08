@@ -2,6 +2,7 @@ import json
 import os.path
 import re
 import signal
+import socket
 import subprocess
 import time
 import urllib.parse
@@ -27,6 +28,13 @@ def safe_deleter(file, ext: Union[str, list, tuple] = ('mkv', 'mp4', 'srt', 'ass
     if f_ext.replace('.', '') in ext and os.path.exists(file):
         os.remove(file)
         return True
+
+
+def clean_tmp_dir():
+    tmp = os.path.join(configs.cwd, '.tmp')
+    if os.path.isdir(tmp):
+        for file in os.listdir(tmp):
+            os.remove(os.path.join(tmp, file))
 
 
 def scan_cache_dir():
@@ -88,9 +96,9 @@ def kill_multi_process(name_re, not_re=None):
     time.sleep(1)
 
 
-def activate_window_by_pid(pid, is_mpv=False, scrip_name='autohotkey_tool'):
+def activate_window_by_pid(pid, is_mpv=False, scrip_name='autohotkey_tool', sleep=1.5):
     if os.name != 'nt':
-        time.sleep(1.5)
+        time.sleep(sleep)
         return
     if not is_mpv:
         # mpv vlc 不支持此模式
@@ -112,13 +120,13 @@ def activate_window_by_pid(pid, is_mpv=False, scrip_name='autohotkey_tool'):
 
 
 def force_disk_mode_by_path(file_path):
-    config = configs.raw
-    if 'force_disk_mode' not in config or not config['force_disk_mode'].getboolean('enable'):
+    if not configs.raw.getboolean('force_disk_mode', 'enable', fallback=False):
         return False
-    disk_mode = config['force_disk_mode']
-    check = [file_path.startswith(disk_mode[key]) for key in disk_mode if key.startswith('path_') and disk_mode[key]]
+    disk_mode = configs.raw['force_disk_mode']
+    path_pre = (v for k, v in disk_mode.items() if k.startswith('path_') and v)
+    check = file_path.startswith(path_pre)
     _logger.info('disk_mode check', check)
-    return any(check)
+    return check
 
 
 def use_dandan_exe_by_path(config, file_path):
@@ -134,20 +142,8 @@ def use_dandan_exe_by_path(config, file_path):
     _logger.debug('check_dandan match', dandan_path_match, 'all empty', dandan_all_empty)
 
 
-def check_stop_sec(start_sec, stop_sec):
-    if stop_sec is not None:
-        stop_sec = int(stop_sec) - 2 if int(stop_sec) > 5 else int(stop_sec)
-    else:
-        stop_sec = int(start_sec)
-    return stop_sec
-
-
-def get_player_and_replace_path(media_path, file_path=''):
+def translate_path_by_ini(media_path):
     config = configs.raw
-    player = config['emby']['player']
-    exe = config['exe'][player]
-    exe = config['dandan']['exe'] if use_dandan_exe_by_path(config, file_path) else exe
-    _logger.info(media_path, 'raw')
     if 'src' in config and 'dst' in config and not media_path.startswith('http'):
         src = config['src']
         dst = config['dst']
@@ -162,6 +158,16 @@ def get_player_and_replace_path(media_path, file_path=''):
                 break
             else:
                 _logger.debug(tmp_path, 'not found')
+    return media_path
+
+
+def get_player_and_replace_path(media_path, file_path=''):
+    config = configs.raw
+    player = config['emby']['player']
+    exe = config['exe'][player]
+    exe = config['dandan']['exe'] if use_dandan_exe_by_path(config, file_path) else exe
+    _logger.info(media_path, 'raw')
+    media_path = translate_path_by_ini(media_path)
     result = dict(cmd=[exe, media_path], file_path=file_path)
     _logger.info(result['cmd'], 'cmd')
     if not media_path.startswith('http') and not os.path.exists(media_path):
@@ -170,7 +176,7 @@ def get_player_and_replace_path(media_path, file_path=''):
 
 
 def requests_urllib(host, params=None, _json=None, decode=False, timeout=2.0, headers=None, req_only=False,
-                    http_proxy='', get_json=False):
+                    http_proxy='', get_json=False, save_path='', retry=3):
     _json = json.dumps(_json).encode('utf-8') if _json else None
     params = urllib.parse.urlencode(params) if params else None
     host = host + '?' + params if params else host
@@ -185,11 +191,27 @@ def requests_urllib(host, params=None, _json=None, decode=False, timeout=2.0, he
         req.add_header('Content-Type', 'application/json; charset=utf-8')
     if req_only:
         return req
-    response = urllib.request.urlopen(req, _json, timeout=timeout)
+
+    response = None
+    for try_times in range(1, retry + 1):
+        try:
+            response = urllib.request.urlopen(req, _json, timeout=timeout)
+            break
+        except socket.timeout:
+            _logger.error(f'urllib {try_times=}')
+            if try_times == retry:
+                raise TimeoutError(f'{try_times=} {host=}')
     if decode:
         return response.read().decode()
     if get_json:
         return json.loads(response.read().decode())
+    if save_path:
+        folder = os.path.dirname(save_path)
+        if not os.path.exists(folder):
+            os.mkdir(folder)
+        with open(save_path, 'wb') as f:
+            f.write(response.read())
+        return save_path
 
 
 def change_emby_play_position(scheme, netloc, item_id, api_key, stop_sec, play_session_id, device_id, **_):
@@ -277,7 +299,12 @@ def change_plex_play_position(scheme, netloc, api_key, stop_sec, rating_key, cli
 def update_server_playback_progress(stop_sec, data):
     if not configs.raw.getboolean('emby', 'update_progress', fallback=True):
         return
+    if stop_sec is None:
+        _logger.error('stop_sec is None skip update progress')
+        return
     server = data['server']
+    stop_sec = int(stop_sec)
+    stop_sec = stop_sec - 2 if stop_sec > 5 else stop_sec
     if server == 'emby':
         change_emby_play_position(stop_sec=stop_sec, **data)
     elif server == 'jellyfin':
@@ -325,7 +352,10 @@ def parse_received_data_emby(received_data):
     sub_file = f'{scheme}://{netloc}{sub_delivery_url}' if sub_delivery_url else None
     mount_disk_mode = True if force_disk_mode_by_path(file_path) else mount_disk_mode
     media_path = file_path if mount_disk_mode else stream_url
-    media_title = os.path.basename(file_path) if not mount_disk_mode else None  # 播放http时覆盖标题
+    basename = os.path.basename(file_path)
+    media_basename = os.path.basename(media_path)
+
+    media_title = basename if not mount_disk_mode else None  # 播放http时覆盖标题
 
     seek = query['StartTimeTicks']
     start_sec = int(seek) // (10 ** 7) if seek else 0
@@ -334,6 +364,7 @@ def parse_received_data_emby(received_data):
     fake_name = os.path.splitdrive(file_path)[1].replace('/', '__').replace('\\', '__')
     total_sec = int(media_source_info['RunTimeTicks']) // 10 ** 7
     position = start_sec / total_sec
+    user_id = query['UserId']
 
     result = dict(
         server=server,
@@ -354,6 +385,9 @@ def parse_received_data_emby(received_data):
         fake_name=fake_name,
         position=position,
         total_sec=total_sec,
+        user_id=user_id,
+        basename=basename,
+        media_basename=media_basename,
     )
     return result
 
@@ -379,7 +413,9 @@ def parse_received_data_plex(received_data):
 
     mount_disk_mode = True if force_disk_mode_by_path(file_path) else mount_disk_mode
     media_path = file_path if mount_disk_mode else stream_url
-    media_title = os.path.basename(file_path) if not mount_disk_mode else None  # 播放 http 时覆盖标题
+    basename = os.path.basename(file_path)
+    media_basename = os.path.basename(media_path)
+    media_title = basename if not mount_disk_mode else None  # 播放http时覆盖标题
 
     seek = meta.get('viewOffset')
     rating_key = meta['ratingKey']
@@ -408,5 +444,7 @@ def parse_received_data_plex(received_data):
         fake_name=fake_name,
         position=position,
         total_sec=total_sec,
+        basename=basename,
+        media_basename=media_basename,
     )
     return result
