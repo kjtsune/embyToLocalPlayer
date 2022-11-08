@@ -3,7 +3,7 @@ import threading
 from http.server import BaseHTTPRequestHandler
 
 from utils.downloader import DownloadManager
-from utils.players import player_function_dict
+from utils.players import player_function_dict, PlayerManager, stop_sec_function_dict
 from utils.tools import *
 
 
@@ -23,7 +23,7 @@ class _RequestHandler(BaseHTTPRequestHandler):
         if 'ToLocalPlayer' in self.path:
             data = parse_received_data_emby(data) if self.path.startswith('emby') else parse_received_data_emby(data)
             update_server_playback_progress(stop_sec=data['start_sec'], data=data)
-            if configs.disable_gui_by_netloc(data['netloc']):
+            if configs.check_str_match(_str=data['netloc'], section='gui', option='except_host'):
                 threading.Thread(target=start_play, args=(data,), daemon=True).start()
                 return True
         thread_dict = {
@@ -44,6 +44,7 @@ class _RequestHandler(BaseHTTPRequestHandler):
         elif 'ToLocalPlayer' in self.path:
             if configs.gui_is_enable:
                 from utils.gui import show_ask_button
+                logger.info('show ask button')
                 if configs.platform != 'Darwin':
                     threading.Thread(target=show_ask_button, args=(data,), daemon=True).start()
                 else:
@@ -67,30 +68,35 @@ def start_play(data):
     if player_is_running:
         logger.error('player_is_running, skip')
         return
-    mount_disk_mode = data['mount_disk_mode']
     media_path = data['media_path']
     start_sec = data['start_sec']
     sub_file = data['sub_file']
     media_title = data['media_title']
 
     cmd = get_player_and_replace_path(media_path, data.get('file_path'))['cmd']
-    player_path_lower = cmd[0].lower()
+    player_path = cmd[0]
+    player_path_lower = player_path.lower()
     # 播放器特殊处理
     player_is_running = True
     player_name = [i for i in player_function_dict if i in player_path_lower]
     if player_name:
         player_name = player_name[0]
+        if configs.check_str_match(_str=data['netloc'], section='playlist', option='enable_host'
+                                   ) and player_name in ('mpv', 'vlc', 'mpc', 'potplayer', 'iina'):
+            player_manager = PlayerManager(data=data, player_name=player_name, player_path=player_path)
+            player_manager.start_player(cmd=cmd, start_sec=start_sec, sub_file=sub_file, media_title=media_title)
+            player_manager.playlist_add()
+            player_manager.update_playlist_time_loop()
+            player_manager.update_playback_for_eps()
+            player_is_running = False
+            return
         player_function = player_function_dict[player_name]
-        if player_name == 'vlc':
-            # cmd.append('--no-video-title-show')
-            if mount_disk_mode:
-                # cmd.append(f'--input-title-format={cmd[1]}')
-                cmd[1] = f'file:///{cmd[1]}'
-            else:
-                cmd.append(f'--input-title-format={media_title}')
-                cmd.append(f'--video-title={media_title}')
-        stop_sec = player_function(cmd=cmd, start_sec=start_sec, sub_file=sub_file, media_title=media_title)
+        stop_sec_kwargs = player_function(cmd=cmd, start_sec=start_sec, sub_file=sub_file, media_title=media_title)
+        stop_sec = stop_sec_function_dict[player_name](**stop_sec_kwargs)
         logger.info('stop_sec', stop_sec)
+        if stop_sec is None:
+            player_is_running = False
+            return
         update_server_playback_progress(stop_sec=stop_sec, data=data)
         if configs.gui_is_enable and stop_sec / data['total_sec'] * 100 > configs.raw.getfloat('gui', 'delete_at'):
             if media_path.startswith(configs.raw['gui']['cache_path']):
@@ -98,20 +104,20 @@ def start_play(data):
                 threading.Thread(target=dl_manager.delete, args=(data,), daemon=True).start()
     else:
         logger.info(cmd)
-        player = subprocess.Popen(cmd, shell=False)
+        player = subprocess.Popen(cmd)
         activate_window_by_pid(player.pid)
     player_is_running = False
 
 
 if __name__ == '__main__':
     dl_manager = DownloadManager(configs.cache_path, speed_limit=configs.speed_limit)
-    cwd = os.path.dirname(__file__)
-    file_name = os.path.basename(__file__)[:-3]
     player_is_running = False
-    kill_multi_process(name_re=f'({file_name}.py|autohotkey_tool|' +
-                               r'mpv.*exe|mpc-.*exe|vlc.exe|PotPlayer.*exe|dandanplay.exe|' +
-                               r'/IINA|/VLC|/mpv)',
-                       not_re='(screen|tmux|greasyfork|github)')
+    if configs.raw.getboolean('dev', 'kill_process_at_start', fallback=True):
+        kill_multi_process(name_re=f'(embyToLocalPlayer.py.py|autohotkey_tool|' +
+                                   r'mpv.*exe|mpc-.*exe|vlc.exe|PotPlayer.*exe|dandanplay.exe|' +
+                                   r'/IINA|/VLC|/mpv)',
+                           not_re='(screen|tmux|greasyfork|github)')
     logger = MyLogger()
     logger.info(__file__)
+    clean_tmp_dir()
     run_server(_RequestHandler)

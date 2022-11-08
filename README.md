@@ -1,28 +1,27 @@
 # embyToLocalPlayer-Python
 
-* emby 调用 PotPlayer mpv IINA MPC VLC 播放，并回传播放进度（可关）。适配 Jellyfin Plex。
+* Emby 调用 PotPlayer mpv IINA MPC VLC 播放，并回传播放进度（可关）。适配 Jellyfin Plex。
 * 支持：纯本地｜网络｜持久性缓存｜下载 多种模式。
 
 **缺点**
 
 * 本地需要安装 Python
 * 点击播放时会有未兼容流提示或转圈。 可另装 [脚本](https://greasyfork.org/zh-CN/scripts/448629-embyerrorwindows) 自动关闭。
-* 讨论群组在频道置顶，提问前先把 FAQ 看一遍，不含敏感数据不私聊。  
-  小更新只会发频道，不会更新版本。[https://t.me/embyToLocalPlayer](https://t.me/embyToLocalPlayer)
+* 反馈群组在频道置顶，提问前先把 FAQ 看一遍，不含敏感数据不私聊。  
+  小更新会频道提醒，GitHub zip 文件也会同步更新，但不会更新版本。[https://t.me/embyToLocalPlayer](https://t.me/embyToLocalPlayer)
 
 **特性**
 
 * 在首页也可以播放。点击原来的播放按钮就可以。播放无需二次确认。
-* 可持久性缓存文件到本地。（网盘用户及 emby 是别人分享的可能用到）
+* 可持久性缓存文件到本地。（网盘用户及 Emby 是别人分享的可能用到）
 * 视频文件 可本地 可挂载 可远端。
-* mpv MPC PotPlayer 通过网络播放时也支持外挂字幕。(播放前先选择字幕)
+* mpv VLC MPC PotPlayer 通过网络播放时也支持外挂字幕。(播放前先选择字幕)
 * 适配多视频版本，如 2160p 与 1080p 双文件的情况。(Plex 不支持)
 * 其他播放器一般也能用，只是不会回传进度。
-* （一般用不到）适配 弹弹play（动漫弹幕播放器）。
 
 **建议**
 
-* emby 关联 Trakt，永久保存观看记录。跨平台，设备损坏可以导回来。（详见 FAQ）
+* Emby 关联 Trakt，永久保存观看记录。跨平台，设备损坏可以导回来。（详见 FAQ）
 * PotPlayer 每次播放 http 都会疯狂写盘并把整个文件下载下来。推荐读取硬盘模式或持久性缓存。
 * 以下播放器支持回传进度。
     * PotPlayer [发布页](https://potplayer.daum.net/)
@@ -30,7 +29,7 @@
     * mpv（纯快捷键）[Windows](https://sourceforge.net/projects/mpv-player-windows/files/release/) 。 macOS
       解压后拖到应用程序即可 [macOS](https://laboratory.stolendata.net/~djinn/mpv_osx/)
     * IINA（macOS）[发布页](https://iina.io/) 若使用 http 播放不支持外挂字幕文件（mpv 支持）
-    * mpv.net（可鼠标）[发布页](https://github.com/stax76/mpv.net/releases)   
+    * mpv.net（可鼠标）[发布页](https://github.com/stax76/mpv.net/releases)
     * VLC [发布页](https://www.videolan.org/vlc/)
     * MPC-HC [发布页](https://github.com/clsid2/mpc-hc/releases)
     * MPC-BE [发布页](https://sourceforge.net/projects/mpcbe/files/MPC-BE/Release%20builds/)
@@ -50,8 +49,6 @@
 
 * 播放器要退出触发回传进度。
 * 报错就截图发群里。 [可选] 自动关闭未兼容流提示详见 FAQ。
-* [可选] 持久性缓存（边下边播）详见 FAQ。
-* 若用 MPC 播放：开启 WebUI，详见 FAQ。
 
 ### Windows
 
@@ -61,7 +58,7 @@
 
 ### macOS
 
-1. 刚才保存的文件夹 > 右击 > 新建位于文件夹的终端窗口   `chmod chmod +x *.command` 回车。
+1. 刚才保存的文件夹 > 右击 > 新建位于文件夹的终端窗口   `chmod +x *.command` 回车。
 2. 双击 `emby_script_run.command`, 若无报错，可播放测试。
 3. 开机自启（无窗口运行）：
     1. 启动台 > 自动操作 > 文件 > 新建 > 应用程序 > 运行 Shell 脚本 >   
@@ -83,11 +80,10 @@
 * [embyErrorWindows.js](https://greasyfork.org/zh-CN/scripts/448629-embyerrorwindows)
   可自动关闭 Emby 没有兼容流的窗口 和 Jellyfin 转圈提示。~~Plex 回放错误通过自动刷新页面解决。~~
 * 用鼠标手势软件关闭播放器体验更舒服一点。
-* 播放器是否自动全屏大部分播放器自己可以设置。
 * 同服务器同时开启多个浏览器标签页，会造成回传进度失败假象。手动刷新一下页面，或者只开一个标签。
-* 讨论群组在频道置顶，提问前先把 FAQ 看一遍，不含敏感数据不私聊。  
-  小更新只会发频道，不会更新版本。[https://t.me/embyToLocalPlayer](https://t.me/embyToLocalPlayer)
-
+* Windows 平台若要源码运行：安装 AutoHotKey v2 或把 `autohotkey_tool.ahk` 编译为 `exe`。
+* 反馈群组在频道置顶，提问前先把 FAQ 看一遍，不含敏感数据不私聊。  
+  小更新会频道提醒，GitHub zip 文件也会同步更新，但不会更新版本。[https://t.me/embyToLocalPlayer](https://t.me/embyToLocalPlayer)
 
 ### 如何切换模式
 
@@ -95,11 +91,11 @@
 * 网页播放模式：开启 > 禁用脚本。
 * 读取硬盘模式：关闭 > 调用本地播放器但使用服务器网络链接。（默认）
 * 读取硬盘模式：开启 > 调用本地播放器并转换服务器路径为本地文件地址。（需要 `.ini` 里填好路径替换规则，服务端在本地则不用填）
-* 持久性缓存模式只看配置文件，与油猴设置不冲突，不需要开启读取硬盘模式。
+* 持久性缓存模式：只看配置文件，与油猴设置不冲突，不需要开启读取硬盘模式。
 
 ### 如何更新
 
-* 将 `_config.ini` 重命名为 `.ini`，其他全删除。再次 github 下载解压当前文件夹。（`.ini` 优先于 `_config.ini`  ）
+* 将 `_config.ini` 重命名为 `.ini`，其他全删除。再次 GitHub 下载解压当前文件夹。（`.ini` 优先于 `_config.ini`  ）
 * 同时看看 `embyToLocalPlayer_config.ini` 有没有新内容。
 
 ### 如何反馈
@@ -113,6 +109,33 @@
     5. 什么模式播放
     6. 怎么复现（完整点会比较好）
     7. 运行日志（没有也可以，有更好）
+
+### 播放列表相关
+
+#### 通用问题：
+
+* 可能与缓存模式冲突
+* 播放列表添加完成前最好不退出
+* Jellyfin Plex 未适配
+
+#### Windows:
+
+* mpv:
+* mpv.net:
+* vlc:
+* mpc: be: 播放列表条目超过10个可能会卡住，hc 没这问题。
+* pot: 无法添加外挂字幕
+
+#### macOS
+
+* mpv:
+* iina: 仅读盘模式支持并可回传
+* vlc: 无法添加外挂字幕
+
+#### Linux
+
+* mpv:
+* vlc: 无法添加外挂字幕
 
 ### 持久性缓存（边下边播）相关
 
@@ -141,14 +164,13 @@
 
 ### 字幕相关
 
-* emby 里字幕选择无效。  
+* Emby 里字幕选择无效。  
   外挂字幕选择有效，内置字幕会被忽略，由播放器选择。  
   视频文件的内置字幕当作外挂字幕处理会导致播放器语言设置失效。（外挂字幕最优先）  
   正常播放器都可以设置语言优先顺序。
 
 ### mpv 相关
 
-* Windows：必须窗口置顶（已设置），不然会在后台播放。
 * [可选] [portable_config](https://github.com/kjtsune/embyToLocalPlayer/tree/main/portable_config)
   文件夹是我用的 mpv 配置，可将整个文件夹与 `mpv.exe` 放在一起。
 * 快捷键看 `input.conf`
@@ -167,6 +189,7 @@
   Win8 32bit 碰到。解决方法是使用 [Portable](https://www.videohelp.com/software/PotPlayer/old-versions) 版本。  
   先打开 `PotPlayerPortable.exe` 一次，但播放用 `C:\<path_to>\PotPlayerPortable\App\PotPlayer\PotPlayer.exe`  
   不然会要求管理员权限运行。
+* http 下一集无外挂字幕。
 * 选项 > 播放 > 播放窗口尺寸：全屏
 * 配置/语言/其他 > 收尾处理 > 播放完当前后退出（触发回传进度）
 
@@ -175,10 +198,9 @@
 * 退出播放器才会回传进度。
 * 非读盘模式不支持外挂字幕文件（mpv 支持）
 
-### MPC 相关：开启 WebUI
+### MPC 相关：
 
-* 查看 > 选项 > Web 界面：  
-  打勾 监听端口：13579  
+* 会自动开启 WebUI 建议仅允许从 localhost 访问： 查看 > 选项 > Web 界面：  
   打勾 仅允许从 localhost 访问
 
 ### Trakt 相关
@@ -211,10 +233,10 @@
 * 若自动下一集则只回传上一集记录。
 * 若通过 http 播放，有以下缺点：
     1. 每次播放需要选择弹幕。（已把文件名发送给播放器匹配）
-    2. 启动时无法及时跳转到 emby 开始时间，需要播放开始后等待15秒。（每次看完一集则不影响）
+    2. 启动时无法及时跳转到 Emby 开始时间，需要播放开始后等待15秒。（每次看完一集则不影响）
     3. 无法加载外挂字幕。
 
-### 其他相关脚本
+### 其他脚本
 
 * [embyDouban](https://greasyfork.org/zh-CN/scripts/449894-embydouban)
   ：豆瓣评分，链接，评论
@@ -222,9 +244,9 @@
   ：Douban Trakt 互相跳转链接
 * [qbittorrent\_webui\_open_file](https://greasyfork.org/zh-CN/scripts/450015-qbittorrent-webui-open-file)
   ：联动脚本，配置相同，QB 网页打开文件夹或播放
-* [embyErrorWindows.js](https://greasyfork.org/zh-CN/scripts/448629-embyerrorwindows)
-  ：自动关闭 Emby 没有兼容流的窗口 和 Jellyfin 转圈提示。~~Plex 回放错误通过自动刷新页面解决。~~
+* [ccf-2012/torcp](https://github.com/ccf-2012/torcp)
+  : 将视频硬链接并重命名为 Emby 能识别的命名方式。
 
-**感谢**
+### 感谢
 
 * [iwalton3/python-mpv-jsonipc](https://github.com/iwalton3/python-mpv-jsonipc)

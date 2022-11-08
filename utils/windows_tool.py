@@ -134,33 +134,4 @@ def get_window_thread_process_name(hwnd):
     return str(buffer)
 
 
-def get_potplayer_stop_sec(pid=None):
-    def potplayer_time_by_pid(_pid):
-        def send_message(hwnd):
-            nonlocal stop_sec
-            target_pid = ctypes.c_ulong()
-            user32.GetWindowThreadProcessId(hwnd, ctypes.byref(target_pid))
-            if _pid == target_pid.value:
-                message = user32.SendMessageW(hwnd, 0x400, 0x5004, 1)
-                if message:
-                    stop_sec = message // 1000
 
-        def for_each_window(hwnd, _):
-            send_message(hwnd)
-            return True
-
-        proc = EnumWindowsProc(for_each_window)
-        user32.EnumWindows(proc, 0)
-
-    stop_sec = None
-    pid_cmd = pid or list_pid_and_cmd('PotPlayerMini64.exe')
-    if pid_cmd:
-        player_pid = pid or pid_cmd[0][0]
-        while True:
-            if not process_is_running_by_pid(player_pid):
-                logger.debug('pot not running')
-                break
-            potplayer_time_by_pid(player_pid)
-            logger.debug(f'pot {stop_sec=}')
-            time.sleep(0.3)
-    return stop_sec

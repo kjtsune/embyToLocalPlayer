@@ -1,9 +1,9 @@
+import base64
 import json
 import os.path
 import os.path
 import platform
 import signal
-import socket
 import subprocess
 import time
 import urllib.parse
@@ -12,116 +12,505 @@ from html.parser import HTMLParser
 
 from utils.configs import configs, MyLogger
 from utils.python_mpv_jsonipc import MPV
-from utils.tools import activate_window_by_pid, check_stop_sec, requests_urllib
+from utils.tools import activate_window_by_pid, requests_urllib, update_server_playback_progress, \
+    translate_path_by_ini
 
 logger = MyLogger()
 
 
-def start_mpv_player(cmd, start_sec=None, sub_file=None, media_title=None, get_stop_sec=True):
+# *_player_start 返回获取播放时间等操作所需参数字典
+# top_sec_* 接收字典参数
+# media_title is None 可以用来判断是不是 mount_disk_mode
+
+def save_sub_file(url, name='tmp_sub.srt'):
+    srt = os.path.join(configs.cwd, '.tmp', name)
+    requests_urllib(url, save_path=srt)
+    return srt
+
+
+class PlayerManager:
+    def __init__(self, data=None, player_name=None, player_path=None):
+        self.data = data
+        self.player_name = player_name
+        self.player_path = player_path
+        self.player_kwargs = {}
+        self.playlist_data = {}
+        self.playlist_time = {}
+
+    def start_player(self, **kwargs):
+        player_fun = dict(mpv=mpv_player_start,
+                          iina=mpv_player_start,
+                          vlc=vlc_player_start,
+                          mpc=mpc_player_start,
+                          potplayer=pot_player_start, )
+
+        self.player_kwargs = player_fun[self.player_name](**kwargs)
+
+    def playlist_add(self, data=None):
+        data = data or self.data
+        playlist_fun = dict(mpv=playlist_add_mpv,
+                            iina=playlist_add_mpv,
+                            vlc=playlist_add_vlc,
+                            mpc=playlist_add_mpc,
+                            potplayer=playlist_add_pot)
+        limit = configs.raw.getint('playlist', 'item_limit', fallback=-1)
+        if limit > 0:
+            self.player_kwargs['limit'] = limit
+        self.playlist_data = playlist_fun[self.player_name](data=data, **self.player_kwargs)
+
+    def update_playlist_time_loop(self):
+        stop_sec_fun = dict(mpv=stop_sec_mpv,
+                            iina=stop_sec_mpv,
+                            mpc=stop_sec_mpc,
+                            vlc=stop_sec_vlc,
+                            potplayer=stop_sec_pot, )
+        self.playlist_time = stop_sec_fun[self.player_name](stop_sec_only=False, **self.player_kwargs)
+
+    def update_playback_for_eps(self):
+        if not self.playlist_data:
+            logger.error(f'playlist_data not found skip update progress')
+            return
+        key_type = dict(mpv='basename',
+                        iina='basename',
+                        vlc='media_basename',
+                        mpc='media_path',
+                        potplayer='basename', )
+        key_type = key_type[self.player_name]
+        for ep in self.playlist_data.values():
+            # update_server_playback_progress(stop_sec=0, data=ep)
+            time_key = ep[key_type]
+            _stop_sec = self.playlist_time.get(time_key)
+            if not _stop_sec:
+                continue
+            logger.info(f'update {ep["basename"]} {_stop_sec=}')
+            update_server_playback_progress(stop_sec=_stop_sec, data=ep)
+
+
+def list_episodes(data: dict):
+    scheme = data['scheme']
+    netloc = data['netloc']
+    api_key = data['api_key']
+    user_id = data['user_id']
+    mount_disk_mode = data['mount_disk_mode']
+
+    params = {'X-Emby-Token': api_key, }
+    headers = {'accept': 'application/json', }
+
+    response = requests_urllib(f'{scheme}://{netloc}/emby/Users/{user_id}/Items/{data["item_id"]}',
+                               params=params, headers=headers, get_json=True)
+    # if video is movie
+    if 'SeasonId' not in response:
+        return [data]
+    season_id = response['SeasonId']
+    series_id = response['SeriesId']
+
+    def parse_item(item):
+        media_source_info = item['MediaSources'][0]
+        name = item['Name']
+        file_path = media_source_info.get('Path')
+        if not file_path:
+            return None
+        fake_name = os.path.splitdrive(file_path)[1].replace('/', '__').replace('\\', '__')
+        item_id = item['Id']
+        stream_url = f'{scheme}://{netloc}/videos/{item_id}/stream.{media_source_info["Container"]}' \
+                     f'?MediaSourceId={media_source_info["Id"]}&Static=true&api_key={api_key}'
+        media_path = translate_path_by_ini(file_path) if mount_disk_mode else stream_url
+        basename = os.path.basename(file_path)
+        media_basename = os.path.basename(media_path)
+        total_sec = int(media_source_info['RunTimeTicks']) // 10 ** 7
+        # index = item['IndexNumber']
+
+        media_streams = media_source_info['MediaStreams']
+        sub_dict_list = [dict(title=s['DisplayTitle'], index=s['Index'], path=s['Path'])
+                         for s in media_streams
+                         if not mount_disk_mode and s['Type'] == 'Subtitle' and s['IsExternal']]
+        sub_dict_list = [s for s in sub_dict_list
+                         if configs.check_str_match(s['title'], 'playlist', 'subtitle_priority', log=False)]
+        sub_dict = sub_dict_list[0] if sub_dict_list else {}
+        sub_file = f'{scheme}://{netloc}/Videos/{item_id}/{media_source_info["Id"]}/Subtitles' \
+                   f'/{sub_dict["index"]}/Stream{os.path.splitext(sub_dict["path"])[-1]}' if sub_dict else None
+        sub_file = None if mount_disk_mode else sub_file
+
+        result = data.copy()
+        result.update(dict(
+            name=name,
+            basename=basename,
+            media_basename=media_basename,
+            item_id=item_id,
+            file_path=file_path,
+            stream_url=stream_url,
+            media_path=media_path,
+            fake_name=fake_name,
+            total_sec=total_sec,
+            sub_file=sub_file,
+        ))
+        return result
+
+    params.update({'Fields': 'MediaStreams,Path',
+                   'SeasonId': season_id, })
+    url = f'{scheme}://{netloc}/emby/Shows/{series_id}/Episodes'
+    episodes = requests_urllib(url, params=params, headers=headers, get_json=True)
+    # dump_json_file(episodes, 'z_ep_parse.json')
+    episodes = episodes['Items']
+    episodes = [parse_item(i) for i in episodes]
+    return [i for i in episodes if i]
+
+
+def init_player_instance(function, **kwargs):
+    init_times = 1
+    player = None
+    while init_times <= 3:
+        try:
+            time.sleep(1)
+            player = function(**kwargs)
+            break
+        except Exception as e:
+            logger.error(f'{str(e)[:40]} init_player: {init_times=}')
+            init_times += 1
+    return player
+
+
+def mpv_player_start(cmd, start_sec=None, sub_file=None, media_title=None, get_stop_sec=True):
     is_darwin = True if platform.system() == 'Darwin' else False
     is_iina = True if 'iina-cli' in cmd[0] else False
     _t = str(time.time())
     pipe_name = 'embyToMpv' + chr(98 + int(_t[-1])) + chr(98 + int(_t[-2]))
-    # pipe_name = 'embyToMpv'
     cmd_pipe = fr'\\.\pipe\{pipe_name}' if os.name == 'nt' else f'/tmp/{pipe_name}.pipe'
     pipe_name = pipe_name if os.name == 'nt' else cmd_pipe
-    # cmd.append(f'--http-proxy=http://127.0.0.1:7890')
-    if sub_file:
-        cmd.append(f'--sub-file={sub_file}')
+    # if sub_file:
+    #     if is_iina:
+    #         # https://github.com/iina/iina/issues/1991
+    #         pass
+    #     # 全局 sub_file 会影响播放列表下一集
+    #     # cmd.append(f'--sub-file={sub_file}')
     if media_title:
         cmd.append(f'--force-media-title={media_title}')
         cmd.append(f'--osd-playing-msg={media_title}')
-    else:
+    elif not is_iina:
+        # iina 读盘模式下 media-title 会影响下一集
+        cmd.append(f'--force-media-title={os.path.basename(cmd[1])}')
         cmd.append('--osd-playing-msg=${path}')
     if start_sec is not None:
-        cmd.append(f'--start={start_sec}')
+        if is_iina and not media_title:
+            # iina 读盘模式下 start_sec 会影响下一集
+            pass
+        else:
+            cmd.append(f'--start={start_sec}')
     if is_darwin:
         cmd.append('--focus-on-open')
     cmd.append(fr'--input-ipc-server={cmd_pipe}')
-    # cmd.append('--fullscreen')
+    if configs.fullscreen:
+        cmd.append('--fullscreen=yes')
     if configs.disable_audio:
         cmd.append('--no-audio')
         # cmd.append('--no-video')
     cmd = ['--mpv-' + i.replace('--', '', 1) if is_darwin and is_iina and i.startswith('--') else i for i in cmd]
     logger.info(cmd)
     player = subprocess.Popen(cmd)
-    activate_window_by_pid(player.pid)
+    activate_window_by_pid(player.pid, sleep=0)
+
+    mpv = init_player_instance(MPV, start_mpv=False, ipc_socket=pipe_name)
+    if sub_file and not is_iina:
+        _cmd = ['sub-add', sub_file]
+        mpv.command(*_cmd)
 
     if not get_stop_sec:
         return
 
-    init_times = 0
-    mpv = None
-    while init_times <= 3:
-        try:
-            time.sleep(1)
-            mpv = MPV(start_mpv=False, ipc_socket=pipe_name)
-            break
-        except Exception as e:
-            init_times += 1
-            logger.error(f'{str(e)[:40]} {init_times=}')
+    mpv.is_iina = is_iina
+    return dict(mpv=mpv)
 
+
+def playlist_add_mpv(mpv: MPV, data, limit=10):
+    playlist_data = {}
+    if not mpv:
+        logger.error('mpv not found skip playlist_add_mpv')
+        return
+    episodes = list_episodes(data)
+    append = False
+    for ep in episodes:
+        basename = ep['basename']
+        playlist_data[basename] = ep
+        if basename == data['basename']:
+            append = True
+            continue
+        limit -= 1
+        # iina 添加不上
+        if not append or limit <= 0 or getattr(mpv, 'is_iina'):
+            continue
+        sub_file = ep['sub_file'] or ''
+        mpv.command(
+            'loadfile', ep['media_path'], 'append',
+            f'title={basename},force-media-title={basename},osd-playing-msg={basename}'
+            f',start=0,sub-file={sub_file}')
+    return playlist_data
+
+
+def stop_sec_mpv(*_, mpv, stop_sec_only=True):
+    if not mpv:
+        logger.error('mpv not found, skip stop_sec_mpv')
+        return None if stop_sec_only else {}
     stop_sec = None
+    name_stop_sec_dict = {}
     while True:
         try:
+            basename = mpv.command('get_property', 'media-title')
             tmp_sec = mpv.command('get_property', 'time-pos')
             if not tmp_sec:
                 print('.', end='')
             else:
                 stop_sec = tmp_sec
+                if not stop_sec_only:
+                    name_stop_sec_dict[basename] = tmp_sec
             time.sleep(0.5)
         except Exception:
-            break
-    return check_stop_sec(start_sec, stop_sec)
+            logger.info(f'mpv exit, return stop sec')
+            return stop_sec if stop_sec_only else name_stop_sec_dict
 
 
-def start_mpc_player(cmd, start_sec=None, sub_file=None, media_title=None, get_stop_sec=True):
+def vlc_player_start(cmd: list, start_sec=None, sub_file=None, media_title=None, get_stop_sec=True):
+    is_nt = True if os.name == 'nt' else False
+    # file_is_http = bool(media_title)
+    api_port = '58010'
+    if not media_title:
+        cmd[1] = f'file:///{cmd[1]}'
+        # base_name = os.path.basename(cmd[1])
+        # media_title = base_name
+    cmd = [cmd[0], '-I', 'qt', '--extraintf', 'http', '--http-host', '127.0.0.1',
+           '--http-port', api_port, '--http-password', 'embyToLocalPlayer',
+           '--one-instance', '--playlist-enqueue',
+           # '--extraintf', 'rc', '--rc-quiet', '--rc-host', f'127.0.0.1:{api_port}'
+           ] + cmd[1:]
+    if not is_nt:
+        cmd.remove('--one-instance')
+        cmd.remove('--playlist-enqueue')
     if sub_file:
-        # '/dub "伴音名"	载入额外的音频文件'
+        srt = save_sub_file(url=sub_file)
+        cmd.append(f':sub-file={srt}')  # vlc不支持http字幕
+    if start_sec is not None:
+        cmd += [f':start-time={start_sec}']
+
+    # -- 开头是全局选项，会覆盖下一集标题，换成 : 却不生效，原因未知。故放弃添加标题。
+    # cmd.append(f':input-title-format={media_title}')
+    # cmd.append(f':video-title={media_title}')
+
+    cmd += ['--play-and-exit']
+    if configs.fullscreen:
+        cmd.append('--fullscreen')
+    cmd = cmd if is_nt else [i for i in cmd if i not in ('-I', 'qt', '--rc-quiet')]
+    logger.info(cmd)
+    player = subprocess.Popen(cmd)
+    activate_window_by_pid(player.pid)
+    if not get_stop_sec:
+        return
+
+    vlc = init_player_instance(VLCHttpApi, port=api_port, passwd='embyToLocalPlayer', exe=cmd[0])
+    return dict(vlc=vlc)
+
+
+class VLCHttpApi:
+    def __init__(self, port, passwd, exe=None):
+        passwd = f':{passwd}'
+        self.exe = exe
+        self.url = f'http://127.0.0.1:{port}/requests/'
+        self.headers = dict(Authorization=f'Basic {base64.b64encode(passwd.encode("ascii")).decode()}', )
+        _test = self.get_status()['version']
+
+    def get(self, path='', params=None):
+        params = '?' + '&'.join(f'{k}={v}' for k, v in params.items()) if params else ''
+        host = f'{self.url}{path}.json' + params
+        return requests_urllib(host=host, headers=self.headers, get_json=True, timeout=0.5)
+
+    def get_status(self):
+        return self.get('status')
+
+    def command(self, cmd: str, **params):
+        _params = dict(command=cmd)
+        _params.update(params)
+        return self.get(path='status', params=_params)
+
+    def playlist_add(self, path):
+        return self.command('in_enqueue', input=path)
+
+
+def playlist_add_vlc(vlc: VLCHttpApi, data, limit=10):
+    playlist_data = {}
+    if not vlc:
+        logger.error('vlc not found skip playlist_add')
+        return
+    episodes = list_episodes(data)
+    append = False
+    data_path = translate_path_by_ini(data['media_path'])
+    mount_disk_mode = data['mount_disk_mode']
+    for ep in episodes:
+        media_path = ep['media_path']
+        key = os.path.basename(media_path)
+        playlist_data[key] = ep
+        # stream.mkv...
+        if key in data_path:
+            append = True
+            continue
+        limit -= 1
+        if not append or limit <= 0:
+            continue
+        sub_file = ep['sub_file']
+        if mount_disk_mode or not sub_file:
+            add_path = urllib.parse.quote(media_path)
+            vlc.playlist_add(path=add_path)
+        # api 貌似不能添加字幕
+        else:
+            if os.name != 'nt':
+                # 非 nt 的 vlc 经常不支持 '--one-instance', '--playlist-enqueue'
+                add_path = urllib.parse.quote(media_path)
+                vlc.playlist_add(path=add_path)
+                continue
+            sub_ext = sub_file.rsplit('.', 1)[-1]
+            sub_file = save_sub_file(sub_file, f'{os.path.splitext(ep["basename"])[0]}.{sub_ext}')
+            cmd = [vlc.exe, media_path,
+                   '--one-instance', '--playlist-enqueue',
+                   f':sub-file={sub_file}']
+            subprocess.run(cmd)
+        # media_title = os.path.basename(ep['file_path']) # 找不到方法添加标题，命令行，api
+    return playlist_data
+
+
+def stop_sec_vlc(*_, vlc: VLCHttpApi, stop_sec_only=True):
+    if not vlc:
+        logger.error('vlc not found skip stop_sec_vlc')
+        return None if stop_sec_only else {}
+    stop_sec = None
+    name_stop_sec_dict = {}
+    # rc interface 的 get_tile 会受到视频文件内置的标题影响。若采用 get_length 作为 id，动漫可能无法正常使用,故放弃，
+    # 而 http api 的话，又不能设置标题
+    while True:
+        try:
+            stat = vlc.get_status()
+            tmp_sec = stat['time']
+            file_name = stat['information']['category']['meta']['filename']
+            if tmp_sec:
+                stop_sec = tmp_sec
+                if not stop_sec_only:
+                    name_stop_sec_dict[os.path.basename(file_name)] = stop_sec
+                time.sleep(0.3)
+        except Exception:
+            logger.info('stop', stop_sec)
+            return stop_sec if stop_sec_only else name_stop_sec_dict
+        time.sleep(0.2)
+
+
+def mpc_player_start(cmd, start_sec=None, sub_file=None, media_title=None, get_stop_sec=True):
+    port = '53579'
+    if sub_file:
         cmd += ['/sub', f'"{sub_file}"']
     if start_sec is not None:
         cmd += ['/start', f'"{int(start_sec * 1000)}"']
     if media_title:
         pass
     cmd[1] = f'"{cmd[1]}"'
-    cmd += ['/fullscreen', '/play', '/close']
+    if configs.fullscreen:
+        cmd.append('/fullscreen')
+    cmd += ['/play', '/close']
+    cmd += ['/webport', port]
     logger.info(cmd)
     player = subprocess.Popen(cmd)
     activate_window_by_pid(player.pid)
     if not get_stop_sec:
         return
 
-    stop_sec = stop_sec_mpc()
-    return check_stop_sec(start_sec, stop_sec)
+    mpc = init_player_instance(MPCHttpApi, port=port)
+    return dict(mpc=mpc, mpc_path=cmd[0])
 
 
-def start_vlc_player(cmd: list, start_sec=None, sub_file=None, media_title=None, get_stop_sec=True):
-    is_nt = True if os.name == 'nt' else False
-    # '--sub-file=<字符串> --input-title-format=<字符串>'
-    cmd = [cmd[0], '-I', 'qt', '--extraintf', 'rc', '--rc-quiet',
-           '--rc-host', '127.0.0.1:58010', ] + cmd[1:]
-    if sub_file:
-        pass
-        # cmd.append(f'--sub-file={sub_file}')  # vlc不支持http字幕
-    if start_sec is not None:
-        cmd += ['--start-time', str(start_sec)]
-    if media_title:
-        pass
-    cmd += ['--fullscreen', 'vlc://quit']
-    cmd = cmd if is_nt else [i for i in cmd if i not in ('-I', 'qt', '--rc-quiet')]
-    if configs.disable_audio:
-        cmd.append('--no-audio')
-    logger.info(cmd)
-    player = subprocess.Popen(cmd)
-    activate_window_by_pid(player.pid)
-    if not get_stop_sec:
+class MPCHTMLParser(HTMLParser):
+    id_value_dict = {}
+    _id = None
+
+    def handle_starttag(self, tag: str, attrs: list):
+        if attrs and attrs[0][0] == 'id':
+            self._id = attrs[0][1]
+
+    def handle_data(self, data):
+        if self._id is not None:
+            data = int(data) if data.isdigit() else data.strip()
+            self.id_value_dict[self._id] = data
+            self._id = None
+
+
+class MPCHttpApi:
+    def __init__(self, port):
+        self.url = f'http://localhost:{port}/variables.html'
+        self.parser = MPCHTMLParser()
+        _test = self.get('version')
+
+    def get(self, key, timeout=0.5, return_list=False):
+        # key: str -> value
+        # key: iterable object -> value dict
+        context = requests_urllib(self.url, decode=True, timeout=timeout)
+        self.parser.feed(context)
+        data = self.parser.id_value_dict
+        if isinstance(key, str):
+            return data[key]
+        elif return_list:
+            return [data[k] for k in key]
+        else:
+            return {k: data[k] for k in key}
+
+
+def playlist_add_mpc(mpc_path, data, limit=10, **_):
+    playlist_data = {}
+    if not mpc_path:
+        logger.error('mpc_path not found skip playlist_add_mpv')
         return
+    episodes = list_episodes(data)
+    append = False
+    eps_list = []
+    for ep in episodes:
+        basename = ep['basename']
+        playlist_data[basename] = ep
+        if basename == data['basename']:
+            append = True
+            continue
+        limit -= 1
+        if not append or limit <= 0:
+            continue
+        sub_file = ep['sub_file']
+        add_list = ['/add', ep['media_path'], '/sub', f'"{sub_file}"'] if sub_file else ['/add', ep['media_path']]
+        eps_list += add_list
+    if eps_list:
+        # cmd = [mpc_path, '/add', *eps_list]
+        cmd = [mpc_path, *eps_list]
+        subprocess.run(cmd)
+    return playlist_data
 
-    stop_sec = stop_sec_vlc()
-    return check_stop_sec(start_sec, stop_sec)
+
+def stop_sec_mpc(mpc: MPCHttpApi, stop_sec_only=True, **_):
+    if not mpc:
+        logger.error('mpc not found skip stop_sec_mpc')
+        return None if stop_sec_only else {}
+    stop_sec = None
+    stop_stack = [None, None]
+    path_stack = [None, None]
+    name_stop_sec_dict = {}
+    while True:
+        try:
+            state, position, media_path = mpc.get(['state', 'position', 'filepath'], return_list=True)
+            position = position // 1000
+            stop_sec = position if state != '-1' else stop_sec
+            stop = stop_stack.pop(0)
+            stop_stack.append(stop_sec)
+            path = path_stack.pop(0)
+            path_stack.append(media_path)
+            if not stop_sec_only:
+                name_stop_sec_dict.update({path: stop})
+        except Exception:
+            logger.info('final stop', stop_stack[-2], stop_stack)
+            # 播放器关闭时，webui 可能返回 0
+            name_stop_sec_dict = {k: v for k, v in name_stop_sec_dict.items() if k is not None}
+            return stop_stack[-2] if stop_sec_only else name_stop_sec_dict
+        time.sleep(0.5)
 
 
-def start_potplayer(cmd: list, start_sec=None, sub_file=None, media_title=None, get_stop_sec=True):
+def pot_player_start(cmd: list, start_sec=None, sub_file=None, media_title=None, get_stop_sec=True):
     if sub_file:
         cmd.append(f'/sub={sub_file}')
     if start_sec is not None:
@@ -135,12 +524,75 @@ def start_potplayer(cmd: list, start_sec=None, sub_file=None, media_title=None, 
     if not get_stop_sec:
         return
 
-    from utils.windows_tool import get_potplayer_stop_sec
-    stop_sec = get_potplayer_stop_sec(player.pid)
-    return check_stop_sec(start_sec, stop_sec)
+    return dict(pot_pid=player.pid, pot_path=cmd[0])
 
 
-def start_dandan_player(cmd: list, start_sec=None, sub_file=None, media_title=None, get_stop_sec=True):
+def playlist_add_pot(pot_path, data, limit=5, **_):
+    playlist_data = {}
+    if not pot_path:
+        logger.error('pot_path not found skip playlist_add_mpv')
+        return
+    episodes = list_episodes(data)
+    append = False
+    mount_disk_mode = data['mount_disk_mode']
+    for ep in episodes:
+        basename = ep['basename']
+        playlist_data[basename] = ep
+        if basename == data['basename']:
+            append = True
+            continue
+        limit -= 1
+        if not append or mount_disk_mode or limit <= 0:
+            continue
+        # f'/sub={ep["sub_file"]}' pot 下一集会丢失字幕
+        # /add /title 不能复用，会丢失 /title
+        subprocess.run([pot_path, '/add', ep['media_path'], f'/title={basename}', ])
+    return playlist_data
+
+
+def stop_sec_pot(pot_pid, stop_sec_only=True, **_):
+    if not pot_pid:
+        logger.error('pot pid not found skip stop_sec_mpc')
+        return None if stop_sec_only else {}
+    import ctypes
+    from utils.windows_tool import user32, EnumWindowsProc, process_is_running_by_pid
+
+    def potplayer_time_title_updater(_pid):
+        def send_message(hwnd):
+            nonlocal stop_sec, name_stop_sec_dict
+            target_pid = ctypes.c_ulong()
+            user32.GetWindowThreadProcessId(hwnd, ctypes.byref(target_pid))
+            if _pid == target_pid.value:
+                message = user32.SendMessageW(hwnd, 0x400, 0x5004, 1)
+                if message:
+                    stop_sec = message // 1000
+
+                    length = user32.GetWindowTextLengthW(hwnd)
+                    buff = ctypes.create_unicode_buffer(length + 1)
+                    user32.GetWindowTextW(hwnd, buff, length + 1)
+                    title = buff.value.replace(' - PotPlayer', '')
+                    name_stop_sec_dict[title] = stop_sec
+
+        def for_each_window(hwnd, _):
+            send_message(hwnd)
+            return True
+
+        proc = EnumWindowsProc(for_each_window)
+        user32.EnumWindows(proc, 0)
+
+    stop_sec = None
+    name_stop_sec_dict = {}
+    while True:
+        if not process_is_running_by_pid(pot_pid):
+            logger.debug('pot not running')
+            break
+        potplayer_time_title_updater(pot_pid)
+        logger.debug(f'pot {stop_sec=}')
+        time.sleep(0.3)
+    return stop_sec if stop_sec_only else name_stop_sec_dict
+
+
+def dandan_player_start(cmd: list, start_sec=None, sub_file=None, media_title=None, get_stop_sec=True):
     if sub_file:
         pass
     if media_title:
@@ -162,75 +614,10 @@ def start_dandan_player(cmd: list, start_sec=None, sub_file=None, media_title=No
     if not get_stop_sec:
         return
 
-    stop_sec = stop_sec_dandan(start_sec=start_sec, is_http=is_http)
-    return check_stop_sec(start_sec, stop_sec)
+    return dict(start_sec=start_sec, is_http=is_http)
 
 
-class MpcHTMLParser(HTMLParser):
-    id_value_dict = {}
-    _id = None
-
-    def handle_starttag(self, tag: str, attrs: list):
-        if attrs and attrs[0][0] == 'id':
-            self._id = attrs[0][1]
-
-    def handle_data(self, data):
-        if self._id is not None:
-            data = int(data) if data.isdigit() else data.strip()
-            self.id_value_dict[self._id] = data
-            self._id = None
-
-
-def stop_sec_mpc():
-    url = 'http://localhost:13579/variables.html'
-    parser = MpcHTMLParser()
-    stop_sec = None
-    stack = [None, None]
-    first_time = True
-    while True:
-        try:
-            time_out = 2 if first_time else 0.2
-            first_time = False
-            context = requests_urllib(url, decode=True, timeout=time_out)
-            parser.feed(context)
-            data = parser.id_value_dict
-            position = data['position'] // 1000
-            stop_sec = position if data['state'] != '-1' else stop_sec
-            stack.pop(0)
-            stack.append(stop_sec)
-        except Exception:
-            logger.info('final stop', stack[-2], stack)
-            # 播放器关闭时，webui 可能返回 0
-            return stack[-2]
-        time.sleep(0.3)
-
-
-def stop_sec_vlc():
-    time.sleep(1)
-    stop_sec = None
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-        sock.settimeout(0.5)
-        try:
-            sock.connect(('127.0.0.1', 58010))
-            while True:
-                try:
-                    sock.sendall(bytes('get_time' + '\n', "utf-8"))
-                    received = sock.recv(1024).decode().replace('>', '').strip()
-                    # print('<-', received, '->')
-                    if len(received.splitlines()) == 1 and received.isnumeric():
-                        stop_sec = received
-                        time.sleep(0.3)
-                except Exception:
-                    logger.info('stop', stop_sec)
-                    sock.close()
-                    return stop_sec
-                time.sleep(0.1)
-        except Exception:
-            logger.info('vlc crashed', stop_sec)
-            return stop_sec
-
-
-def stop_sec_dandan(start_sec=None, is_http=None):
+def stop_sec_dandan(*_, start_sec=None, is_http=None):
     config = configs.raw
     dandan = config['dandan']
     api_key = dandan['api_key']
@@ -281,9 +668,15 @@ def stop_sec_dandan(start_sec=None, is_http=None):
     return stop_sec
 
 
-player_function_dict = dict(mpv=start_mpv_player,
-                            iina=start_mpv_player,
-                            mpc=start_mpc_player,
-                            vlc=start_vlc_player,
-                            potplayer=start_potplayer,
-                            dandanplay=start_dandan_player)
+player_function_dict = dict(mpv=mpv_player_start,
+                            iina=mpv_player_start,
+                            mpc=mpc_player_start,
+                            vlc=vlc_player_start,
+                            potplayer=pot_player_start,
+                            dandanplay=dandan_player_start)
+stop_sec_function_dict = dict(mpv=stop_sec_mpv,
+                              iina=stop_sec_mpv,
+                              mpc=stop_sec_mpc,
+                              vlc=stop_sec_vlc,
+                              potplayer=stop_sec_pot,
+                              dandanplay=stop_sec_dandan)

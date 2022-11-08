@@ -41,6 +41,7 @@ class Configs:
         self.path = [i for i in self.path if os.path.exists(i)][0]
         print(f'ini path: {self.path}')
         self.raw: ConfigParser = self.update()
+        self.fullscreen = self.raw.getboolean('emby', 'fullscreen', fallback=False)
         self.speed_limit = self.raw.getfloat('dev', 'speed_limit', fallback=0)
         self.debug_mode = self.raw.getboolean('dev', 'debug', fallback=False)
         self.disable_audio = self.raw.getboolean('dev', 'disable_audio', fallback=False)  # test in vm
@@ -60,12 +61,18 @@ class Configs:
         self.raw = config
         return config
 
-    def disable_gui_by_netloc(self, netloc):
-        ini_url = self.raw.get('gui', 'except_host', fallback='').replace('，', ',')
-        loc_list = [i.strip() for i in ini_url.split(',') if i]
-        if loc_list and any([i for i in loc_list if i in netloc]):
-            print(f'skip launch gui. {netloc=} {loc_list=}')
-            return True
+    def check_str_match(self, _str, section, option, return_value=False, log=True):
+        ini_list = self.raw.get(section, option, fallback='').replace('，', ',')
+        ini_list = [i.strip() for i in ini_list.split(',') if i]
+        match_list = [i for i in ini_list if i in _str]
+        if ini_list and any(match_list):
+            result = match_list[0] if return_value else True
+        else:
+            result = False
+        _log = {True: "match", False: "not match"}[bool(result)]
+        if log:
+            print(f'{_str} {_log}: {section}[{option}] {ini_list}')
+        return result
 
 
 configs = Configs()
