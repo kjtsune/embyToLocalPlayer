@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         embyErrorWindows
-// @namespace    http://tampermonkey.net/
+// @namespace    https://github.com/kjtsune/embyToLocalPlayer
 // @version      0.1.4
 // @description  自动关闭 Emby 播放错误 没有兼容的流的窗口提示。
 // @description:zh-CN 自动关闭 Emby 播放错误 没有兼容的流的窗口提示。
