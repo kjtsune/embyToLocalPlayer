@@ -21,7 +21,7 @@ class _RequestHandler(BaseHTTPRequestHandler):
         self.wfile.write(json.dumps({'success': True}).encode('utf-8'))
         configs.update()
         if 'ToLocalPlayer' in self.path:
-            data = parse_received_data_emby(data) if self.path.startswith('emby') else parse_received_data_emby(data)
+            data = parse_received_data_emby(data) if self.path.startswith('/emby') else parse_received_data_plex(data)
             update_server_playback_progress(stop_sec=data['start_sec'], data=data)
             if configs.check_str_match(_str=data['netloc'], section='gui', option='except_host'):
                 threading.Thread(target=start_play, args=(data,), daemon=True).start()
