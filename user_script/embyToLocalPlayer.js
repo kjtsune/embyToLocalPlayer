@@ -19,9 +19,6 @@
 // ==/UserScript==
 'use strict';
 /*
-* **如何更新**：  
-  将 `_config.ini` 重命名为 `.ini`，其他全删除。再次 github 下载解压当前文件夹。（`.ini` 优先于 `_config.ini`  ）  
-
 2022-11-08:
 1. 增加播放列表功能，仅限 Emby，详见 FAQ
 2. 增加是否自动全屏
@@ -34,36 +31,29 @@
 2022-10-26:
 1. 可选是否回传播放记录。
 2. 修复 1.1.0 版本原版 mpv 意外卡死。
-
-2022-10-24:
-1. 增加持久性缓存（边下边播）详见 FAQ。
-2. 附带下载功能及下载管理。
-3. 改为多线程运行。
-
-2022-10-15:
-1. Windows：`_debug.bat` 增加一键后台自启，减少 ahk 依赖。  
-2. 不再将内置字幕转为外挂字幕。正常播放器都可以设置字幕语言优先顺序。
-3. 修复 emby 4.7.8 播放时时间被重置。
-
-2022-10-06:
-1. 增加 macOS 支持。mpv VLC。
-2. 增加 IINA 支持。
-3. 修复 Linux VLC 播放时间获取。
-
-2022-09-27:
-1. 增加 弹弹play 支持。（动漫弹幕播放器）
-2. 增加 网络模式 与 读盘模式 混合功能。
-
-2022-09-24:
-1. 增加 Plex 支持。
-2. _debug.ahk 可创建开机启动项
-
-2022-09-21:
-1. 增加 PotPlayer 回传进度支持。
-2. 增加 VLC 回传进度支持。
-3. 修复首次启动时系统编码判断问题。
-4. 修复 `.ini` 被记事本修改后可能编码错误。
 */
+
+async function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function removeErrorWindows(){
+    let okButtonList = document.querySelectorAll('button[data-id="ok"]');
+    for (let index = 0; index < okButtonList.length; index++) {
+        const element = okButtonList[index];
+        // console.log('%c%o%s', "color:orange;", 'textContent ', element.textContent)
+        if (element.textContent.search(/(了解|好的|知道|Got It)/) != -1) {
+            element.click();
+        }
+    }
+
+    let jellyfinSpinner = document.querySelector('div.docspinner');
+    if (jellyfinSpinner) { jellyfinSpinner.remove() };
+
+    // let plexPlayerError = document.querySelector('div[class^="PlayerErrorModal-modalHeader"]');
+    // let plexErrorWindow = document.querySelector('div[class^="Modal-modalContainer"]');
+    // if (plexPlayerError && plexErrorWindow) { location.reload() };
+}
 
 function switchLocalStorage(key, defaultValue = 'true', trueValue = 'true', falseValue = 'false') {
     if (key in localStorage) {
@@ -101,15 +91,6 @@ unsafeWindow.fetch = async (url, request) => {
     }
 }
 
-async function getItemInfo(playbackUrl, request) {
-    let response = await fetch(playbackUrl, request);
-    if (response.ok) {
-        return await response.json();
-    } else {
-        throw new Error(response.statusText);
-    }
-}
-
 async function embyToLocalPlayer(playbackUrl, request, response) {
     let data = {
         playbackData: response,
@@ -119,6 +100,8 @@ async function embyToLocalPlayer(playbackUrl, request, response) {
 
     };
     sendDataToLocalServer(data, 'embyToLocalPlayer');
+    await sleep(100);
+    removeErrorWindows();
 }
 
 function sendDataToLocalServer(data, path) {
