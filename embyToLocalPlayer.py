@@ -113,7 +113,7 @@ if __name__ == '__main__':
     dl_manager = DownloadManager(configs.cache_path, speed_limit=configs.speed_limit)
     player_is_running = False
     if configs.raw.getboolean('dev', 'kill_process_at_start', fallback=True):
-        kill_multi_process(name_re=f'(embyToLocalPlayer.py.py|autohotkey_tool|' +
+        kill_multi_process(name_re=f'(embyToLocalPlayer.py|autohotkey_tool|' +
                                    r'mpv.*exe|mpc-.*exe|vlc.exe|PotPlayer.*exe|dandanplay.exe|' +
                                    r'/IINA|/VLC|/mpv)',
                            not_re='(screen|tmux|greasyfork|github)')
