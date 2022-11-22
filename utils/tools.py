@@ -344,7 +344,8 @@ def parse_received_data_emby(received_data):
         media_source_id = media_source_info['Id']
     file_path = media_source_info['Path']
     # stream_url = f'{scheme}://{netloc}{media_source_info["DirectStreamUrl"]}'
-    stream_url = f'{scheme}://{netloc}/videos/{item_id}/stream.{media_source_info["Container"]}' \
+    container = os.path.splitext(file_path)[-1]
+    stream_url = f'{scheme}://{netloc}/videos/{item_id}/stream{container}' \
                  f'?MediaSourceId={media_source_id}&Static=true&api_key={api_key}'
     # 避免将内置字幕转为外挂字幕，内置字幕选择由播放器决定
     sub_index = sub_index if sub_index < 0 or media_source_info['MediaStreams'][sub_index]['IsExternal'] else -1
