@@ -95,6 +95,7 @@ def list_episodes(data: dict):
 
     params = {'X-Emby-Token': api_key, }
     headers = {'accept': 'application/json', }
+    headers.update(data['headers'])
 
     response = requests_urllib(f'{scheme}://{netloc}/emby/Users/{user_id}/Items/{data["item_id"]}',
                                params=params, headers=headers, get_json=True)
@@ -105,14 +106,18 @@ def list_episodes(data: dict):
     series_id = response['SeriesId']
 
     def parse_item(item):
-        media_source_info = item['MediaSources'][0]
+        try:
+            media_source_info = item['MediaSources'][0]
+        except Exception:
+            media_source_info = item
         name = item['Name']
         file_path = media_source_info.get('Path')
         if not file_path:
             return None
         fake_name = os.path.splitdrive(file_path)[1].replace('/', '__').replace('\\', '__')
         item_id = item['Id']
-        stream_url = f'{scheme}://{netloc}/videos/{item_id}/stream.{media_source_info["Container"]}' \
+        container = os.path.splitext(file_path)[-1]
+        stream_url = f'{scheme}://{netloc}/videos/{item_id}/stream{container}' \
                      f'?MediaSourceId={media_source_info["Id"]}&Static=true&api_key={api_key}'
         media_path = translate_path_by_ini(file_path) if mount_disk_mode else stream_url
         basename = os.path.basename(file_path)
@@ -333,7 +338,7 @@ class VLCHttpApi:
         return self.command('in_enqueue', input=path)
 
 
-def playlist_add_vlc(vlc: VLCHttpApi, data, limit=10):
+def playlist_add_vlc(vlc: VLCHttpApi, data, limit=5):
     playlist_data = {}
     if not vlc:
         logger.error('vlc not found skip playlist_add')
@@ -342,6 +347,7 @@ def playlist_add_vlc(vlc: VLCHttpApi, data, limit=10):
     append = False
     data_path = translate_path_by_ini(data['media_path'])
     mount_disk_mode = data['mount_disk_mode']
+    limit = 10 if limit == 5 and mount_disk_mode else limit
     for ep in episodes:
         media_path = ep['media_path']
         key = os.path.basename(media_path)
@@ -456,7 +462,7 @@ class MPCHttpApi:
             return {k: data[k] for k in key}
 
 
-def playlist_add_mpc(mpc_path, data, limit=10, **_):
+def playlist_add_mpc(mpc_path, data, limit=5, **_):
     playlist_data = {}
     if not mpc_path:
         logger.error('mpc_path not found skip playlist_add_mpv')
@@ -464,6 +470,8 @@ def playlist_add_mpc(mpc_path, data, limit=10, **_):
     episodes = list_episodes(data)
     append = False
     eps_list = []
+    mount_disk_mode = data['mount_disk_mode']
+    limit = 10 if limit == 5 and mount_disk_mode else limit
     for ep in episodes:
         basename = ep['basename']
         playlist_data[basename] = ep
@@ -475,9 +483,13 @@ def playlist_add_mpc(mpc_path, data, limit=10, **_):
             continue
         sub_file = ep['sub_file']
         add_list = ['/add', ep['media_path'], '/sub', f'"{sub_file}"'] if sub_file else ['/add', ep['media_path']]
-        eps_list += add_list
+        if mount_disk_mode:
+            eps_list += add_list
+        else:
+            # 若一次性添加会导致字幕有问题
+            cmd = [mpc_path, *add_list]
+            subprocess.run(cmd)
     if eps_list:
-        # cmd = [mpc_path, '/add', *eps_list]
         cmd = [mpc_path, *eps_list]
         subprocess.run(cmd)
     return playlist_data
