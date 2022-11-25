@@ -12,10 +12,10 @@ logger = MyLogger()
 
 
 class Downloader:
-    def __init__(self, url, _id, size=None, cache_path=None):
+    def __init__(self, url, _id, size=None, cache_path=None, save_path=None):
         self._id = _id
         self.url = url
-        self.file = os.path.join(cache_path, _id)
+        self.file = save_path or os.path.join(cache_path, _id)
         self.file_is_busy = False
         self.download_only = False
         self.cancel = False
@@ -23,7 +23,8 @@ class Downloader:
         self.size = size or self.get_size()
         self.chunk_size = 1024 * 1024
         self.progress = 0
-        os.path.exists(cache_path) or os.mkdir(cache_path)
+        if not save_path:
+            os.path.exists(cache_path) or os.mkdir(cache_path)
 
     def get_size(self):
         response = urlopen(self.url)

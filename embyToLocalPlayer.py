@@ -37,7 +37,7 @@ class _RequestHandler(BaseHTTPRequestHandler):
             'resume_or_pause': threading.Thread(target=dl_manager.resume_or_pause, args=(data,)),
         }
         [setattr(t, 'daemon', True) for t in thread_dict.values()]
-        if self.path in ('/gui', '/dl'):
+        if self.path in ('/gui', '/dl', '/pl'):
             gui_cmd = data['gui_cmd']
             logger.info(self.path, gui_cmd)
             thread_dict[gui_cmd].start()
@@ -116,7 +116,7 @@ if __name__ == '__main__':
         kill_multi_process(name_re=f'(embyToLocalPlayer.py|autohotkey_tool|' +
                                    r'mpv.*exe|mpc-.*exe|vlc.exe|PotPlayer.*exe|dandanplay.exe|' +
                                    r'/IINA|/VLC|/mpv)',
-                           not_re='(screen|tmux|greasyfork|github)')
+                           not_re='(tmux|greasyfork|github)')
     logger = MyLogger()
     logger.info(__file__)
     clean_tmp_dir()

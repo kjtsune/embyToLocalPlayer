@@ -1,25 +1,27 @@
 import base64
 import json
 import os.path
-import os.path
 import platform
 import signal
 import subprocess
+import threading
 import time
 import urllib.parse
 import urllib.request
 from html.parser import HTMLParser
 
 from utils.configs import configs, MyLogger
+from utils.downloader import Downloader
 from utils.python_mpv_jsonipc import MPV
 from utils.tools import activate_window_by_pid, requests_urllib, update_server_playback_progress, \
     translate_path_by_ini
 
 logger = MyLogger()
+prefetch_data = dict(on=True, running=False, stop_sec_dict={}, done_list=[], playlist_data={})
 
 
 # *_player_start 返回获取播放时间等操作所需参数字典
-# top_sec_* 接收字典参数
+# stop_sec_* 接收字典参数
 # media_title is None 可以用来判断是不是 mount_disk_mode
 
 def save_sub_file(url, name='tmp_sub.srt'):
@@ -58,6 +60,56 @@ class PlayerManager:
             self.player_kwargs['limit'] = limit
         self.playlist_data = playlist_fun[self.player_name](data=data, **self.player_kwargs)
 
+        prefetch_data['playlist_data'] = self.playlist_data
+        threading.Thread(target=self.prefetch_loop, daemon=True).start()
+
+    @staticmethod
+    def prefetch_loop():
+        prefetch_percent = configs.raw.getfloat('playlist', 'prefetch_percent', fallback=100)
+        prefetch_type = configs.raw.get('playlist', 'prefetch_type', fallback='null')
+        if prefetch_data['running'] or prefetch_percent == 100:
+            return
+        playlist_data = prefetch_data['playlist_data']
+        if len(playlist_data) == 1:
+            return
+        prefetch_data['running'] = True
+        prefetch_data['on'] = True
+        stop_sec_dict = prefetch_data['stop_sec_dict']
+        done_list = prefetch_data['done_list']
+        prefetch_tuple = configs.raw.get('playlist', 'prefetch_path', fallback='').replace('，', ',')
+        prefetch_tuple = tuple(p.strip() for p in prefetch_tuple.split(',') if p.strip())
+        while prefetch_data['on']:
+            for key, stop_sec in stop_sec_dict.items():
+                if key in done_list:
+                    continue
+                ep = playlist_data[key]
+                if prefetch_tuple and not ep['file_path'].startswith(prefetch_tuple):
+                    logger.info(f'{ep["file_path"]} not startswith {prefetch_tuple=} skip prefetch')
+                    prefetch_data['running'] = False
+                    return
+                total_sec = ep['total_sec']
+                position = stop_sec / total_sec
+                if position * 100 <= prefetch_percent:
+                    continue
+                next_ep = [e for e in playlist_data.values() if e['index'] == ep['index'] + 1]
+                if not next_ep:
+                    break
+                ep = next_ep[0]
+                if prefetch_type == 'sequence':
+                    ep['gui_cmd'] = 'download_only'
+                    requests_urllib('http://127.0.0.1:58000/pl', _json=ep)
+                elif prefetch_type == 'first_last':
+                    ep['gui_cmd'] = 'download_not_play'
+                    requests_urllib('http://127.0.0.1:58000/pl', _json=ep)
+                else:
+                    null_file = 'NUL' if os.name == 'nt' else '/dev/null'
+                    dl = Downloader(ep['stream_url'], ep['basename'], save_path=null_file)
+                    threading.Thread(target=dl.percent_download, args=(0, 0.02), daemon=True).start()
+                    threading.Thread(target=dl.percent_download, args=(0.98, 1), daemon=True).start()
+                done_list.append(key)
+            time.sleep(5)
+        prefetch_data['running'] = False
+
     def update_playlist_time_loop(self):
         stop_sec_fun = dict(mpv=stop_sec_mpv,
                             iina=stop_sec_mpv,
@@ -65,21 +117,15 @@ class PlayerManager:
                             vlc=stop_sec_vlc,
                             potplayer=stop_sec_pot, )
         self.playlist_time = stop_sec_fun[self.player_name](stop_sec_only=False, **self.player_kwargs)
+        prefetch_data['on'] = False
+        prefetch_data['stop_sec_dict'].clear()
 
     def update_playback_for_eps(self):
         if not self.playlist_data:
             logger.error(f'playlist_data not found skip update progress')
             return
-        key_type = dict(mpv='basename',
-                        iina='basename',
-                        vlc='media_basename',
-                        mpc='media_path',
-                        potplayer='basename', )
-        key_type = key_type[self.player_name]
-        for ep in self.playlist_data.values():
-            # update_server_playback_progress(stop_sec=0, data=ep)
-            time_key = ep[key_type]
-            _stop_sec = self.playlist_time.get(time_key)
+        for key, _stop_sec in self.playlist_time.items():
+            ep = self.playlist_data[key]
             if not _stop_sec:
                 continue
             logger.info(f'update {ep["basename"]} {_stop_sec=}')
@@ -123,7 +169,7 @@ def list_episodes(data: dict):
         basename = os.path.basename(file_path)
         media_basename = os.path.basename(media_path)
         total_sec = int(media_source_info['RunTimeTicks']) // 10 ** 7
-        # index = item['IndexNumber']
+        index = item['IndexNumber']
 
         media_streams = media_source_info['MediaStreams']
         sub_dict_list = [dict(title=s['DisplayTitle'], index=s['Index'], path=s['Path'])
@@ -148,6 +194,7 @@ def list_episodes(data: dict):
             fake_name=fake_name,
             total_sec=total_sec,
             sub_file=sub_file,
+            index=index,
         ))
         return result
 
@@ -267,6 +314,7 @@ def stop_sec_mpv(*_, mpv, stop_sec_only=True):
                 stop_sec = tmp_sec
                 if not stop_sec_only:
                     name_stop_sec_dict[basename] = tmp_sec
+                    prefetch_data['stop_sec_dict'][basename] = tmp_sec
             time.sleep(0.5)
         except Exception:
             logger.info(f'mpv exit, return stop sec')
@@ -397,6 +445,7 @@ def stop_sec_vlc(*_, vlc: VLCHttpApi, stop_sec_only=True):
                 stop_sec = tmp_sec
                 if not stop_sec_only:
                     name_stop_sec_dict[os.path.basename(file_name)] = stop_sec
+                    prefetch_data['stop_sec_dict'][file_name] = tmp_sec
                 time.sleep(0.3)
         except Exception:
             logger.info('stop', stop_sec)
@@ -513,7 +562,8 @@ def stop_sec_mpc(mpc: MPCHttpApi, stop_sec_only=True, **_):
             path = path_stack.pop(0)
             path_stack.append(media_path)
             if not stop_sec_only:
-                name_stop_sec_dict.update({path: stop})
+                name_stop_sec_dict[path] = stop
+                prefetch_data['stop_sec_dict'][path] = stop
         except Exception:
             logger.info('final stop', stop_stack[-2], stop_stack)
             # 播放器关闭时，webui 可能返回 0
@@ -584,6 +634,7 @@ def stop_sec_pot(pot_pid, stop_sec_only=True, **_):
                     user32.GetWindowTextW(hwnd, buff, length + 1)
                     title = buff.value.replace(' - PotPlayer', '')
                     name_stop_sec_dict[title] = stop_sec
+                    prefetch_data['stop_sec_dict'][title] = stop_sec
 
         def for_each_window(hwnd, _):
             send_message(hwnd)
