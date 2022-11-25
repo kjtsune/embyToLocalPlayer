@@ -7,15 +7,13 @@
 **特性**
 
 * 在首页也可以播放。点击原来的播放按钮就可以。播放无需二次确认。
-* 可持久性缓存文件到本地。（网盘用户及 Emby 是别人分享的可能用到）
+* 可持久性缓存文件到本地或预读取下一集。（网盘用户及 Emby 是别人分享的可能用到）
 * 视频文件 可本地 可挂载 可远端。
 * mpv VLC MPC PotPlayer 通过网络播放时也支持外挂字幕。(播放前先选择字幕)
-* 适配多视频版本，如 2160p 与 1080p 双文件的情况。(Plex 不支持)
 * 其他播放器一般也能用，只是不会回传进度。
 
 **建议**
 
-* Emby 关联 Trakt，永久保存观看记录。跨平台，设备损坏可以导回来。（详见 FAQ）
 * PotPlayer 每次播放 http 都会疯狂写盘并把整个文件下载下来。推荐读取硬盘模式或持久性缓存。
 * 以下播放器支持回传进度。
     * PotPlayer [发布页](https://potplayer.daum.net/)
@@ -76,7 +74,7 @@
 * 同服务器同时开启多个浏览器标签页，会造成回传进度失败假象。手动刷新一下页面，或者只开一个标签。
 * Windows 平台若要源码运行：安装 AutoHotKey v2 或把 `autohotkey_tool.ahk` 编译为 `exe`。
 * 反馈群组在频道置顶，提问前先把 FAQ 看一遍，不含敏感数据不私聊。  
-  小更新会频道提醒，GitHub zip 文件也会同步更新，但不会更新版本。[https://t.me/embyToLocalPlayer](https://t.me/embyToLocalPlayer)
+  小更新会频道提醒，不过应该也没什么更新的了，反馈不需要关注频道。[https://t.me/embyToLocalPlayer](https://t.me/embyToLocalPlayer)
 
 ### 如何切换模式
 
@@ -105,12 +103,10 @@
 
 ### 播放列表相关
 
-**通用问题：**
-
 * 在配置文件中启用
 * 可能与缓存模式冲突
 * 播放列表添加完成前最好不退出
-* Jellyfin Plex 未适配
+* Plex 未适配
 
 **Windows:**
 
@@ -196,16 +192,6 @@
 
 * 会自动开启 WebUI 建议仅允许从 localhost 访问： 查看 > 选项 > Web 界面：  
   打勾 仅允许从 localhost 访问
-
-### Trakt 相关
-
-* 这是我自用的配置，可根据自己需求。我只用来记录观看记录，其他都不用。
-* 插件 > 目录 > Trakt > 安装。
-* 插件 > Trakt > Get PIN > 仅选中：Skip unwatched import from Trakt。其他取消。> 保存。
-* 计划任务 > Sync library to trakt.tv > 删除。(可能首次使用 Trakt 的用户需要，把存在 Emby 的记录都传上去，我不确定，欢迎测试后告诉我。)
-* 计划任务 > Import playstates from Trakt.tv > 开启。（设备迁移，或多平台，从 Trakt 导入播放记录）
-* 可能有豆瓣迁移 Trakt 的脚本。
-  ~~或者用 [linkDoubanTrakt](https://greasyfork.org/zh-CN/scripts/449899-linkdoubantrakt) 一个一个点。~~
 
 ### Jellyfin 相关
 
