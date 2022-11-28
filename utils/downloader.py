@@ -1,5 +1,4 @@
 import os.path
-import subprocess
 import threading
 import time
 import typing
@@ -95,20 +94,7 @@ class Downloader:
         self.file_is_busy = False
         return True
 
-    def generate_empty_file(self, size=None):
-        if os.path.exists(self.file):
-            os.remove(self.file)
-        # 创建具有指定名称和大小的文件，其内容由零组成。
-        size = size or self.size
-        cmd = f'fsutil file createnew {self.file} {size}'.split()
-        dd = f'dd if=/dev/zero of={self.file} bs={size} count=1'.split()
-        cmd = cmd if os.name == 'nt' else dd
-        subprocess.run(cmd, capture_output=True)
-        logger.info('create an empty file')
-
     def download_fist_last(self):
-        # if os.name == 'nt': # 注意 safe_deleter
-        #     self.generate_empty_file(size=self.size)
         self.percent_download(0, 0.01, update=False)
         self.percent_download(0.99, 1, update=False)
         self.progress = 0.01
@@ -271,3 +257,44 @@ class DownloadManager:
                     self.cache_size_limit()
                     times = 0
             time.sleep(3)
+
+
+def prefetch_resume_tv():
+    null_file = 'NUL' if os.name == 'nt' else '/dev/null'
+    conf = configs.raw.get('dev', 'prefetch_conf', fallback='')
+    if not conf:
+        return
+    conf = conf.replace(' ', '').replace('，', ',')
+    host, user_id, api_key, *startswith = conf.split(',')
+    headers = {
+        'accept': 'application/json',
+        'X-MediaBrowser-Token': api_key,
+    }
+    params = {
+        'Fields': 'MediaStreams,PremiereDate,Path',
+        'MediaTypes': 'Video',
+        'Limit': '12',
+        'X-Emby-Token': api_key,
+    }
+    done_list = []
+    while True:
+        items = requests_urllib(f'{host}/Users/{user_id}/Items/Resume',
+                                params=params, headers=headers, get_json=True)
+        # dump_json_file(items, 'z_resume_emby.json')
+        items = items['Items']
+        items = [i for i in items if i.get('SeriesName')
+                 and time.mktime(time.strptime(i['PremiereDate'][:10], '%Y-%m-%d')) > time.time() - 86400 * 7]
+        for ep in items:
+            source_info = ep['MediaSources'][0] if 'MediaSources' in ep else ep
+            file_path = source_info['Path']
+            if file_path in done_list or not file_path.startswith(tuple(startswith)) \
+                    or ep['UserData'].get('LastPlayedDate'):
+                continue
+            container = os.path.splitext(file_path)[-1]
+            stream_url = f'{host}/videos/{ep["Id"]}/stream{container}' \
+                         f'?MediaSourceId={source_info["Id"]}&Static=true&api_key={api_key}'
+            dl = Downloader(url=stream_url, _id=os.path.basename(file_path), save_path=null_file)
+            threading.Thread(target=dl.percent_download, args=(0, 0.02), daemon=True).start()
+            threading.Thread(target=dl.percent_download, args=(0.98, 1), daemon=True).start()
+            done_list.append(file_path)
+        time.sleep(600)

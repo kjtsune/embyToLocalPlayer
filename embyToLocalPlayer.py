@@ -2,7 +2,7 @@ import multiprocessing
 import threading
 from http.server import BaseHTTPRequestHandler
 
-from utils.downloader import DownloadManager
+from utils.downloader import DownloadManager, prefetch_resume_tv
 from utils.players import player_function_dict, PlayerManager, stop_sec_function_dict
 from utils.tools import *
 
@@ -120,4 +120,5 @@ if __name__ == '__main__':
     logger = MyLogger()
     logger.info(__file__)
     clean_tmp_dir()
+    threading.Thread(target=prefetch_resume_tv, daemon=True).start()
     run_server(_RequestHandler)
