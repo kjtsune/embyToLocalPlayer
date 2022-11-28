@@ -123,7 +123,7 @@ def force_disk_mode_by_path(file_path):
     if not configs.raw.getboolean('force_disk_mode', 'enable', fallback=False):
         return False
     disk_mode = configs.raw['force_disk_mode']
-    path_pre = (v for k, v in disk_mode.items() if k.startswith('path_') and v)
+    path_pre = tuple(v for k, v in disk_mode.items() if k.startswith('path_') and v)
     check = file_path.startswith(path_pre)
     _logger.info('disk_mode check', check)
     return check

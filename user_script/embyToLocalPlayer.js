@@ -3,7 +3,7 @@
 // @name:zh-CN   embyToLocalPlayer
 // @name:en      embyToLocalPlayer
 // @namespace    https://github.com/kjtsune/embyToLocalPlayer
-// @version      1.1.2
+// @version      1.1.3
 // @description  需要 Python。调用外部本地播放器，并回传播放记录。支持：纯本地｜网络｜持久性缓存｜下载。适配 Jellyfin Plex。
 // @description:zh-CN 需要 Python。调用外部本地播放器，并回传播放记录。支持：纯本地｜网络｜持久性缓存｜下载。适配 Jellyfin Plex。
 // @description:en  Require Python. Play in an external player. Update watch history to emby server. Support Jellyfin Plex.
@@ -19,6 +19,14 @@
 // ==/UserScript==
 'use strict';
 /*
+2022-11-25:
+1. 播放列表可预读取下一集。
+* 版本间累积更新：
+  * 油猴脚本整合自动关闭错误窗口。不再需要 `embyErrorWindows.js`。
+  * 播放列表: 适配 Jellyfin
+  * 播放列表: 修复 MPC 外挂字幕。
+  * 修复 1.1.2 版本首次启动没杀死多余进程。
+
 2022-11-08:
 1. 增加播放列表功能，仅限 Emby，详见 FAQ
 2. 增加是否自动全屏
@@ -37,7 +45,7 @@ async function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-function removeErrorWindows(){
+function removeErrorWindows() {
     let okButtonList = document.querySelectorAll('button[data-id="ok"]');
     for (let index = 0; index < okButtonList.length; index++) {
         const element = okButtonList[index];
