@@ -1,8 +1,6 @@
 import base64
-import json
 import os.path
 import platform
-import signal
 import subprocess
 import threading
 import time
@@ -40,13 +38,7 @@ class PlayerManager:
         self.playlist_time = {}
 
     def start_player(self, **kwargs):
-        player_fun = dict(mpv=mpv_player_start,
-                          iina=mpv_player_start,
-                          vlc=vlc_player_start,
-                          mpc=mpc_player_start,
-                          potplayer=pot_player_start, )
-
-        self.player_kwargs = player_fun[self.player_name](**kwargs)
+        self.player_kwargs = player_function_dict[self.player_name](**kwargs)
 
     def playlist_add(self, data=None):
         data = data or self.data
@@ -54,7 +46,8 @@ class PlayerManager:
                             iina=playlist_add_mpv,
                             vlc=playlist_add_vlc,
                             mpc=playlist_add_mpc,
-                            potplayer=playlist_add_pot)
+                            potplayer=playlist_add_pot,
+                            dandanplay=playlist_add_dandan)
         limit = configs.raw.getint('playlist', 'item_limit', fallback=-1)
         if limit > 0:
             self.player_kwargs['limit'] = limit
@@ -80,9 +73,9 @@ class PlayerManager:
         prefetch_tuple = tuple(p.strip() for p in prefetch_tuple.split(',') if p.strip())
         while prefetch_data['on']:
             for key, stop_sec in stop_sec_dict.items():
-                if key in done_list:
+                ep = playlist_data.get(key)
+                if not key or not stop_sec or key in done_list:
                     continue
-                ep = playlist_data[key]
                 if prefetch_tuple and not ep['file_path'].startswith(prefetch_tuple):
                     logger.info(f'{ep["file_path"]} not startswith {prefetch_tuple=} skip prefetch')
                     prefetch_data['running'] = False
@@ -111,12 +104,7 @@ class PlayerManager:
         prefetch_data['running'] = False
 
     def update_playlist_time_loop(self):
-        stop_sec_fun = dict(mpv=stop_sec_mpv,
-                            iina=stop_sec_mpv,
-                            mpc=stop_sec_mpc,
-                            vlc=stop_sec_vlc,
-                            potplayer=stop_sec_pot, )
-        self.playlist_time = stop_sec_fun[self.player_name](stop_sec_only=False, **self.player_kwargs)
+        self.playlist_time = stop_sec_function_dict[self.player_name](stop_sec_only=False, **self.player_kwargs)
         prefetch_data['on'] = False
         prefetch_data['stop_sec_dict'].clear()
 
@@ -152,33 +140,30 @@ def list_episodes(data: dict):
     series_id = response['SeriesId']
 
     def parse_item(item):
-        try:
-            media_source_info = item['MediaSources'][0]
-        except Exception:
-            media_source_info = item
+        source_info = item['MediaSources'][0] if 'MediaSources' in item else item
         name = item['Name']
-        file_path = media_source_info.get('Path')
-        if not file_path:
+        file_path = source_info.get('Path')
+        if not file_path or 'RunTimeTicks' not in item:
             return None
         fake_name = os.path.splitdrive(file_path)[1].replace('/', '__').replace('\\', '__')
         item_id = item['Id']
         container = os.path.splitext(file_path)[-1]
         stream_url = f'{scheme}://{netloc}/videos/{item_id}/stream{container}' \
-                     f'?MediaSourceId={media_source_info["Id"]}&Static=true&api_key={api_key}'
+                     f'?MediaSourceId={source_info["Id"]}&Static=true&api_key={api_key}'
         media_path = translate_path_by_ini(file_path) if mount_disk_mode else stream_url
         basename = os.path.basename(file_path)
         media_basename = os.path.basename(media_path)
-        total_sec = int(media_source_info['RunTimeTicks']) // 10 ** 7
-        index = item['IndexNumber']
+        total_sec = int(source_info['RunTimeTicks']) // 10 ** 7
+        index = item.get('IndexNumber', 0)
 
-        media_streams = media_source_info['MediaStreams']
+        media_streams = source_info['MediaStreams']
         sub_dict_list = [dict(title=s['DisplayTitle'], index=s['Index'], path=s['Path'])
                          for s in media_streams
                          if not mount_disk_mode and s['Type'] == 'Subtitle' and s['IsExternal']]
         sub_dict_list = [s for s in sub_dict_list
                          if configs.check_str_match(s['title'], 'playlist', 'subtitle_priority', log=False)]
         sub_dict = sub_dict_list[0] if sub_dict_list else {}
-        sub_file = f'{scheme}://{netloc}/Videos/{item_id}/{media_source_info["Id"]}/Subtitles' \
+        sub_file = f'{scheme}://{netloc}/Videos/{item_id}/{source_info["Id"]}/Subtitles' \
                    f'/{sub_dict["index"]}/Stream{os.path.splitext(sub_dict["path"])[-1]}' if sub_dict else None
         sub_file = None if mount_disk_mode else sub_file
 
@@ -195,6 +180,7 @@ def list_episodes(data: dict):
             total_sec=total_sec,
             sub_file=sub_file,
             index=index,
+            size=item['Size']
         ))
         return result
 
@@ -266,7 +252,7 @@ def mpv_player_start(cmd, start_sec=None, sub_file=None, media_title=None, get_s
         _cmd = ['sub-add', sub_file]
         mpv.command(*_cmd)
 
-    if not get_stop_sec:
+    if not get_stop_sec or not mpv:
         return
 
     mpv.is_iina = is_iina
@@ -286,10 +272,10 @@ def playlist_add_mpv(mpv: MPV, data, limit=10):
         if basename == data['basename']:
             append = True
             continue
-        limit -= 1
         # iina 添加不上
         if not append or limit <= 0 or getattr(mpv, 'is_iina'):
             continue
+        limit -= 1
         sub_file = ep['sub_file'] or ''
         mpv.command(
             'loadfile', ep['media_path'], 'append',
@@ -393,7 +379,7 @@ def playlist_add_vlc(vlc: VLCHttpApi, data, limit=5):
         return
     episodes = list_episodes(data)
     append = False
-    data_path = translate_path_by_ini(data['media_path'])
+    data_path = data['media_path']
     mount_disk_mode = data['mount_disk_mode']
     limit = 10 if limit == 5 and mount_disk_mode else limit
     for ep in episodes:
@@ -404,9 +390,9 @@ def playlist_add_vlc(vlc: VLCHttpApi, data, limit=5):
         if key in data_path:
             append = True
             continue
-        limit -= 1
         if not append or limit <= 0:
             continue
+        limit -= 1
         sub_file = ep['sub_file']
         if mount_disk_mode or not sub_file:
             add_path = urllib.parse.quote(media_path)
@@ -523,13 +509,13 @@ def playlist_add_mpc(mpc_path, data, limit=5, **_):
     limit = 10 if limit == 5 and mount_disk_mode else limit
     for ep in episodes:
         basename = ep['basename']
-        playlist_data[basename] = ep
+        playlist_data[ep['media_path']] = ep
         if basename == data['basename']:
             append = True
             continue
-        limit -= 1
         if not append or limit <= 0:
             continue
+        limit -= 1
         sub_file = ep['sub_file']
         add_list = ['/add', ep['media_path'], '/sub', f'"{sub_file}"'] if sub_file else ['/add', ep['media_path']]
         if mount_disk_mode:
@@ -561,7 +547,7 @@ def stop_sec_mpc(mpc: MPCHttpApi, stop_sec_only=True, **_):
             stop_stack.append(stop_sec)
             path = path_stack.pop(0)
             path_stack.append(media_path)
-            if not stop_sec_only:
+            if not stop_sec_only and path:
                 name_stop_sec_dict[path] = stop
                 prefetch_data['stop_sec_dict'][path] = stop
         except Exception:
@@ -603,9 +589,9 @@ def playlist_add_pot(pot_path, data, limit=5, **_):
         if basename == data['basename']:
             append = True
             continue
-        limit -= 1
         if not append or mount_disk_mode or limit <= 0:
             continue
+        limit -= 1
         # f'/sub={ep["sub_file"]}' pot 下一集会丢失字幕
         # /add /title 不能复用，会丢失 /title
         subprocess.run([pot_path, '/add', ep['media_path'], f'/title={basename}', ])
@@ -680,12 +666,20 @@ def dandan_player_start(cmd: list, start_sec=None, sub_file=None, media_title=No
     return dict(start_sec=start_sec, is_http=is_http)
 
 
-def stop_sec_dandan(*_, start_sec=None, is_http=None):
+def playlist_add_dandan(data, **_):
+    playlist_data = {}
+    episodes = list_episodes(data)
+    for ep in episodes:
+        size = ep['size']
+        playlist_data[size] = ep
+    return playlist_data
+
+
+def stop_sec_dandan(*_, start_sec=None, is_http=None, stop_sec_only=True):
     config = configs.raw
     dandan = config['dandan']
     api_key = dandan['api_key']
     headers = {'Authorization': f'Bearer {api_key}'} if api_key else None
-    close_percent = float(dandan.get('close_at', '100')) / 100
     stop_sec = None
     base_url = f'http://127.0.0.1:{dandan["port"]}'
     status = f'{base_url}/api/v1/current/video'
@@ -694,41 +688,49 @@ def stop_sec_dandan(*_, start_sec=None, is_http=None):
     pid = find_pid_by_process_name('dandanplay.exe')
     while True:
         try:
-            if requests_urllib(status, headers=headers, decode=True, timeout=0.2):
+            if requests_urllib(status, headers=headers, decode=True, timeout=0.2, retry=1, silence=True):
                 break
         except Exception:
             print('.', end='')
             if not process_is_running_by_pid(pid):
                 logger.info('dandan player exited')
-                return start_sec
+                return start_sec if stop_sec_only else {}
             time.sleep(0.3)
     if start_sec and is_http and dandan.getboolean('http_seek'):
         seek_time = f'{base_url}/api/v1/control/seek/{start_sec * 1000}'
         requests_urllib(seek_time, headers=headers)
     logger.info('\n', 'dandan api started')
+    library = requests_urllib(f'{base_url}/api/v1/library', headers=headers, get_json=True)
+    library = {i['EpisodeId']: i['Size'] for i in library}
+    size_stop_sec_dict = {}
+    stop_flag = False
     while True:
         try:
-            response = requests_urllib(status, headers=headers, decode=True, timeout=0.2)
-            data = json.loads(response)
-            position = data['Position']
-            duration = data['Duration']
+            api_data = requests_urllib(status, headers=headers, get_json=True, timeout=0.2, retry=1, silence=True)
+            position = api_data['Position']
+            duration = api_data['Duration']
+            ep_id = api_data['EpisodeId']
             tmp_sec = int(duration * position // 1000)
             stop_sec = tmp_sec if tmp_sec else stop_sec
-            if position > close_percent:
-                logger.info('kill dandan by percent')
-                os.kill(pid, signal.SIGABRT)
-            elif position > 0.98:
+            size_stop_sec_dict[ep_id] = stop_sec
+            stop_flag = not api_data['Seekable'] and position > 0
+            if position > 0.98 and is_http or (stop_flag and is_http):
                 break
             else:
                 time.sleep(0.5)
-            logger.debug(tmp_sec, stop_sec, duration, round(position, 2), close_percent)
         except Exception:
+            if stop_flag:
+                logger.info('stop_flag found, exit')
+                break
             if process_is_running_by_pid(pid):
-                logger.info('dandan exception found')
-                time.sleep(0.5)
+                print('_', end='')
+                time.sleep(1)
                 continue
             break
-    return stop_sec
+    size_stop_sec_dict = {int(k): v for k, v in size_stop_sec_dict.items() if k}
+    size_stop_sec_dict = {library[k]: v for k, v in size_stop_sec_dict.items() if k in library}
+    logger.info(f'dandanplay exit, return stop sec')
+    return stop_sec if stop_sec_only else size_stop_sec_dict
 
 
 player_function_dict = dict(mpv=mpv_player_start,
