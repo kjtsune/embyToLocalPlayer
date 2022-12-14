@@ -118,7 +118,7 @@ class DownloadManager:
             os.path.exists(cache_path) or os.mkdir(cache_path)
             self.load_db()
             threading.Thread(target=self.update_db_loop, daemon=True).start()
-        if configs.raw.getboolean('gui', 'auto_resume'):
+        if configs.raw.getboolean('gui', 'auto_resume', fallback=False):
             threading.Thread(target=self.resume_or_pause, kwargs={'resume_from_db': True}).start()
 
     def _init_dl(self, data, check_only=False):
@@ -278,8 +278,11 @@ def prefetch_resume_tv():
     }
     done_list = []
     while True:
-        items = requests_urllib(f'{host}/Users/{user_id}/Items/Resume',
-                                params=params, headers=headers, get_json=True)
+        try:
+            items = requests_urllib(f'{host}/Users/{user_id}/Items/Resume',
+                                    params=params, headers=headers, get_json=True)
+        except Exception:
+            continue
         # dump_json_file(items, 'z_resume_emby.json')
         items = items['Items']
         items = [i for i in items if i.get('SeriesName')

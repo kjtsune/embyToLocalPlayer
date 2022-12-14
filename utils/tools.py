@@ -64,7 +64,7 @@ def open_local_folder(data):
         return
     from utils.windows_tool import open_in_explore
     path = data['info'][0]['content_path']
-    translate_path = get_player_and_replace_path(path)['cmd'][1]
+    translate_path = translate_path_by_ini(path)
     open_in_explore(translate_path)
     _logger.info('open folder', translate_path)
 
@@ -72,8 +72,9 @@ def open_local_folder(data):
 def play_media_file(data):
     save_path = data['info'][0]['save_path']
     big_file = sorted(data['file'], key=lambda i: i['size'], reverse=True)[0]['name']
-    path = os.path.join(save_path, big_file)
-    cmd = get_player_and_replace_path(path, path)['cmd']
+    file_path = os.path.join(save_path, big_file)
+    media_path = translate_path_by_ini(file_path)
+    cmd = get_player_cmd(media_path)
     player = subprocess.Popen(cmd)
     activate_window_by_pid(player.pid)
 
@@ -120,63 +121,61 @@ def activate_window_by_pid(pid, is_mpv=False, scrip_name='autohotkey_tool', slee
 
 
 def force_disk_mode_by_path(file_path):
-    if not configs.raw.getboolean('force_disk_mode', 'enable', fallback=False):
+    ini_str = configs.raw.get('dev', 'force_disk_mode_path', fallback='').replace('，', ',')
+    if not ini_str:
         return False
-    disk_mode = configs.raw['force_disk_mode']
-    path_pre = tuple(v for k, v in disk_mode.items() if k.startswith('path_') and v)
-    check = file_path.startswith(path_pre)
+    ini_tuple = tuple(i.strip() for i in ini_str.split(',') if i)
+    check = file_path.startswith(ini_tuple)
     _logger.info('disk_mode check', check)
     return check
 
 
-def use_dandan_exe_by_path(config, file_path):
-    dandan = config['dandan'] if 'dandan' in config.sections() else {}
-    if not dandan or not file_path:
-        return False
-    dandan_path_match = [file_path.startswith(dandan[key])
-                         for key in [i for i in dandan if i.startswith('path_')] if dandan[key]]
-    dandan_all_empty = [(not dandan[key])
-                        for key in [i for i in dandan if i.startswith('path_')]]
-    if dandan and dandan.getboolean('enable') and (any(dandan_path_match) or all(dandan_all_empty)):
-        return dandan['exe']
-    _logger.debug('check_dandan match', dandan_path_match, 'all empty', dandan_all_empty)
-
-
-def translate_path_by_ini(media_path):
+def use_dandan_exe_by_path(file_path):
     config = configs.raw
-    if 'src' in config and 'dst' in config and not media_path.startswith('http'):
+    dandan = config['dandan'] if 'dandan' in config.sections() else {}
+    if not dandan or not file_path or not dandan.getboolean('enable'):
+        return False
+    enable_path = dandan.get('enable_path', '').replace('，', ',')
+    enable_path = [i.strip() for i in enable_path.split(',') if i]
+    path_match = [file_path.startswith(path) for path in enable_path]
+    if any(path_match) or not enable_path:
+        return True
+    _logger.error(f'dandanplay {enable_path=} \n{path_match=}')
+
+
+def translate_path_by_ini(file_path):
+    config = configs.raw
+    if 'src' in config and 'dst' in config and not file_path.startswith('http'):
         src = config['src']
         dst = config['dst']
         # 貌似是有序字典
         for k, src_prefix in src.items():
-            if src_prefix not in media_path:
+            if src_prefix not in file_path:
                 continue
             dst_prefix = dst[k]
-            tmp_path = media_path.replace(src_prefix, dst_prefix, 1)
+            tmp_path = file_path.replace(src_prefix, dst_prefix, 1)
             if os.path.exists(tmp_path):
-                media_path = os.path.abspath(tmp_path)
+                file_path = os.path.abspath(tmp_path)
                 break
             else:
                 _logger.debug(tmp_path, 'not found')
-    return media_path
+    return file_path
 
 
-def get_player_and_replace_path(media_path, file_path=''):
+def get_player_cmd(media_path, dandan=False):
     config = configs.raw
     player = config['emby']['player']
     exe = config['exe'][player]
-    exe = config['dandan']['exe'] if use_dandan_exe_by_path(config, file_path) else exe
-    _logger.info(media_path, 'raw')
-    media_path = translate_path_by_ini(media_path)
-    result = dict(cmd=[exe, media_path], file_path=file_path)
-    _logger.info(result['cmd'], 'cmd')
+    exe = config['dandan']['exe'] if dandan else exe
+    result = [exe, media_path]
+    _logger.info(result, 'cmd')
     if not media_path.startswith('http') and not os.path.exists(media_path):
         raise FileNotFoundError(media_path)
     return result
 
 
 def requests_urllib(host, params=None, _json=None, decode=False, timeout=2.0, headers=None, req_only=False,
-                    http_proxy='', get_json=False, save_path='', retry=3):
+                    http_proxy='', get_json=False, save_path='', retry=3, silence=False):
     _json = json.dumps(_json).encode('utf-8') if _json else None
     params = urllib.parse.urlencode(params) if params else None
     host = host + '?' + params if params else host
@@ -198,7 +197,7 @@ def requests_urllib(host, params=None, _json=None, decode=False, timeout=2.0, he
             response = urllib.request.urlopen(req, _json, timeout=timeout)
             break
         except socket.timeout:
-            _logger.error(f'urllib {try_times=}')
+            _logger.error(f'urllib {try_times=}', silence=silence)
             if try_times == retry:
                 raise TimeoutError(f'{try_times=} {host=}')
     if decode:
@@ -352,7 +351,7 @@ def parse_received_data_emby(received_data):
     sub_delivery_url = media_source_info['MediaStreams'][sub_index]['DeliveryUrl'] if sub_index >= 0 else None
     sub_file = f'{scheme}://{netloc}{sub_delivery_url}' if sub_delivery_url else None
     mount_disk_mode = True if force_disk_mode_by_path(file_path) else mount_disk_mode
-    media_path = file_path if mount_disk_mode else stream_url
+    media_path = translate_path_by_ini(file_path) if mount_disk_mode else stream_url
     basename = os.path.basename(file_path)
     media_basename = os.path.basename(media_path)
 
@@ -413,7 +412,7 @@ def parse_received_data_plex(received_data):
     sub_file = f'{scheme}://{netloc}{sub_path[0]}?download=1&X-Plex-Token={api_key}' if sub_path else None
 
     mount_disk_mode = True if force_disk_mode_by_path(file_path) else mount_disk_mode
-    media_path = file_path if mount_disk_mode else stream_url
+    media_path = translate_path_by_ini(file_path) if mount_disk_mode else stream_url
     basename = os.path.basename(file_path)
     media_basename = os.path.basename(media_path)
     media_title = basename if not mount_disk_mode else None  # 播放http时覆盖标题

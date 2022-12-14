@@ -68,12 +68,12 @@ def start_play(data):
     if player_is_running:
         logger.error('player_is_running, skip')
         return
-    media_path = data['media_path']
+    file_path = data['file_path']
     start_sec = data['start_sec']
     sub_file = data['sub_file']
     media_title = data['media_title']
 
-    cmd = get_player_and_replace_path(media_path, data.get('file_path'))['cmd']
+    cmd = get_player_cmd(media_path=data['media_path'], dandan=use_dandan_exe_by_path(file_path))
     player_path = cmd[0]
     player_path_lower = player_path.lower()
     # 播放器特殊处理
@@ -81,8 +81,9 @@ def start_play(data):
     player_name = [i for i in player_function_dict if i in player_path_lower]
     if player_name:
         player_name = player_name[0]
-        if configs.check_str_match(_str=data['netloc'], section='playlist', option='enable_host'
-                                   ) and player_name in ('mpv', 'vlc', 'mpc', 'potplayer', 'iina'):
+        if configs.check_str_match(_str=data['netloc'], section='playlist', option='enable_host') \
+                and player_name in ('mpv', 'vlc', 'mpc', 'potplayer', 'iina') \
+                or (player_name == 'dandanplay' and not media_title):
             player_manager = PlayerManager(data=data, player_name=player_name, player_path=player_path)
             player_manager.start_player(cmd=cmd, start_sec=start_sec, sub_file=sub_file, media_title=media_title)
             player_manager.playlist_add()
@@ -99,7 +100,7 @@ def start_play(data):
             return
         update_server_playback_progress(stop_sec=stop_sec, data=data)
         if configs.gui_is_enable and stop_sec / data['total_sec'] * 100 > configs.raw.getfloat('gui', 'delete_at'):
-            if media_path.startswith(configs.raw['gui']['cache_path']):
+            if file_path.startswith(configs.raw['gui']['cache_path']):
                 logger.info('watched, delete cache')
                 threading.Thread(target=dl_manager.delete, args=(data,), daemon=True).start()
     else:
@@ -114,7 +115,7 @@ if __name__ == '__main__':
     player_is_running = False
     if configs.raw.getboolean('dev', 'kill_process_at_start', fallback=True):
         kill_multi_process(name_re=f'(embyToLocalPlayer.py|autohotkey_tool|' +
-                                   r'mpv.*exe|mpc-.*exe|vlc.exe|PotPlayer.*exe|dandanplay.exe|' +
+                                   r'mpv.*exe|mpc-.*exe|vlc.exe|PotPlayer.*exe|' +
                                    r'/IINA|/VLC|/mpv)',
                            not_re='(tmux|greasyfork|github)')
     logger = MyLogger()

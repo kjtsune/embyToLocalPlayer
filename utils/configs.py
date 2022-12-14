@@ -17,19 +17,21 @@ class MyLogger:
         self.debug_mode = configs.debug_mode
 
     @staticmethod
-    def log(*args, end=None):
+    def log(*args, end=None, silence=False):
+        if silence:
+            return
         t = time.strftime('%D %H:%M', time.localtime())
         print(t, *args, end=end)
 
-    def info(self, *args, end=None):
-        self.log(*args, end=end)
+    def info(self, *args, end=None, silence=False):
+        self.log(*args, end=end, silence=silence)
 
-    def debug(self, *args, end=None):
+    def debug(self, *args, end=None, silence=False):
         if self.debug_mode:
-            self.log(*args, end=end)
+            self.log(*args, end=end, silence=silence)
 
-    def error(self, *args, end=None):
-        self.log(*args, end=end)
+    def error(self, *args, end=None, silence=False):
+        self.log(*args, end=end, silence=silence)
 
 
 class Configs:
@@ -41,7 +43,7 @@ class Configs:
         self.path = [i for i in self.path if os.path.exists(i)][0]
         print(f'ini path: {self.path}')
         self.raw: ConfigParser = self.update()
-        self.fullscreen = self.raw.getboolean('emby', 'fullscreen', fallback=False)
+        self.fullscreen = self.raw.getboolean('emby', 'fullscreen', fallback=True)
         self.speed_limit = self.raw.getfloat('dev', 'speed_limit', fallback=0)
         self.debug_mode = self.raw.getboolean('dev', 'debug', fallback=False)
         self.disable_audio = self.raw.getboolean('dev', 'disable_audio', fallback=False)  # test in vm
