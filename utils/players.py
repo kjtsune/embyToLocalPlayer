@@ -252,10 +252,10 @@ def mpv_player_start(cmd, start_sec=None, sub_file=None, media_title=None, get_s
         _cmd = ['sub-add', sub_file]
         mpv.command(*_cmd)
 
-    if not get_stop_sec or not mpv:
+    if not get_stop_sec:
         return
-
-    mpv.is_iina = is_iina
+    if mpv:
+        mpv.is_iina = is_iina
     return dict(mpv=mpv)
 
 
@@ -263,7 +263,7 @@ def playlist_add_mpv(mpv: MPV, data, limit=10):
     playlist_data = {}
     if not mpv:
         logger.error('mpv not found skip playlist_add_mpv')
-        return
+        return {}
     episodes = list_episodes(data)
     append = False
     for ep in episodes:
@@ -376,7 +376,7 @@ def playlist_add_vlc(vlc: VLCHttpApi, data, limit=5):
     playlist_data = {}
     if not vlc:
         logger.error('vlc not found skip playlist_add')
-        return
+        return {}
     episodes = list_episodes(data)
     append = False
     data_path = data['media_path']
@@ -501,7 +501,7 @@ def playlist_add_mpc(mpc_path, data, limit=5, **_):
     playlist_data = {}
     if not mpc_path:
         logger.error('mpc_path not found skip playlist_add_mpv')
-        return
+        return {}
     episodes = list_episodes(data)
     append = False
     eps_list = []
@@ -579,7 +579,7 @@ def playlist_add_pot(pot_path, data, limit=5, **_):
     playlist_data = {}
     if not pot_path:
         logger.error('pot_path not found skip playlist_add_mpv')
-        return
+        return {}
     episodes = list_episodes(data)
     append = False
     mount_disk_mode = data['mount_disk_mode']
