@@ -16,11 +16,22 @@ from utils.tools import activate_window_by_pid, requests_urllib, update_server_p
 
 logger = MyLogger()
 prefetch_data = dict(on=True, running=False, stop_sec_dict={}, done_list=[], playlist_data={})
+pipe_port_stack = list(reversed(range(10)))
 
 
 # *_player_start 返回获取播放时间等操作所需参数字典
 # stop_sec_* 接收字典参数
 # media_title is None 可以用来判断是不是 mount_disk_mode
+
+def get_pipe_or_port_str(get_pipe=False):
+    pipe_port = 'pipe_name' if get_pipe else 58423
+    if configs.raw.getboolean('dev', 'one_instance_mode', fallback=True):
+        return pipe_port
+    num = pipe_port_stack.pop()
+    pipe_port_stack.insert(0, num)
+    pipe_port = pipe_port + num if isinstance(pipe_port, int) else pipe_port + chr(65 + num)
+    return str(pipe_port)
+
 
 def save_sub_file(url, name='tmp_sub.srt'):
     srt = os.path.join(configs.cwd, '.tmp', name)
@@ -211,8 +222,7 @@ def init_player_instance(function, **kwargs):
 def mpv_player_start(cmd, start_sec=None, sub_file=None, media_title=None, get_stop_sec=True):
     is_darwin = True if platform.system() == 'Darwin' else False
     is_iina = True if 'iina-cli' in cmd[0] else False
-    _t = str(time.time())
-    pipe_name = 'embyToMpv' + chr(98 + int(_t[-1])) + chr(98 + int(_t[-2]))
+    pipe_name = get_pipe_or_port_str(get_pipe=True)
     cmd_pipe = fr'\\.\pipe\{pipe_name}' if os.name == 'nt' else f'/tmp/{pipe_name}.pipe'
     pipe_name = pipe_name if os.name == 'nt' else cmd_pipe
     # if sub_file:
@@ -310,17 +320,17 @@ def stop_sec_mpv(*_, mpv, stop_sec_only=True):
 def vlc_player_start(cmd: list, start_sec=None, sub_file=None, media_title=None, get_stop_sec=True):
     is_nt = True if os.name == 'nt' else False
     # file_is_http = bool(media_title)
-    api_port = '58010'
+    port = get_pipe_or_port_str()
     if not media_title:
         cmd[1] = f'file:///{cmd[1]}'
         # base_name = os.path.basename(cmd[1])
         # media_title = base_name
     cmd = [cmd[0], '-I', 'qt', '--extraintf', 'http', '--http-host', '127.0.0.1',
-           '--http-port', api_port, '--http-password', 'embyToLocalPlayer',
+           '--http-port', port, '--http-password', 'embyToLocalPlayer',
            '--one-instance', '--playlist-enqueue',
-           # '--extraintf', 'rc', '--rc-quiet', '--rc-host', f'127.0.0.1:{api_port}'
+           # '--extraintf', 'rc', '--rc-quiet', '--rc-host', f'127.0.0.1:{port}'
            ] + cmd[1:]
-    if not is_nt:
+    if not is_nt or not configs.raw.getboolean('dev', 'one_instance_mode', fallback=True):
         cmd.remove('--one-instance')
         cmd.remove('--playlist-enqueue')
     if sub_file:
@@ -343,7 +353,7 @@ def vlc_player_start(cmd: list, start_sec=None, sub_file=None, media_title=None,
     if not get_stop_sec:
         return
 
-    vlc = init_player_instance(VLCHttpApi, port=api_port, passwd='embyToLocalPlayer', exe=cmd[0])
+    vlc = init_player_instance(VLCHttpApi, port=port, passwd='embyToLocalPlayer', exe=cmd[0])
     return dict(vlc=vlc)
 
 
@@ -440,7 +450,7 @@ def stop_sec_vlc(*_, vlc: VLCHttpApi, stop_sec_only=True):
 
 
 def mpc_player_start(cmd, start_sec=None, sub_file=None, media_title=None, get_stop_sec=True):
-    port = '53579'
+    port = get_pipe_or_port_str()
     if sub_file:
         cmd += ['/sub', f'"{sub_file}"']
     if start_sec is not None:

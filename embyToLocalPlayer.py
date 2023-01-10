@@ -77,7 +77,7 @@ def start_play(data):
     player_path = cmd[0]
     player_path_lower = player_path.lower()
     # 播放器特殊处理
-    player_is_running = True
+    player_is_running = True if configs.raw.getboolean('dev', 'one_instance_mode', fallback=True) else False
     player_name = [i for i in player_function_dict if i in player_path_lower]
     if player_name:
         player_name = player_name[0]
@@ -99,10 +99,11 @@ def start_play(data):
             player_is_running = False
             return
         update_server_playback_progress(stop_sec=stop_sec, data=data)
-        if configs.gui_is_enable and stop_sec / data['total_sec'] * 100 > configs.raw.getfloat('gui', 'delete_at'):
-            if file_path.startswith(configs.raw['gui']['cache_path']):
-                logger.info('watched, delete cache')
-                threading.Thread(target=dl_manager.delete, args=(data,), daemon=True).start()
+        if configs.gui_is_enable \
+                and stop_sec / data['total_sec'] * 100 > configs.raw.getfloat('gui', 'delete_at', fallback=99.9) \
+                and file_path.startswith(configs.raw['gui']['cache_path']):
+            logger.info('watched, delete cache')
+            threading.Thread(target=dl_manager.delete, args=(data,), daemon=True).start()
     else:
         logger.info(cmd)
         player = subprocess.Popen(cmd)
