@@ -285,7 +285,7 @@ def prefetch_resume_tv():
             continue
         # dump_json_file(items, 'z_resume_emby.json')
         items = items['Items']
-        items = [i for i in items if i.get('SeriesName')
+        items = [i for i in items if i.get('SeriesName') and i.get('PremiereDate')
                  and time.mktime(time.strptime(i['PremiereDate'][:10], '%Y-%m-%d')) > time.time() - 86400 * 7]
         for ep in items:
             source_info = ep['MediaSources'][0] if 'MediaSources' in ep else ep
