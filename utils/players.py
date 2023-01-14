@@ -16,7 +16,7 @@ from utils.tools import activate_window_by_pid, requests_urllib, update_server_p
 
 logger = MyLogger()
 prefetch_data = dict(on=True, running=False, stop_sec_dict={}, done_list=[], playlist_data={})
-pipe_port_stack = list(reversed(range(10)))
+pipe_port_stack = list(reversed(range(25)))
 
 
 # *_player_start 返回获取播放时间等操作所需参数字典
@@ -25,8 +25,6 @@ pipe_port_stack = list(reversed(range(10)))
 
 def get_pipe_or_port_str(get_pipe=False):
     pipe_port = 'pipe_name' if get_pipe else 58423
-    if configs.raw.getboolean('dev', 'one_instance_mode', fallback=True):
-        return pipe_port
     num = pipe_port_stack.pop()
     pipe_port_stack.insert(0, num)
     pipe_port = pipe_port + num if isinstance(pipe_port, int) else pipe_port + chr(65 + num)
@@ -258,7 +256,7 @@ def mpv_player_start(cmd, start_sec=None, sub_file=None, media_title=None, get_s
     activate_window_by_pid(player.pid, sleep=0)
 
     mpv = init_player_instance(MPV, start_mpv=False, ipc_socket=pipe_name)
-    if sub_file and not is_iina:
+    if sub_file and not is_iina and mpv:
         _cmd = ['sub-add', sub_file]
         mpv.command(*_cmd)
 
