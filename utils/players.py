@@ -11,8 +11,8 @@ from html.parser import HTMLParser
 from utils.configs import configs, MyLogger
 from utils.downloader import Downloader
 from utils.python_mpv_jsonipc import MPV
-from utils.tools import activate_window_by_pid, requests_urllib, update_server_playback_progress, \
-    translate_path_by_ini
+from utils.tools import (activate_window_by_pid, requests_urllib, update_server_playback_progress,
+                         translate_path_by_ini)
 
 logger = MyLogger()
 prefetch_data = dict(on=True, running=False, stop_sec_dict={}, done_list=[], playlist_data={})
@@ -149,7 +149,7 @@ def list_episodes(data: dict):
     series_id = response['SeriesId']
 
     def parse_item(item):
-        source_info = item['MediaSources'][0] if 'MediaSources' in item else item
+        source_info = item['MediaSources'][0]
         name = item['Name']
         file_path = source_info.get('Path')
         if not file_path or 'RunTimeTicks' not in item:
@@ -189,11 +189,11 @@ def list_episodes(data: dict):
             total_sec=total_sec,
             sub_file=sub_file,
             index=index,
-            size=item['Size']
+            size=source_info['Size']
         ))
         return result
 
-    params.update({'Fields': 'MediaStreams,Path',
+    params.update({'Fields': 'MediaSources,Path',
                    'SeasonId': season_id, })
     url = f'{scheme}://{netloc}/emby/Shows/{series_id}/Episodes'
     episodes = requests_urllib(url, params=params, headers=headers, get_json=True)
