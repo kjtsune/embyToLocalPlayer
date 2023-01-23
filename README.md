@@ -20,11 +20,11 @@
       若使用 http 播放，**可能提示地址关闭**， 解决方法在 FAQ。
     * mpv（纯快捷键）[Windows](https://sourceforge.net/projects/mpv-player-windows/files/release/) 。 macOS
       解压后拖到应用程序即可 [macOS](https://laboratory.stolendata.net/~djinn/mpv_osx/)
-    * IINA（macOS）[发布页](https://iina.io/) 若使用 http 播放不支持外挂字幕文件（mpv 支持）
     * mpv.net（可鼠标）[发布页](https://github.com/stax76/mpv.net/releases)
     * VLC [发布页](https://www.videolan.org/vlc/)
     * MPC-HC [发布页](https://github.com/clsid2/mpc-hc/releases)
     * MPC-BE [发布页](https://sourceforge.net/projects/mpcbe/files/MPC-BE/Release%20builds/)
+    * IINA（macOS）[发布页](https://iina.io/) 若使用 http 播放不支持外挂字幕文件（mpv 支持）
 
 ## 使用说明
 
@@ -72,8 +72,9 @@
 
 * 用鼠标手势软件关闭播放器体验更舒服一点。
 * 同服务器同时开启多个浏览器标签页，会造成回传进度失败假象。手动刷新一下页面，或者只开一个标签。
-* 非本地用户：Plex 及部分域名有 dns 污染，若无法播放，系统 dns 改成`223.5.5.5 119.29.29.29`后重启电脑再尝试。
-* Windows 平台若要源码运行：安装 AutoHotKey v2 或把 `autohotkey_tool.ahk` 编译为 `exe`。
+* 非本地用户：Plex 及部分域名有 dns 污染，若无法播放，系统 dns 改成 `223.5.5.5 119.29.29.29` 后重启电脑再尝试。
+* Windows：若自启失败，检查启动项是否被禁用：任务管理器 > 启动 
+* Windows：若源码运行：安装 AutoHotKey v2 或把 `autohotkey_tool.ahk` 编译为 `exe`。
 * 反馈群组在频道置顶，提问前先把 FAQ 看一遍，不含敏感数据不私聊。  
   小更新会频道提醒，不过应该也没什么更新的了，反馈不需要关注频道。[https://t.me/embyToLocalPlayer](https://t.me/embyToLocalPlayer)
 
@@ -94,17 +95,16 @@
 
 * 脚本报错，提供报错截图。
 * 脚本若无报错，提供以下信息：
-    1. 换播放器及换视频文件测试是否复现（换播放器不需要重启脚本）
+    1. 换播放器及换视频文件测试是否复现
     2. 系统名称
     3. 无歧义播放器名称 (原版 mpv 等 ... )
-    4. 脚本版本（不同版本一般可以共存，删除启动项并重启后手动启动，Win不删也行）
     5. 什么模式播放
     6. 怎么复现（完整点会比较好）
     7. 运行日志（没有也可以，有更好）
 
 ### 播放列表相关
 
-* 在配置文件中启用
+* 在配置文件里 `[playlist]` 中启用
 * 可能与缓存模式冲突
 * 播放列表添加完成前最好不退出
 * Plex 未适配
@@ -115,22 +115,22 @@
 * mpv.net:
 * vlc:
 * mpc: be: 播放列表条目超过10个可能会卡住，hc 没这问题。
-* pot: 无法添加外挂字幕
+* pot: 下一集无法添加外挂字幕。
 
 **macOS**
 
 * mpv:
 * iina: 仅读盘模式支持并可回传
-* vlc: 无法添加外挂字幕
+* vlc: 下一集无法添加外挂字幕。
 
 **Linux**
 
 * mpv:
-* vlc: 无法添加外挂字幕
+* vlc: 下一集无法添加外挂字幕。
 
 ### 持久性缓存（边下边播）相关
 
-* 在配置文件中启用
+* 在配置文件里 `[gui]` 中启用
 * 如果播放进度超过下载进度，建议关闭播放器触发回传以保存播放进度。（以下为 Windows 平台测试）：   
   mpv mpv.net 会停止播放十几秒。  
   Pot 会停止播放或跳到尾部。(记得拖回来再关闭）  
@@ -205,7 +205,7 @@
 
 ### Plex 相关
 
-* 可能 dns 污染，若无法播放。系统 dns 改成`223.5.5.5 119.29.29.29`后重启电脑再尝试。
+* 可能 dns 污染，若无法播放。系统 dns 改成 `223.5.5.5 119.29.29.29` 后重启电脑再尝试。
 * PotPlayer  
   播放 http 时无法读取外挂字幕，读取硬盘模式却可以。（字幕手动上传的，本地硬盘没有，比较玄学）
 * 会提示回放错误，随便点一下就会消失。
