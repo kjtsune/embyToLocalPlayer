@@ -295,17 +295,48 @@ def change_plex_play_position(scheme, netloc, api_key, stop_sec, rating_key, cli
                     })
 
 
-def update_server_playback_progress(stop_sec, data):
+emby_last_dict = dict(watched=True, stop_sec=0, data={}, normal_file=True)
+
+
+def update_server_playback_progress(stop_sec, data, update_last=False):
     if not configs.raw.getboolean('emby', 'update_progress', fallback=True):
         return
     if stop_sec is None:
         _logger.error('stop_sec is None skip update progress')
         return
+    file_path = data['file_path']
+    ext = os.path.splitext(file_path)[-1].lower()
+    # iso 回传会被标记已观看。
+    normal_file = False if ext.endswith(('.iso', '.m3u8')) else True
     server = data['server']
     stop_sec = int(stop_sec)
     stop_sec = stop_sec - 2 if stop_sec > 5 else stop_sec
+
     if server == 'emby':
-        change_emby_play_position(stop_sec=stop_sec, **data)
+        if normal_file:
+            change_emby_play_position(stop_sec=stop_sec, **data)
+        # 4.7.8 开始：播放 A 到一半后退出，不刷新浏览器，播放 B，会清空 A 播放进度，故重复回传。
+        # 播放完毕记录到字典
+        if not update_last:
+            watched = bool(stop_sec / data['total_sec'] > 0.96)
+            _logger.debug('update emby_last_dict', data['basename'])
+            emby_last_dict.update(dict(
+                watched=watched,
+                stop_sec=stop_sec,
+                data=data,
+                normal_file=normal_file,
+            ))
+            return
+        # 浏览器刷新后重置数据
+        elif data['fist_time']:
+            emby_last_dict.update(dict(watched=True, stop_sec=0, data={}, normal_file=False))
+        # 第二次播放时，回传上个文件被重置的进度。
+        if not data['fist_time'] and emby_last_dict['data'] \
+                and not emby_last_dict['watched'] and emby_last_dict['normal_file']:
+            _logger.info('update again by check_last', emby_last_dict['data']['basename'], emby_last_dict['stop_sec'])
+            change_emby_play_position(stop_sec=emby_last_dict['stop_sec'], **emby_last_dict['data'])
+    elif not normal_file:
+        pass
     elif server == 'jellyfin':
         change_jellyfin_play_position(stop_sec=stop_sec, **data)
     elif server == 'plex':
@@ -354,6 +385,8 @@ def parse_received_data_emby(received_data):
     media_path = translate_path_by_ini(file_path) if mount_disk_mode else stream_url
     basename = os.path.basename(file_path)
     media_basename = os.path.basename(media_path)
+    if file_path.endswith('.m3u8'):
+        media_path = stream_url = file_path
 
     media_title = basename if not mount_disk_mode else None  # 播放http时覆盖标题
 
@@ -362,7 +395,7 @@ def parse_received_data_emby(received_data):
     server = 'emby' if is_emby else 'jellyfin'
 
     fake_name = os.path.splitdrive(file_path)[1].replace('/', '__').replace('\\', '__')
-    total_sec = int(media_source_info['RunTimeTicks']) // 10 ** 7
+    total_sec = int(media_source_info['RunTimeTicks']) // 10 ** 7 if 'RunTimeTicks' in media_source_info else 10 ** 12
     position = start_sec / total_sec
     user_id = query['UserId']
 
@@ -388,6 +421,7 @@ def parse_received_data_emby(received_data):
         user_id=user_id,
         basename=basename,
         media_basename=media_basename,
+        fist_time=received_data['fistTime'],
     )
     return result
 
