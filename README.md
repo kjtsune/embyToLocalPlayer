@@ -12,19 +12,17 @@
 * mpv VLC MPC PotPlayer 通过网络播放时也支持外挂字幕。(播放前先选择字幕)
 * 其他播放器一般也能用，只是不会回传进度。
 
-**建议**
+**以下播放器支持回传进度**
 
-* PotPlayer 每次播放 http 都会疯狂写盘并把整个文件下载下来。推荐读取硬盘模式或持久性缓存。
-* 以下播放器支持回传进度。
-    * PotPlayer [发布页](https://potplayer.daum.net/)
-      若使用 http 播放，**可能提示地址关闭**， 解决方法在 FAQ。
-    * mpv（纯快捷键）[Windows](https://sourceforge.net/projects/mpv-player-windows/files/release/) 。 macOS
-      解压后拖到应用程序即可 [macOS](https://laboratory.stolendata.net/~djinn/mpv_osx/)
-    * mpv.net（可鼠标）[发布页](https://github.com/stax76/mpv.net/releases)
-    * VLC [发布页](https://www.videolan.org/vlc/)
-    * MPC-HC [发布页](https://github.com/clsid2/mpc-hc/releases)
-    * MPC-BE [发布页](https://sourceforge.net/projects/mpcbe/files/MPC-BE/Release%20builds/)
-    * IINA（macOS）[发布页](https://iina.io/) 若使用 http 播放不支持外挂字幕文件（mpv 支持）
+* PotPlayer [发布页](https://potplayer.daum.net/)
+  若使用 http 播放，**可能提示地址关闭**， 解决方法在 FAQ。
+* mpv（纯快捷键）[Windows](https://sourceforge.net/projects/mpv-player-windows/files/release/) 。 macOS
+  解压后拖到应用程序即可 [macOS](https://laboratory.stolendata.net/~djinn/mpv_osx/)
+* mpv.net（可鼠标）[发布页](https://github.com/stax76/mpv.net/releases)
+* VLC [发布页](https://www.videolan.org/vlc/)
+* MPC-HC [发布页](https://github.com/clsid2/mpc-hc/releases)
+* MPC-BE [发布页](https://sourceforge.net/projects/mpcbe/files/MPC-BE/Release%20builds/)
+* IINA（macOS）[发布页](https://iina.io/) 若使用 http 播放不支持外挂字幕文件（mpv 支持）
 
 ## 使用说明
 
@@ -73,7 +71,7 @@
 * 用鼠标手势软件关闭播放器体验更舒服一点。
 * 同服务器同时开启多个浏览器标签页，会造成回传进度失败假象。手动刷新一下页面，或者只开一个标签。
 * 非本地用户：Plex 及部分域名有 dns 污染，若无法播放，系统 dns 改成 `223.5.5.5 119.29.29.29` 后重启电脑再尝试。
-* Windows：若自启失败，检查启动项是否被禁用：任务管理器 > 启动 
+* Windows：若自启失败，检查启动项是否被禁用：任务管理器 > 启动
 * Windows：若源码运行：安装 AutoHotKey v2 或把 `autohotkey_tool.ahk` 编译为 `exe`。
 * 反馈群组在频道置顶，提问前先把 FAQ 看一遍，不含敏感数据不私聊。  
   小更新会频道提醒，不过应该也没什么更新的了，反馈不需要关注频道。[https://t.me/embyToLocalPlayer](https://t.me/embyToLocalPlayer)
@@ -90,6 +88,7 @@
 
 * 将 `_config.ini` 重命名为 `.ini`，其他全删除。再次 GitHub 下载解压当前文件夹。（`.ini` 优先于 `_config.ini`  ）
 * 同时看看 `embyToLocalPlayer_config.ini` 有没有新内容。
+* 油猴脚本也记得要更新。
 
 ### 如何反馈
 
@@ -101,6 +100,55 @@
     5. 什么模式播放
     6. 怎么复现（完整点会比较好）
     7. 运行日志（没有也可以，有更好）
+    
+### 字幕相关
+
+* Emby 里字幕选择无效。  
+  外挂字幕选择有效，内置字幕会被忽略，由播放器选择。  
+  视频文件的内置字幕当作外挂字幕处理会导致播放器语言设置失效。（外挂字幕最优先）  
+  正常播放器都可以设置语言优先顺序。
+
+### mpv 相关
+
+* [可选] [portable_config](https://github.com/kjtsune/embyToLocalPlayer/tree/main/portable_config)
+  文件夹是我用的 mpv 配置，可将整个文件夹与 `mpv.exe` 放在一起。
+* 快捷键看 `input.conf`
+* 其他设置 `mpv.conf`
+
+### mpv.net 相关
+
+* 设置播放完自动关闭。不加载下个文件。（触发回传进度）  
+  右击 > Settings > Playback > idle:no, auto-load-folder:no （大概是这样
+* bug: 影响很小。如果 save-position-on-quit = yes 会导致开始播放时间由播放器强制保存，原版 mpv 没这问题。
+
+### PotPlayer 相关
+
+* 若使用 http 播放，可能提示地址关闭  
+  220914-64bit.exe + Win10 没问题。   
+  Win8 32bit 碰到。解决方法是使用 [Portable](https://www.videohelp.com/software/PotPlayer/old-versions) 版本。  
+  先打开 `PotPlayerPortable.exe` 一次，但播放用 `C:\<path_to>\PotPlayerPortable\App\PotPlayer\PotPlayer.exe`  
+  不然会要求管理员权限运行。
+* 选项 > 播放 > 播放窗口尺寸：全屏
+* 配置/语言/其他 > 收尾处理 > 播放完当前后退出（触发回传进度）
+
+### MPC 相关：
+
+* 会自动开启 WebUI 建议仅允许从 localhost 访问： 查看 > 选项 > Web 界面：  
+  打勾 仅允许从 localhost 访问
+
+### IINA 相关
+
+* 退出播放器才会回传进度。
+* 非读盘模式不支持外挂字幕文件（mpv 支持）
+
+### Jellyfin 相关
+
+* 首页播放结束后，10秒内重复播放**同文件**，本地播放器收到的播放时间会有误。    
+  解决方法：
+    1. 进详情后再播放没这问题；~~说明不是我的锅~~
+    2. 等待10秒后再继续播放；
+    3. 手动刷新页面后播放；
+    4. ~~告诉我要发送什么请求可以解决这个问题~~
 
 ### 播放列表相关
 
@@ -152,56 +200,6 @@
     4. 下载（顺序下载）：不能边下边播。
     5. 删除当前下载
     6. 下载管理器
-
-### 字幕相关
-
-* Emby 里字幕选择无效。  
-  外挂字幕选择有效，内置字幕会被忽略，由播放器选择。  
-  视频文件的内置字幕当作外挂字幕处理会导致播放器语言设置失效。（外挂字幕最优先）  
-  正常播放器都可以设置语言优先顺序。
-
-### mpv 相关
-
-* [可选] [portable_config](https://github.com/kjtsune/embyToLocalPlayer/tree/main/portable_config)
-  文件夹是我用的 mpv 配置，可将整个文件夹与 `mpv.exe` 放在一起。
-* 快捷键看 `input.conf`
-* 其他设置 `mpv.conf`
-
-### mpv.net 相关
-
-* 设置播放完自动关闭。不加载下个文件。（触发回传进度）  
-  右击 > Settings > Playback > idle:no, auto-load-folder:no （大概是这样
-* bug: 影响很小。如果 save-position-on-quit = yes 会导致开始播放时间由播放器强制保存，原版 mpv 没这问题。
-
-### PotPlayer 相关
-
-* 若使用 http 播放，可能提示地址关闭  
-  220914-64bit.exe + Win10 没问题。   
-  Win8 32bit 碰到。解决方法是使用 [Portable](https://www.videohelp.com/software/PotPlayer/old-versions) 版本。  
-  先打开 `PotPlayerPortable.exe` 一次，但播放用 `C:\<path_to>\PotPlayerPortable\App\PotPlayer\PotPlayer.exe`  
-  不然会要求管理员权限运行。
-* http 下一集无外挂字幕。
-* 选项 > 播放 > 播放窗口尺寸：全屏
-* 配置/语言/其他 > 收尾处理 > 播放完当前后退出（触发回传进度）
-
-### IINA 相关
-
-* 退出播放器才会回传进度。
-* 非读盘模式不支持外挂字幕文件（mpv 支持）
-
-### MPC 相关：
-
-* 会自动开启 WebUI 建议仅允许从 localhost 访问： 查看 > 选项 > Web 界面：  
-  打勾 仅允许从 localhost 访问
-
-### Jellyfin 相关
-
-* 首页播放结束后，10秒内重复播放**同文件**，本地播放器收到的播放时间会有误。    
-  解决方法：
-    1. 进详情后再播放没这问题；~~说明不是我的锅~~
-    2. 等待10秒后再继续播放；
-    3. 手动刷新页面后播放；
-    4. ~~告诉我要发送什么请求可以解决这个问题~~
 
 ### Plex 相关
 
