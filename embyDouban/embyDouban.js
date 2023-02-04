@@ -3,7 +3,7 @@
 // @name:zh-CN   embyDouban
 // @name:en      embyDouban
 // @namespace    https://github.com/kjtsune/embyToLocalPlayer/tree/main/embyDouban
-// @version      0.1.2
+// @version      0.1.4
 // @description  emby 里展示豆瓣 评分 链接 评论(可关)
 // @description:zh-CN  emby 里展示豆瓣 评分 链接 评论(可关)
 // @description:en  show douban ratings and comment[optional] in emby
@@ -227,11 +227,18 @@ function insertBangumiButton(idNode) {
     idNode.insertAdjacentHTML('beforebegin', bgmHtml);
 }
 
-setInterval(() => {
+function main() {
     let linkZone = document.querySelectorAll('div[class="verticalSection linksSection verticalSection-extrabottompadding"]');
     if (linkZone.length > 0) {
         insertDoubanButton(getVisibleElement(linkZone));
     }
     let bgmIdNode = document.evaluate('//div[contains(text(), "[bgm=")]', document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
     if (bgmIdNode) { insertBangumiButton(bgmIdNode) };
-}, 2000);
+}
+
+(function loop() {
+    setTimeout(async function () {
+        main();
+        loop();
+    }, 700);
+})();

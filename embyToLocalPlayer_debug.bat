@@ -27,3 +27,4 @@ echo you have pressed one
 python embyToLocalPlayer.py
 :END
 
+pause
