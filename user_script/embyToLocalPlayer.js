@@ -3,9 +3,9 @@
 // @name:zh-CN   embyToLocalPlayer
 // @name:en      embyToLocalPlayer
 // @namespace    https://github.com/kjtsune/embyToLocalPlayer
-// @version      1.1.3
-// @description  需要 Python。调用外部本地播放器，并回传播放记录。支持：纯本地｜网络｜持久性缓存｜下载。适配 Jellyfin Plex。
-// @description:zh-CN 需要 Python。调用外部本地播放器，并回传播放记录。支持：纯本地｜网络｜持久性缓存｜下载。适配 Jellyfin Plex。
+// @version      1.1.4
+// @description  需要 Python。调用外部本地播放器，并回传播放记录。适配 Jellyfin Plex。
+// @description:zh-CN 需要 Python。调用外部本地播放器，并回传播放记录。适配 Jellyfin Plex。
 // @description:en  Require Python. Play in an external player. Update watch history to emby server. Support Jellyfin Plex.
 // @author       Kjtsune
 // @match        *://*/web/index.html*
@@ -19,6 +19,18 @@
 // ==/UserScript==
 'use strict';
 /*
+2023-02-04:
+1. 修复：播放进度被重置。
+2. 修复：.iso 圆盘禁用回传避免莫名已观看。
+3. 适配：.m3u8 直播源。
+* 版本间累积更新：
+  * 弹弹play: 读盘模式支持多集回传，配置改动。
+  * 播放列表: 修复错误的集数限制逻辑。
+  * mpc: 修复回传错误。
+  * force_disk_mode: 合并到 [dev] 里。
+  * 伪随机播放器管道名或端口，增加容错率。
+  * 播放器多开。
+
 2022-11-25:
 1. 播放列表可预读取下一集。
 * 版本间累积更新：
@@ -26,20 +38,9 @@
   * 播放列表: 适配 Jellyfin
   * 播放列表: 修复 MPC 外挂字幕。
   * 修复 1.1.2 版本首次启动没杀死多余进程。
-
-2022-11-08:
-1. 增加播放列表功能，仅限 Emby，详见 FAQ
-2. 增加是否自动全屏
-3. VLC 支持外挂字幕
-* 版本间累积更新：
-    * 修复原版 mpv 切换字幕或音轨卡死。
-    * gui 可根据服务器禁用。
-    * 若误开读取硬盘模式并播放报错，不用重启脚本。
-
-2022-10-26:
-1. 可选是否回传播放记录。
-2. 修复 1.1.0 版本原版 mpv 意外卡死。
 */
+
+let fistTime = true;
 
 async function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
@@ -101,6 +102,7 @@ unsafeWindow.fetch = async (url, request) => {
 
 async function embyToLocalPlayer(playbackUrl, request, response) {
     let data = {
+        fistTime: fistTime,
         playbackData: response,
         playbackUrl: playbackUrl,
         request: request,
@@ -110,6 +112,7 @@ async function embyToLocalPlayer(playbackUrl, request, response) {
     sendDataToLocalServer(data, 'embyToLocalPlayer');
     await sleep(100);
     removeErrorWindows();
+    fistTime = false;
 }
 
 function sendDataToLocalServer(data, path) {
