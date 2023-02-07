@@ -282,6 +282,7 @@ def prefetch_resume_tv():
             items = requests_urllib(f'{host}/Users/{user_id}/Items/Resume',
                                     params=params, headers=headers, get_json=True)
         except Exception:
+            time.sleep(600)
             continue
         # dump_json_file(items, 'z_resume_emby.json')
         items = items['Items']
