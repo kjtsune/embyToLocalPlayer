@@ -200,6 +200,8 @@ def requests_urllib(host, params=None, _json=None, decode=False, timeout=2.0, he
             _logger.error(f'urllib {try_times=}', silence=silence)
             if try_times == retry:
                 raise TimeoutError(f'{try_times=} {host=}')
+        except Exception as e:
+            _logger.info(f'urllib unknown error {try_times=} \n{str(e)[:50]}')
     if decode:
         return response.read().decode()
     if get_json:
@@ -318,7 +320,7 @@ def update_server_playback_progress(stop_sec, data, update_last=False):
         # 4.7.8 开始：播放 A 到一半后退出，不刷新浏览器，播放 B，会清空 A 播放进度，故重复回传。
         # 播放完毕记录到字典
         if not update_last:
-            watched = bool(stop_sec / data['total_sec'] > 0.96)
+            watched = bool(stop_sec / data['total_sec'] > 0.9)
             _logger.debug('update emby_last_dict', data['basename'])
             emby_last_dict.update(dict(
                 watched=watched,
@@ -375,7 +377,8 @@ def parse_received_data_emby(received_data):
     file_path = media_source_info['Path']
     # stream_url = f'{scheme}://{netloc}{media_source_info["DirectStreamUrl"]}'
     container = os.path.splitext(file_path)[-1]
-    stream_url = f'{scheme}://{netloc}/videos/{item_id}/stream{container}' \
+    extra_str = '/emby' if is_emby else ''
+    stream_url = f'{scheme}://{netloc}{extra_str}/videos/{item_id}/stream{container}' \
                  f'?MediaSourceId={media_source_id}&Static=true&api_key={api_key}'
     # 避免将内置字幕转为外挂字幕，内置字幕选择由播放器决定
     sub_index = sub_index if sub_index < 0 or media_source_info['MediaStreams'][sub_index]['IsExternal'] else -1

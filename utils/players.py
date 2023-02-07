@@ -135,12 +135,13 @@ def list_episodes(data: dict):
     api_key = data['api_key']
     user_id = data['user_id']
     mount_disk_mode = data['mount_disk_mode']
+    extra_str = '/emby' if data['server'] == 'emby' else ''
 
     params = {'X-Emby-Token': api_key, }
     headers = {'accept': 'application/json', }
     headers.update(data['headers'])
 
-    response = requests_urllib(f'{scheme}://{netloc}/emby/Users/{user_id}/Items/{data["item_id"]}',
+    response = requests_urllib(f'{scheme}://{netloc}{extra_str}/Users/{user_id}/Items/{data["item_id"]}',
                                params=params, headers=headers, get_json=True)
     # if video is movie
     if 'SeasonId' not in response:
@@ -157,7 +158,7 @@ def list_episodes(data: dict):
         fake_name = os.path.splitdrive(file_path)[1].replace('/', '__').replace('\\', '__')
         item_id = item['Id']
         container = os.path.splitext(file_path)[-1]
-        stream_url = f'{scheme}://{netloc}/videos/{item_id}/stream{container}' \
+        stream_url = f'{scheme}://{netloc}{extra_str}/videos/{item_id}/stream{container}' \
                      f'?MediaSourceId={source_info["Id"]}&Static=true&api_key={api_key}'
         media_path = translate_path_by_ini(file_path) if mount_disk_mode else stream_url
         basename = os.path.basename(file_path)
@@ -195,7 +196,7 @@ def list_episodes(data: dict):
 
     params.update({'Fields': 'MediaSources,Path',
                    'SeasonId': season_id, })
-    url = f'{scheme}://{netloc}/emby/Shows/{series_id}/Episodes'
+    url = f'{scheme}://{netloc}{extra_str}/Shows/{series_id}/Episodes'
     episodes = requests_urllib(url, params=params, headers=headers, get_json=True)
     # dump_json_file(episodes, 'z_ep_parse.json')
     episodes = episodes['Items']
