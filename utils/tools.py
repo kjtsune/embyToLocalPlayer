@@ -180,12 +180,10 @@ def requests_urllib(host, params=None, _json=None, decode=False, timeout=2.0, he
     params = urllib.parse.urlencode(params) if params else None
     host = host + '?' + params if params else host
     req = urllib.request.Request(host)
-    if http_proxy:
-        http_proxy = http_proxy.split('://')
-        http_proxy = http_proxy[1] if len(http_proxy) == 2 else http_proxy[0]
-        req.set_proxy(http_proxy, 'http')
-    if headers:
-        [req.add_header(k, v) for k, v in headers.items()]
+    http_proxy = http_proxy or configs.script_proxy
+    http_proxy and req.set_proxy(http_proxy, 'http')
+    req.add_header('User-Agent', 'embyToLocalPlayer/1.1')
+    headers and [req.add_header(k, v) for k, v in headers.items()]
     if _json:
         req.add_header('Content-Type', 'application/json; charset=utf-8')
     if req_only:
@@ -201,7 +199,7 @@ def requests_urllib(host, params=None, _json=None, decode=False, timeout=2.0, he
             if try_times == retry:
                 raise TimeoutError(f'{try_times=} {host=}')
         except Exception as e:
-            _logger.info(f'urllib unknown error {try_times=} \n{str(e)[:50]}')
+            _logger.info(f'urllib unknown error {try_times=}\n{host=}\n{str(e)[:50]}')
     if decode:
         return response.read().decode()
     if get_json:

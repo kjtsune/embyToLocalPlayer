@@ -49,13 +49,30 @@ class Configs:
         self.disable_audio = self.raw.getboolean('dev', 'disable_audio', fallback=False)  # test in vm
         self.gui_is_enable = self.raw.getboolean('gui', 'enable', fallback=False)
         self.cache_path = self.raw.get('gui', 'cache_path', fallback=None)
+        self.cache_db = self._get_cache_db()
+        self.dl_proxy = self._get_proxy('download')
+        self.script_proxy = self._get_proxy('script')
+        self.player_proxy = self._get_proxy('player')
+        if self.debug_mode:
+            print('dl_proxy:', self.dl_proxy)
+            print('cache_db:', self.cache_db)
+
+    def _get_cache_db(self):
         _cache_db = os.path.join(self.cache_path, '.embyToLocalPlayer.json') if self.cache_path else None
         _dev_cache_db = os.path.join(self.cwd, 'z_cache.json')
-        self.cache_db = _dev_cache_db if os.path.exists(_dev_cache_db) else _cache_db
-        self.http_proxy = self.raw.get('gui', 'http_proxy', fallback=None)
-        if self.debug_mode:
-            print('http_proxy:', self.http_proxy)
-            print('cache_db:', self.cache_db)
+        return _dev_cache_db if os.path.exists(_dev_cache_db) else _cache_db
+
+    def _get_proxy(self, for_what):
+        p_map = dict(download=['gui', 'http_poxy', ''],
+                     script=['dev', 'script_proxy', ''],
+                     player=['dev', 'player_proxy', ''])
+        *args, fallback = p_map[for_what]
+        proxy = self.raw.get(*args, fallback=fallback)
+        if 'socks' in proxy.lower():
+            raise ValueError('only support http proxy')
+        proxy = proxy.split('://')
+        proxy = proxy[1] if len(proxy) == 2 else proxy[0]
+        return proxy
 
     def update(self):
         config = ConfigParser()

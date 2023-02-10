@@ -231,6 +231,8 @@ def mpv_player_start(cmd, start_sec=None, sub_file=None, media_title=None, get_s
     #     # 全局 sub_file 会影响播放列表下一集
     #     # cmd.append(f'--sub-file={sub_file}')
     if media_title:
+        if proxy := configs.player_proxy:
+            cmd.append(f'--http-proxy=http://{proxy}')
         cmd.append(f'--force-media-title={media_title}')
         cmd.append(f'--osd-playing-msg={media_title}')
     elif not is_iina:
