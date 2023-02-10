@@ -3,9 +3,9 @@
 // @name:zh-CN   embyToLocalPlayer
 // @name:en      embyToLocalPlayer
 // @namespace    https://github.com/kjtsune/embyToLocalPlayer
-// @version      1.1.4
-// @description  需要 Python。调用外部本地播放器，并回传播放记录。适配 Jellyfin Plex。
-// @description:zh-CN 需要 Python。调用外部本地播放器，并回传播放记录。适配 Jellyfin Plex。
+// @version      1.1.4.1
+// @description  需要 Python。Emby 调用外部本地播放器，并回传播放记录。适配 Jellyfin Plex。
+// @description:zh-CN 需要 Python。Emby 调用外部本地播放器，并回传播放记录。适配 Jellyfin Plex。
 // @description:en  Require Python. Play in an external player. Update watch history to emby server. Support Jellyfin Plex.
 // @author       Kjtsune
 // @match        *://*/web/index.html*
@@ -42,26 +42,48 @@
 
 let fistTime = true;
 
+let config = { logLevel: 2 };
+
+let logger = {
+    error: function (...args) {
+        if (config.logLevel >= 1)
+            console.log("%cerror", "color: yellow; font-style: italic; background-color: blue;",
+                args);
+    },
+    info: function (...args) {
+        if (config.logLevel >= 2)
+            console.log("%cinfo", "color: yellow; font-style: italic; background-color: blue;",
+                args);
+    },
+    debug: function (...args) {
+        if (config.logLevel >= 3)
+            console.log("%cdebug", "color: yellow; font-style: italic; background-color: blue;",
+                args);
+    },
+}
+
 async function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 function removeErrorWindows() {
     let okButtonList = document.querySelectorAll('button[data-id="ok"]');
+    let state = false;
     for (let index = 0; index < okButtonList.length; index++) {
         const element = okButtonList[index];
-        // console.log('%c%o%s', "color:orange;", 'textContent ', element.textContent)
         if (element.textContent.search(/(了解|好的|知道|Got It)/) != -1) {
             element.click();
+            state = true;
         }
     }
 
     let jellyfinSpinner = document.querySelector('div.docspinner');
-    if (jellyfinSpinner) { jellyfinSpinner.remove() };
+    if (jellyfinSpinner) {
+        jellyfinSpinner.remove();
+        state = true;
+    };
 
-    // let plexPlayerError = document.querySelector('div[class^="PlayerErrorModal-modalHeader"]');
-    // let plexErrorWindow = document.querySelector('div[class^="Modal-modalContainer"]');
-    // if (plexPlayerError && plexErrorWindow) { location.reload() };
+    return state;
 }
 
 function switchLocalStorage(key, defaultValue = 'true', trueValue = 'true', falseValue = 'false') {
@@ -88,14 +110,16 @@ function setModeSwitchMenu(storageKey, menuStart = '', menuEnd = '', defaultValu
 
 const originFetch = fetch;
 unsafeWindow.fetch = async (url, request) => {
-    // console.log('%c%o%s', 'background:yellow;', url, ' MYLOG')
     if (url.indexOf('/PlaybackInfo?UserId') > -1 && url.indexOf('IsPlayback=true') > -1
         && localStorage.getItem('webPlayerEnable') != 'true') {
         let response = await originFetch(url, request);
-        let data = await response.clone().json()
+        let data = await response.clone().json();
+        if (data.MediaSources[0].Path.search(/\Wbackdrop/i) != -1) {
+            logger.info('backdrop found');
+            return originFetch(url, request);
+        }
         embyToLocalPlayer(url, request, data);
     } else {
-        // console.log('%c%o%s', "color:orange;", 'url ', url)
         return originFetch(url, request);
     }
 }
@@ -111,7 +135,10 @@ async function embyToLocalPlayer(playbackUrl, request, response) {
     };
     sendDataToLocalServer(data, 'embyToLocalPlayer');
     await sleep(100);
-    removeErrorWindows();
+    if (!removeErrorWindows()) {
+        await sleep(1300);
+        removeErrorWindows();
+    }
     fistTime = false;
 }
 
