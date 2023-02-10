@@ -2,7 +2,6 @@ import os.path
 import threading
 import time
 import typing
-from urllib.request import urlopen
 
 from utils.configs import configs, MyLogger
 from utils.tools import load_json_file, requests_urllib, dump_json_file, scan_cache_dir, safe_deleter
@@ -26,7 +25,7 @@ class Downloader:
             os.path.exists(cache_path) or os.mkdir(cache_path)
 
     def get_size(self):
-        response = urlopen(self.url)
+        response = requests_urllib(self.url, http_proxy=configs.dl_proxy, res_only=True)
         return int(response.getheader('Content-Length'))
 
     def range_download(self, start: int, end: int, speed=0, rough_update=False) -> int:
@@ -37,9 +36,8 @@ class Downloader:
         open_mode = 'r+b' if os.path.exists(self.file) else 'wb'
         header_start = start - 1 if start else 0
         headers = {'Range': f'bytes={header_start}-{end}'}
-        req = requests_urllib(self.url, headers=headers, req_only=True, http_proxy=configs.dl_proxy)
         try:
-            response = urlopen(req)
+            response = requests_urllib(self.url, headers=headers, http_proxy=configs.dl_proxy, res_only=True)
         except Exception:
             logger.error(self._id, 'connect init error')
             return start

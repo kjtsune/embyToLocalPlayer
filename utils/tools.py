@@ -175,7 +175,7 @@ def get_player_cmd(media_path, dandan=False):
 
 
 def requests_urllib(host, params=None, _json=None, decode=False, timeout=2.0, headers=None, req_only=False,
-                    http_proxy='', get_json=False, save_path='', retry=3, silence=False):
+                    http_proxy='', get_json=False, save_path='', retry=3, silence=False, res_only=False):
     _json = json.dumps(_json).encode('utf-8') if _json else None
     params = urllib.parse.urlencode(params) if params else None
     host = host + '?' + params if params else host
@@ -193,6 +193,8 @@ def requests_urllib(host, params=None, _json=None, decode=False, timeout=2.0, he
     for try_times in range(1, retry + 1):
         try:
             response = urllib.request.urlopen(req, _json, timeout=timeout)
+            if res_only:
+                return response
             break
         except socket.timeout:
             _logger.error(f'urllib {try_times=}', silence=silence)

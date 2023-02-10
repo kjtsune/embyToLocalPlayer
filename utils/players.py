@@ -5,7 +5,6 @@ import subprocess
 import threading
 import time
 import urllib.parse
-import urllib.request
 from html.parser import HTMLParser
 
 from utils.configs import configs, MyLogger
