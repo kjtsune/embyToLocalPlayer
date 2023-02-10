@@ -70,7 +70,7 @@
 
 * 用鼠标手势软件关闭播放器体验更舒服一点。
 * 同服务器同时开启多个浏览器标签页，会造成回传进度失败假象。手动刷新一下页面，或者只开一个标签。
-* 非本地用户：Plex 及部分域名有 dns 污染，若无法播放，系统 dns 改成 `223.5.5.5 119.29.29.29` 后重启电脑再尝试。
+* 非本地用户：Plex 及部分域名有 dns 污染，若无法播放，修改系统 DNS 或使用代理。
 * Windows：若自启失败，检查启动项是否被禁用：任务管理器 > 启动
 * Windows：若源码运行：安装 AutoHotKey v2 或把 `autohotkey_tool.ahk` 编译为 `exe`。
 * 反馈群组在频道置顶，提问前先把 FAQ 看一遍，不含敏感数据不私聊。  
@@ -120,25 +120,18 @@
 * mpv.net:
 * vlc:
 * mpc: be: 播放列表条目超过10个可能会卡住，hc 没这问题。
-* pot: 下一集无法添加外挂字幕。
+* pot: 下一集无法添加 http 外挂字幕。
 
 **macOS**
 
 * mpv:
 * iina: 仅读盘模式支持并可回传
-* vlc: 下一集无法添加外挂字幕。
+* vlc: 下一集无法添加 http 外挂字幕。
 
 **Linux**
 
 * mpv:
-* vlc: 下一集无法添加外挂字幕。
-
-### mpv 相关
-
-* [可选] [portable_config](https://github.com/kjtsune/embyToLocalPlayer/tree/main/portable_config)
-  文件夹是我用的 mpv 配置，可将整个文件夹与 `mpv.exe` 放在一起。
-* 快捷键看 `input.conf`
-* 其他设置 `mpv.conf`
+* vlc: 下一集无法添加 http 外挂字幕。
 
 ### mpv.net 相关
 
@@ -202,7 +195,7 @@
 
 ### Plex 相关
 
-* 可能 dns 污染，若无法播放。系统 dns 改成 `223.5.5.5 119.29.29.29` 后重启电脑再尝试。
+* 可能 dns 污染，若无法播放。修改系统 DNS 或使用代理。
 * PotPlayer  
   播放 http 时无法读取外挂字幕，读取硬盘模式却可以。（字幕手动上传的，本地硬盘没有，比较玄学）
 * 会提示回放错误，随便点一下就会消失。
@@ -222,8 +215,6 @@
   ：Douban Trakt 互相跳转链接
 * [qbittorrent\_webui\_open_file](https://greasyfork.org/zh-CN/scripts/450015-qbittorrent-webui-open-file)
   ：联动脚本，配置相同，QB 网页打开文件夹或播放
-* [ccf-2012/torcp](https://github.com/ccf-2012/torcp)
-  : 适合 pt。将视频硬链接并重命名为 Emby 能识别的命名方式。
 
 ### 感谢
 
