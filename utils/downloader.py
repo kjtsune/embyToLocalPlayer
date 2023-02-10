@@ -29,7 +29,7 @@ class Downloader:
         response = urlopen(self.url)
         return int(response.getheader('Content-Length'))
 
-    def range_download(self, start: int, end: int, cache=None, speed=0) -> int:
+    def range_download(self, start: int, end: int, speed=0, rough_update=False) -> int:
         sleep = 1 / speed if speed else 0
         if start == 0:
             if safe_deleter(self.file):
@@ -37,7 +37,7 @@ class Downloader:
         open_mode = 'r+b' if os.path.exists(self.file) else 'wb'
         header_start = start - 1 if start else 0
         headers = {'Range': f'bytes={header_start}-{end}'}
-        req = requests_urllib(self.url, headers=headers, req_only=True, http_proxy=configs.http_proxy)
+        req = requests_urllib(self.url, headers=headers, req_only=True, http_proxy=configs.dl_proxy)
         try:
             response = urlopen(req)
         except Exception:
@@ -46,12 +46,9 @@ class Downloader:
         logger.debug(headers)
         h_size = int(response.getheader('Content-Length'))
         logger.debug('total_size', self.size, 'size', h_size, 'size_mb', h_size // 1024 // 1024, f'{open_mode=}')
-        if cache:
-            pass
         with open(self.file, open_mode) as f:
             f.seek(header_start)
             logger.debug(f'seek {header_start=}')
-            download_times = 0
             try:
                 while chunk := response.read(self.chunk_size):
                     if self.cancel or self.pause:
@@ -59,27 +56,33 @@ class Downloader:
                     f.write(chunk)
                     if start < self.size * 0.1:
                         f.flush()
+                    start += self.chunk_size
+                    if rough_update:
+                        # conservative update, but promptly.
+                        tmp_progress = round(start / self.size, 2) - 0.01
+                        if tmp_progress > self.progress:
+                            self.progress = tmp_progress
                     sleep and time.sleep(sleep)
-                    download_times += 1
             except Exception:
-                start += download_times * self.chunk_size
                 logger.error(self._id, 'internet interrupt! retry')
                 return start
             # logger.info(self._id, 'part download success', download_times, 'MB')
         return end
 
-    def percent_download(self, start, end, cache=None, speed=0, update=True):
+    def percent_download(self, start, end, speed=0, update=True):
         self.file_is_busy = True
-        for _start in range(int(start * 100), int(end * 100), 1):
+        seq_raw = [i / 100 for i in range(int(start * 100), int(end * 100) + 1)]
+        seq_step = seq_raw[:5] + seq_raw[5:-1:10] + seq_raw[-1:]
+        seq_step = seq_step if len(seq_raw) > 15 else seq_raw
+        for index, start_percent in enumerate(seq_step[:-1]):
             if self.cancel or self.pause:
                 self.file_is_busy = False
                 return
-            start_percent = _start / 100
-            end_percent = start_percent + 0.01
+            end_percent = seq_step[index + 1]
             logger.info(self._id, '_start', start_percent, '_end', end_percent)
             _start = int(float(self.size * start_percent))
             _end = int(float(self.size * end_percent))
-            end_with = self.range_download(_start, _end, cache, speed=speed)
+            end_with = self.range_download(_start, _end, speed=speed, rough_update=update)
             while end_with != _end:
                 if self.cancel or self.pause:
                     self.file_is_busy = False
@@ -87,7 +90,7 @@ class Downloader:
                 logger.info('percent download error found')
                 time.sleep(1)
                 _start = end_with
-                end_with = self.range_download(_start, _end, cache, speed=speed)
+                end_with = self.range_download(_start, _end, speed=speed, rough_update=update)
             if update:
                 self.progress = end_percent
                 logger.debug(self._id, end_percent, 'done')
