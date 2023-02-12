@@ -120,12 +120,14 @@ class PlayerManager:
         if not self.playlist_data:
             logger.error(f'playlist_data not found skip update progress')
             return
+        is_fist = True
         for key, _stop_sec in self.playlist_time.items():
             ep = self.playlist_data[key]
             if not _stop_sec:
                 continue
             logger.info(f'update {ep["basename"]} {_stop_sec=}')
-            update_server_playback_progress(stop_sec=_stop_sec, data=ep)
+            update_server_playback_progress(stop_sec=_stop_sec, data=ep, store=is_fist)
+            is_fist = False
 
 
 def list_episodes(data: dict):

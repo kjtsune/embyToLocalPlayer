@@ -174,14 +174,17 @@ def get_player_cmd(media_path, dandan=False):
     return result
 
 
-def requests_urllib(host, params=None, _json=None, decode=False, timeout=2.0, headers=None, req_only=False,
+def requests_urllib(host, params=None, _json=None, decode=False, timeout=3.0, headers=None, req_only=False,
                     http_proxy='', get_json=False, save_path='', retry=3, silence=False, res_only=False):
     _json = json.dumps(_json).encode('utf-8') if _json else None
     params = urllib.parse.urlencode(params) if params else None
     host = host + '?' + params if params else host
     req = urllib.request.Request(host)
     http_proxy = http_proxy or configs.script_proxy
-    http_proxy and req.set_proxy(http_proxy, 'http')
+    if http_proxy and not host.startswith(('http://127.0.0.1', 'http://localhost')):
+        req.set_proxy(http_proxy, 'http')
+        if host.startswith('https'):
+            req.set_proxy(http_proxy, 'https')
     req.add_header('User-Agent', 'embyToLocalPlayer/1.1')
     headers and [req.add_header(k, v) for k, v in headers.items()]
     if _json:
@@ -200,8 +203,6 @@ def requests_urllib(host, params=None, _json=None, decode=False, timeout=2.0, he
             _logger.error(f'urllib {try_times=}', silence=silence)
             if try_times == retry:
                 raise TimeoutError(f'{try_times=} {host=}')
-        except Exception as e:
-            _logger.info(f'urllib unknown error {try_times=}\n{host=}\n{str(e)[:50]}')
     if decode:
         return response.read().decode()
     if get_json:
@@ -300,7 +301,7 @@ def change_plex_play_position(scheme, netloc, api_key, stop_sec, rating_key, cli
 emby_last_dict = dict(watched=True, stop_sec=0, data={}, normal_file=True)
 
 
-def update_server_playback_progress(stop_sec, data, update_last=False):
+def update_server_playback_progress(stop_sec, data, store=True, check_fist_time=False):
     if not configs.raw.getboolean('emby', 'update_progress', fallback=True):
         return
     if stop_sec is None:
@@ -319,7 +320,7 @@ def update_server_playback_progress(stop_sec, data, update_last=False):
             change_emby_play_position(stop_sec=stop_sec, **data)
         # 4.7.8 开始：播放 A 到一半后退出，不刷新浏览器，播放 B，会清空 A 播放进度，故重复回传。
         # 播放完毕记录到字典
-        if not update_last:
+        if store:
             watched = bool(stop_sec / data['total_sec'] > 0.9)
             _logger.debug('update emby_last_dict', data['basename'])
             emby_last_dict.update(dict(
@@ -330,7 +331,7 @@ def update_server_playback_progress(stop_sec, data, update_last=False):
             ))
             return
         # 浏览器刷新后重置数据
-        elif data['fist_time']:
+        if check_fist_time and data['fist_time']:
             emby_last_dict.update(dict(watched=True, stop_sec=0, data={}, normal_file=False))
         # 第二次播放时，回传上个文件被重置的进度。
         if not data['fist_time'] and emby_last_dict['data'] \
