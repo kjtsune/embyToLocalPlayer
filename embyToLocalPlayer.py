@@ -22,6 +22,8 @@ class _RequestHandler(BaseHTTPRequestHandler):
         configs.update()
         if 'ToLocalPlayer' in self.path:
             data = parse_received_data_emby(data) if self.path.startswith('/emby') else parse_received_data_plex(data)
+            logger_setup(data=data)
+            logger.info(f'server={data["server"]} mount_disk_mode={data["mount_disk_mode"]}')
             update_server_playback_progress(stop_sec=data['start_sec'], data=data, store=False, check_fist_time=True)
             if configs.check_str_match(_str=data['netloc'], section='gui', option='except_host'):
                 threading.Thread(target=start_play, args=(data,), daemon=True).start()

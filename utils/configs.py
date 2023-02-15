@@ -1,4 +1,4 @@
-import os.path
+import os
 import platform
 import time
 from configparser import ConfigParser
@@ -13,8 +13,28 @@ from configparser import ConfigParser
 #     return logger
 
 class MyLogger:
+    need_mix = True
+    api_key = '_hide_api_key_'
+    netloc = '_mix_netloc_'
+    netloc_replace = '_mix_netloc_'
+    user_name = os.getlogin()
+
     def __init__(self):
         self.debug_mode = configs.debug_mode
+
+    @staticmethod
+    def mix_host_gen(netloc):
+        host, *port = netloc.split(':')
+        port = ':' + port[0] if port else ''
+        new = host[:len(host) // 2] + '_mix_host_' + port
+        return new
+
+    @staticmethod
+    def mix_args_str(*args):
+        return [str(i).replace(MyLogger.api_key, '_hide_api_key_')
+                .replace(MyLogger.netloc, MyLogger.netloc_replace)
+                .replace(MyLogger.user_name, '_hide_user_')
+                for i in args]
 
     @staticmethod
     def log(*args, end=None, silence=False):
@@ -24,6 +44,8 @@ class MyLogger:
         print(t, *args, end=end)
 
     def info(self, *args, end=None, silence=False):
+        if not silence and MyLogger.need_mix:
+            args = self.mix_args_str(*args)
         self.log(*args, end=end, silence=silence)
 
     def debug(self, *args, end=None, silence=False):
@@ -35,13 +57,14 @@ class MyLogger:
 
 
 class Configs:
+
     def __init__(self):
         self.platform = platform.system()
         self.cwd = os.path.dirname(os.path.dirname(__file__))
         self.path = [os.path.join(self.cwd, 'embyToLocalPlayer' + ext) for ext in (
             f'-{self.platform}.ini', '.ini', '_config.ini')]
         self.path = [i for i in self.path if os.path.exists(i)][0]
-        print(f'ini path: {self.path}')
+        MyLogger.log(MyLogger.mix_args_str(f'ini path: {self.path} {self.platform=}'))
         self.raw: ConfigParser = self.update()
         self.fullscreen = self.raw.getboolean('emby', 'fullscreen', fallback=True)
         self.speed_limit = self.raw.getfloat('dev', 'speed_limit', fallback=0)
@@ -56,6 +79,11 @@ class Configs:
         if self.debug_mode:
             print('dl_proxy:', self.dl_proxy)
             print('cache_db:', self.cache_db)
+
+    def _ini_str_split(self, section, option, fallback=''):
+        ini = self.raw.get(section, option, fallback=fallback).replace('，', ',')
+        ini = [i.strip() for i in ini.split(',') if i]
+        return ini
 
     def _get_cache_db(self):
         _cache_db = os.path.join(self.cache_path, '.embyToLocalPlayer.json') if self.cache_path else None
@@ -81,8 +109,7 @@ class Configs:
         return config
 
     def check_str_match(self, _str, section, option, return_value=False, log=True):
-        ini_list = self.raw.get(section, option, fallback='').replace('，', ',')
-        ini_list = [i.strip() for i in ini_list.split(',') if i]
+        ini_list = self._ini_str_split(section, option, fallback='')
         match_list = [i for i in ini_list if i in _str]
         if ini_list and any(match_list):
             result = match_list[0] if return_value else True
@@ -90,7 +117,9 @@ class Configs:
             result = False
         _log = {True: "match", False: "not match"}[bool(result)]
         if log:
-            print(f'{_str} {_log}: {section}[{option}] {ini_list}')
+            if MyLogger.need_mix:
+                _log = MyLogger.mix_args_str(f'{_str} {_log}: {section}[{option}] {ini_list}')
+            MyLogger.log(_log)
         return result
 
 

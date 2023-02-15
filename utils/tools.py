@@ -15,6 +15,15 @@ from utils.configs import configs, MyLogger
 _logger = MyLogger()
 
 
+def logger_setup(data):
+    if not configs.raw.getboolean('dev', 'mix_log', fallback=True):
+        MyLogger.need_mix = False
+        return
+    MyLogger.api_key = data['api_key']
+    MyLogger.netloc = data['netloc']
+    MyLogger.netloc_replace = MyLogger.mix_host_gen(data['netloc'])
+
+
 def run_server(req_handler):
     server_address = ('127.0.0.1', 58000)
     httpd = HTTPServer(server_address, req_handler)
