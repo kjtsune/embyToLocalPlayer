@@ -24,7 +24,9 @@ class _RequestHandler(BaseHTTPRequestHandler):
             data = parse_received_data_emby(data) if self.path.startswith('/emby') else parse_received_data_plex(data)
             logger_setup(data=data)
             logger.info(f'server={data["server"]} mount_disk_mode={data["mount_disk_mode"]}')
-            update_server_playback_progress(stop_sec=data['start_sec'], data=data, store=False, check_fist_time=True)
+            threading.Thread(target=update_server_playback_progress, kwargs=dict(
+                stop_sec=data['start_sec'], data=data, store=False, check_fist_time=True
+            ), daemon=True).start()
             if configs.check_str_match(_str=data['netloc'], section='gui', option='except_host'):
                 threading.Thread(target=start_play, args=(data,), daemon=True).start()
                 return True
@@ -114,8 +116,8 @@ def start_play(data):
 
 
 if __name__ == '__main__':
-    dl_manager = DownloadManager(configs.cache_path, speed_limit=configs.speed_limit)
     player_is_running = False
+    dl_manager = DownloadManager(configs.cache_path, speed_limit=configs.speed_limit)
     if configs.raw.getboolean('dev', 'kill_process_at_start', fallback=True):
         kill_multi_process(name_re=f'(embyToLocalPlayer.py|autohotkey_tool|' +
                                    r'mpv.*exe|mpc-.*exe|vlc.exe|PotPlayer.*exe|' +
