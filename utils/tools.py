@@ -325,7 +325,10 @@ def update_server_playback_progress(stop_sec, data, store=True, check_fist_time=
     stop_sec = stop_sec - 2 if stop_sec > 5 else stop_sec
 
     if server == 'emby':
+        start = time.time()
+        times = 0
         if normal_file:
+            times += 1
             change_emby_play_position(stop_sec=stop_sec, **data)
         # 4.7.8 开始：播放 A 到一半后退出，不刷新浏览器，播放 B，会清空 A 播放进度，故重复回传。
         # 播放完毕记录到字典
@@ -347,6 +350,8 @@ def update_server_playback_progress(stop_sec, data, store=True, check_fist_time=
                 and not emby_last_dict['watched'] and emby_last_dict['normal_file']:
             _logger.info('update again by check_last', emby_last_dict['data']['basename'], emby_last_dict['stop_sec'])
             change_emby_play_position(stop_sec=emby_last_dict['stop_sec'], **emby_last_dict['data'])
+            times += 1
+        _logger.info(f'send {times * 2} requests, update done, used time: {time.time() - start}')
     elif not normal_file:
         pass
     elif server == 'jellyfin':
