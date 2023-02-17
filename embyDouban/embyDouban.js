@@ -3,7 +3,7 @@
 // @name:zh-CN   embyDouban
 // @name:en      embyDouban
 // @namespace    https://github.com/kjtsune/embyToLocalPlayer/tree/main/embyDouban
-// @version      0.1.4
+// @version      0.1.5
 // @description  emby 里展示豆瓣 评分 链接 评论(可关)
 // @description:zh-CN  emby 里展示豆瓣 评分 链接 评论(可关)
 // @description:en  show douban ratings and comment[optional] in emby
@@ -169,7 +169,9 @@ function insertDoubanComment(doubanId, doubanComment) {
     }
     let embyComment = getVisibleElement(document.querySelectorAll('div.overview-text'));
     if (embyComment) {
-        embyComment.parentNode.parentNode.insertAdjacentHTML('afterend', `<div id="doubanComment"><li>douban comment
+        let parentNode = (ApiClient._serverVersion.startsWith('4.6')
+        ) ? embyComment.parentNode : embyComment.parentNode.parentNode
+        parentNode.insertAdjacentHTML('afterend', `<div id="doubanComment"><li>douban comment
         </li>${doubanComment}</li></div>`);
         console.log('%c%s', 'color: orange;', 'insert doubanComment ', doubanId, doubanComment);
     }
