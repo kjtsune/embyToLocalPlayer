@@ -64,7 +64,8 @@ class Configs:
         self.path = [os.path.join(self.cwd, 'embyToLocalPlayer' + ext) for ext in (
             f'-{self.platform}.ini', '.ini', '_config.ini')]
         self.path = [i for i in self.path if os.path.exists(i)][0]
-        MyLogger.log(MyLogger.mix_args_str(f'ini path: {self.path} {self.platform=}'))
+        MyLogger.log(MyLogger.mix_args_str(f'ini path: {self.path}'))
+        MyLogger.log(f'{platform.platform(True)} Python-{platform.python_version()}')
         self.raw: ConfigParser = self.update()
         self.fullscreen = self.raw.getboolean('emby', 'fullscreen', fallback=True)
         self.speed_limit = self.raw.getfloat('dev', 'speed_limit', fallback=0)

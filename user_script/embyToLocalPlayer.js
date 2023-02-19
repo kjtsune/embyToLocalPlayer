@@ -3,7 +3,7 @@
 // @name:zh-CN   embyToLocalPlayer
 // @name:en      embyToLocalPlayer
 // @namespace    https://github.com/kjtsune/embyToLocalPlayer
-// @version      1.1.4.1
+// @version      1.1.5
 // @description  需要 Python。Emby 调用外部本地播放器，并回传播放记录。适配 Jellyfin Plex。
 // @description:zh-CN 需要 Python。Emby 调用外部本地播放器，并回传播放记录。适配 Jellyfin Plex。
 // @description:en  Require Python. Play in an external player. Update watch history to emby server. Support Jellyfin Plex.
@@ -19,6 +19,15 @@
 // ==/UserScript==
 'use strict';
 /*
+2023-02-16:
+1. 分离播放前回传。（提升非本地用户播放器启动速度）
+* 版本间累积更新：
+  * 适配：网盘直链重定向。
+  * 油猴：适配背景视频。
+  * 增加：脚本代理及 mpv 系播放器代理。
+  * 播放列表：首集进度被重置。
+  * 日志：模糊域名及密钥。
+
 2023-02-04:
 1. 修复：播放进度被重置。
 2. 修复：.iso 圆盘禁用回传避免莫名已观看。
@@ -30,14 +39,6 @@
   * force_disk_mode: 合并到 [dev] 里。
   * 伪随机播放器管道名或端口，增加容错率。
   * 播放器多开。
-
-2022-11-25:
-1. 播放列表可预读取下一集。
-* 版本间累积更新：
-  * 油猴脚本整合自动关闭错误窗口。不再需要 `embyErrorWindows.js`。
-  * 播放列表: 适配 Jellyfin
-  * 播放列表: 修复 MPC 外挂字幕。
-  * 修复 1.1.2 版本首次启动没杀死多余进程。
 */
 
 let fistTime = true;

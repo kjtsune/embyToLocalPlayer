@@ -28,7 +28,7 @@ class Downloader:
         response = requests_urllib(self.url, http_proxy=configs.dl_proxy, res_only=True)
         return int(response.getheader('Content-Length'))
 
-    def range_download(self, start: int, end: int, speed=0, rough_update=False) -> int:
+    def range_download(self, start: int, end: int, speed=0, update=False) -> int:
         sleep = 1 / speed if speed else 0
         if start == 0:
             if safe_deleter(self.file):
@@ -55,9 +55,8 @@ class Downloader:
                     if start < self.size * 0.1:
                         f.flush()
                     start += self.chunk_size
-                    if rough_update:
-                        # conservative update, but promptly.
-                        tmp_progress = round(start / self.size, 2) - 0.01
+                    if update:
+                        tmp_progress = round(start / self.size, 2)
                         if tmp_progress > self.progress:
                             self.progress = tmp_progress
                     sleep and time.sleep(sleep)
@@ -69,29 +68,21 @@ class Downloader:
 
     def percent_download(self, start, end, speed=0, update=True):
         self.file_is_busy = True
-        seq_raw = [i / 100 for i in range(int(start * 100), int(end * 100) + 1)]
-        seq_step = seq_raw[:5] + seq_raw[5:-1:10] + seq_raw[-1:]
-        seq_step = seq_step if len(seq_raw) > 15 else seq_raw
-        for index, start_percent in enumerate(seq_step[:-1]):
+        logger.info(self._id, '_start', start, '_end', end)
+        _start = int(float(self.size * start))
+        _end = int(float(self.size * end))
+        end_with = self.range_download(_start, _end, speed=speed, update=update)
+        while end_with != _end:
             if self.cancel or self.pause:
                 self.file_is_busy = False
                 return
-            end_percent = seq_step[index + 1]
-            logger.info(self._id, '_start', start_percent, '_end', end_percent)
-            _start = int(float(self.size * start_percent))
-            _end = int(float(self.size * end_percent))
-            end_with = self.range_download(_start, _end, speed=speed, rough_update=update)
-            while end_with != _end:
-                if self.cancel or self.pause:
-                    self.file_is_busy = False
-                    return
-                logger.info('percent download error found')
-                time.sleep(1)
-                _start = end_with
-                end_with = self.range_download(_start, _end, speed=speed, rough_update=update)
-            if update:
-                self.progress = end_percent
-                logger.debug(self._id, end_percent, 'done')
+            logger.info('percent download error found')
+            time.sleep(1)
+            _start = end_with
+            end_with = self.range_download(_start, _end, speed=speed, update=update)
+        if update:
+            self.progress = end
+            logger.debug(self._id, end, 'done')
         self.file_is_busy = False
         return True
 
