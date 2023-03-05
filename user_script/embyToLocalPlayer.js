@@ -3,7 +3,7 @@
 // @name:zh-CN   embyToLocalPlayer
 // @name:en      embyToLocalPlayer
 // @namespace    https://github.com/kjtsune/embyToLocalPlayer
-// @version      1.1.5
+// @version      1.1.5.1
 // @description  需要 Python。Emby 调用外部本地播放器，并回传播放记录。适配 Jellyfin Plex。
 // @description:zh-CN 需要 Python。Emby 调用外部本地播放器，并回传播放记录。适配 Jellyfin Plex。
 // @description:en  Require Python. Play in an external player. Update watch history to emby server. Support Jellyfin Plex.
@@ -48,17 +48,17 @@ let config = { logLevel: 2 };
 let logger = {
     error: function (...args) {
         if (config.logLevel >= 1)
-            console.log("%cerror", "color: yellow; font-style: italic; background-color: blue;",
+            console.log('%cerror', 'color: yellow; font-style: italic; background-color: blue;',
                 args);
     },
     info: function (...args) {
         if (config.logLevel >= 2)
-            console.log("%cinfo", "color: yellow; font-style: italic; background-color: blue;",
+            console.log('%cinfo', 'color: yellow; font-style: italic; background-color: blue;',
                 args);
     },
     debug: function (...args) {
         if (config.logLevel >= 3)
-            console.log("%cdebug", "color: yellow; font-style: italic; background-color: blue;",
+            console.log('%cdebug', 'color: yellow; font-style: italic; background-color: blue;',
                 args);
     },
 }
@@ -135,10 +135,12 @@ async function embyToLocalPlayer(playbackUrl, request, response) {
 
     };
     sendDataToLocalServer(data, 'embyToLocalPlayer');
-    await sleep(100);
-    if (!removeErrorWindows()) {
-        await sleep(1300);
-        removeErrorWindows();
+    for (const times of Array(15).keys()) {
+        await sleep(200);
+        if (removeErrorWindows()) {
+            logger.info(`remove error window used time: ${(times + 1) * 0.2}`);
+            break;
+        };
     }
     fistTime = false;
 }
@@ -146,11 +148,11 @@ async function embyToLocalPlayer(playbackUrl, request, response) {
 function sendDataToLocalServer(data, path) {
     let url = `http://127.0.0.1:58000/${path}/`
     GM_xmlhttpRequest({
-        method: "POST",
+        method: 'POST',
         url: url,
         data: JSON.stringify(data),
         headers: {
-            "Content-Type": "application/json"
+            'Content-Type': 'application/json'
         },
     });
 }
@@ -159,7 +161,6 @@ function initXMLHttpRequest() {
     let open = XMLHttpRequest.prototype.open;
     XMLHttpRequest.prototype.open = function (...args) {
         // 正常请求不匹配的网址       
-        // console.log(args, "---all_args");
         let url = args[1]
         if (url.indexOf('playQueues?type=video') == -1) {
             return open.apply(this, args);
@@ -167,7 +168,6 @@ function initXMLHttpRequest() {
         // 请求前拦截
         if (url.indexOf('playQueues?type=video') != -1
             && localStorage.getItem('webPlayerEnable') != 'true') {
-            // console.log(args, "-----args");
             fetch(url, {
                 method: args[0],
                 headers: {
@@ -183,7 +183,6 @@ function initXMLHttpRequest() {
 
                     };
                     sendDataToLocalServer(data, 'plexToLocalPlayer');
-                    // console.log(data, "-----data")
                 });
             return;
         }

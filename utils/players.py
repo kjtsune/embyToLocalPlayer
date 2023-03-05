@@ -11,7 +11,7 @@ from utils.configs import configs, MyLogger
 from utils.downloader import Downloader
 from utils.python_mpv_jsonipc import MPV
 from utils.tools import (activate_window_by_pid, requests_urllib, update_server_playback_progress,
-                         translate_path_by_ini)
+                         translate_path_by_ini, multi_thread_requests)
 
 logger = MyLogger()
 prefetch_data = dict(on=True, running=False, stop_sec_dict={}, done_list=[], playlist_data={})
@@ -130,7 +130,35 @@ class PlayerManager:
             is_fist = False
 
 
+def list_episodes_plex(data: dict):
+    result = data['list_eps']
+    if not data['sub_file'] or data['mount_disk_mode']:
+        return result
+
+    scheme = data['scheme']
+    netloc = data['netloc']
+    api_key = data['api_key']
+
+    key_url_dict = {
+        ep['rating_key']: f'{scheme}://{netloc}/library/metadata/{ep["rating_key"]}?X-Plex-Token={api_key}'
+        for ep in result if not ep['sub_file']}
+    key_sub_dict = multi_thread_requests(key_url_dict, get_json=True)
+    logger.info(f'send {len(key_url_dict)} requests to check subtitles')
+
+    for ep in result:
+        if ep['sub_file']:
+            continue
+        streams = key_sub_dict[ep['rating_key']]['MediaContainer']['Metadata'][0]['Media'][0]['Part'][0]['Stream']
+        sub_path = [s['key'] for s in streams if s.get('key')
+                    and configs.check_str_match(s.get('displayTitle'), 'playlist', 'subtitle_priority', log=False)]
+        sub_file = f'{scheme}://{netloc}{sub_path[0]}?download=1&X-Plex-Token={api_key}' if sub_path else None
+        ep['sub_file'] = sub_file
+    return result
+
+
 def list_episodes(data: dict):
+    if data['server'] == 'plex':
+        return list_episodes_plex(data)
     scheme = data['scheme']
     netloc = data['netloc']
     api_key = data['api_key']
@@ -152,7 +180,6 @@ def list_episodes(data: dict):
 
     def parse_item(item):
         source_info = item['MediaSources'][0]
-        name = item['Name']
         file_path = source_info.get('Path')
         if not file_path or 'RunTimeTicks' not in item:
             return None
@@ -180,7 +207,6 @@ def list_episodes(data: dict):
 
         result = data.copy()
         result.update(dict(
-            name=name,
             basename=basename,
             media_basename=media_basename,
             item_id=item_id,

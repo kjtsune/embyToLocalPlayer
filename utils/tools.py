@@ -7,6 +7,7 @@ import subprocess
 import time
 import urllib.parse
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from http.server import HTTPServer
 from typing import Union
 
@@ -159,7 +160,7 @@ def translate_path_by_ini(file_path):
         dst = config['dst']
         # 貌似是有序字典
         for k, src_prefix in src.items():
-            if src_prefix not in file_path:
+            if not file_path.startswith(src_prefix):
                 continue
             dst_prefix = dst[k]
             tmp_path = file_path.replace(src_prefix, dst_prefix, 1)
@@ -196,8 +197,9 @@ def requests_urllib(host, params=None, _json=None, decode=False, timeout=3.0, he
             req.set_proxy(http_proxy, 'https')
     req.add_header('User-Agent', 'embyToLocalPlayer/1.1')
     headers and [req.add_header(k, v) for k, v in headers.items()]
-    if _json:
+    if _json or get_json:
         req.add_header('Content-Type', 'application/json; charset=utf-8')
+        req.add_header('Accept', 'application/json')
     if req_only:
         return req
 
@@ -223,6 +225,25 @@ def requests_urllib(host, params=None, _json=None, decode=False, timeout=3.0, he
         with open(save_path, 'wb') as f:
             f.write(response.read())
         return save_path
+
+
+def multi_thread_requests(urls: Union[list, tuple, dict], **kwargs):
+    return_list = False
+
+    def dict_requests(key, url):
+        return {key: requests_urllib(host=url, **kwargs)}
+
+    if not isinstance(urls, dict):
+        return_list = True
+        urls = dict(zip(range(len(urls)), urls))
+
+    result = {}
+    with ThreadPoolExecutor(max_workers=20) as executor:
+        for future in as_completed([executor.submit(dict_requests, key, url) for (key, url) in urls.items()]):
+            result.update(future.result())
+    if return_list:
+        return [i[1] for i in sorted(result.items())]
+    return result
 
 
 def change_emby_play_position(scheme, netloc, item_id, api_key, stop_sec, play_session_id, device_id, **_):
@@ -453,50 +474,72 @@ def parse_received_data_plex(received_data):
     client_id = query['X-Plex-Client-Identifier']
     netloc = url.netloc
     scheme = url.scheme
-    meta = received_data['playbackData']['MediaContainer']['Metadata'][0]
-    data = meta['Media'][0]
-    item_id = data['id']
-    duration = data['duration']
-    file_path = data['Part'][0]['file']
-    stream_path = data['Part'][0]['key']
-    stream_url = f'{scheme}://{netloc}{stream_path}?download=1&X-Plex-Token={api_key}'
-    sub_path = [i['key'] for i in data['Part'][0]['Stream'] if i.get('key') and i.get('selected')]
-    sub_file = f'{scheme}://{netloc}{sub_path[0]}?download=1&X-Plex-Token={api_key}' if sub_path else None
+    metas = received_data['playbackData']['MediaContainer']['Metadata']
+    _file = metas[0]['Media'][0]['Part'][0]['file']
+    mount_disk_mode = True if force_disk_mode_by_path(_file) else mount_disk_mode
+    base_info_dict = dict(server='plex',
+                          mount_disk_mode=mount_disk_mode,
+                          api_key=api_key,
+                          scheme=scheme,
+                          netloc=netloc,
+                          client_id=client_id,
+                          )
+    res_list = []
+    fist_sub = None
+    for index, meta in enumerate(metas):
+        res = base_info_dict.copy()
+        data = meta['Media'][0]
+        item_id = data['id']
+        duration = data['duration']
+        file_path = data['Part'][0]['file']
+        size = data['Part'][0]['size']
+        stream_path = data['Part'][0]['key']
+        stream_url = f'{scheme}://{netloc}{stream_path}?download=1&X-Plex-Token={api_key}'
+        sub_path = [i for i in data['Part'][0]['Stream'] if i.get('key') and i.get('streamType') == 3]
+        if index == 0:
+            sub_path = fist_sub = [i['key'] for i in sub_path if i.get('selected')]
+        else:
+            sub_path = [s['key'] for s in sub_path if fist_sub
+                        and configs.check_str_match(s['displayTitle'], 'playlist', 'subtitle_priority', log=False)]
+        sub_file = f'{scheme}://{netloc}{sub_path[0]}?download=1&X-Plex-Token={api_key}' if sub_path else None
+        media_path = translate_path_by_ini(file_path) if mount_disk_mode else stream_url
+        basename = os.path.basename(file_path)
+        media_basename = os.path.basename(media_path)
+        media_title = basename if not mount_disk_mode else None  # 播放http时覆盖标题
 
-    mount_disk_mode = True if force_disk_mode_by_path(file_path) else mount_disk_mode
-    media_path = translate_path_by_ini(file_path) if mount_disk_mode else stream_url
-    basename = os.path.basename(file_path)
-    media_basename = os.path.basename(media_path)
-    media_title = basename if not mount_disk_mode else None  # 播放http时覆盖标题
+        seek = meta.get('viewOffset')
+        rating_key = meta['ratingKey']
+        start_sec = int(seek) // (10 ** 3) if seek and not query.get('extrasPrefixCount') else 0
 
-    seek = meta.get('viewOffset')
-    rating_key = meta['ratingKey']
-    start_sec = int(seek) // (10 ** 3) if seek and not query.get('extrasPrefixCount') else 0
+        fake_name = os.path.splitdrive(file_path)[1].replace('/', '__').replace('\\', '__')
+        total_sec = int(meta['duration']) // (10 ** 3)
+        position = start_sec / total_sec
 
-    fake_name = os.path.splitdrive(file_path)[1].replace('/', '..').replace('\\', '..')
-    total_sec = int(meta['duration']) // (10 ** 3)
-    position = start_sec / total_sec
+        playlist_diff_dict = dict(
+            basename=basename,
+            media_basename=media_basename,
+            item_id=item_id,
+            file_path=file_path,
+            stream_url=stream_url,
+            media_path=media_path,
+            fake_name=fake_name,
+            total_sec=total_sec,
+            sub_file=sub_file,
+            index=index,
+            size=size
+        )
 
-    result = dict(
-        server='plex',
-        mount_disk_mode=mount_disk_mode,
-        api_key=api_key,
-        scheme=scheme,
-        netloc=netloc,
-        media_path=media_path,
-        start_sec=start_sec,
-        sub_file=sub_file,
-        media_title=media_title,
-        item_id=item_id,
-        client_id=client_id,
-        duration=duration,
-        rating_key=rating_key,
-        file_path=file_path,
-        stream_url=stream_url,
-        fake_name=fake_name,
-        position=position,
-        total_sec=total_sec,
-        basename=basename,
-        media_basename=media_basename,
-    )
+        other_info_dict = dict(
+            start_sec=start_sec,
+            media_title=media_title,
+            duration=duration,
+            rating_key=rating_key,
+            position=position,
+        )
+        res.update(playlist_diff_dict)
+        res.update(other_info_dict)
+        res_list.append(res)
+
+    result = res_list[0]
+    result['list_eps'] = res_list
     return result

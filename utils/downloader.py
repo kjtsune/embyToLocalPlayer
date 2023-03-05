@@ -56,8 +56,8 @@ class Downloader:
                         f.flush()
                     start += self.chunk_size
                     if update:
-                        tmp_progress = round(start / self.size, 2)
-                        if tmp_progress > self.progress:
+                        tmp_progress = start * 100 // self.size / 100
+                        if tmp_progress >= self.progress:
                             self.progress = tmp_progress
                     sleep and time.sleep(sleep)
             except Exception:
