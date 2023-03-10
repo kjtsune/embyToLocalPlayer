@@ -3,10 +3,8 @@
 import ctypes
 import json
 import locale
-import os
 import re
 import subprocess
-import time
 
 from utils.configs import MyLogger
 
@@ -14,14 +12,6 @@ logger = MyLogger()
 user32 = ctypes.windll.user32
 kernel32 = ctypes.windll.kernel32
 EnumWindowsProc = ctypes.WINFUNCTYPE(ctypes.c_int, ctypes.POINTER(ctypes.c_int), ctypes.POINTER(ctypes.c_int))
-
-
-def open_in_explore(path):
-    # filebrowser = os.path.join(os.getenv('WINDIR'), 'explorer.exe')
-    path = os.path.normpath(path)
-    # cmd = [filebrowser, path] if os.path.isdir(path) else [filebrowser, '/select,', path]
-    cmd = f'explorer "{path}"' if os.path.isdir(path) else f'explorer /select, "{path}"'
-    os.system(cmd)
 
 
 def list_pid_and_cmd(name_re='.') -> list:
@@ -132,6 +122,3 @@ def get_window_thread_process_name(hwnd):
     buffer = buffer[:]
     buffer = buffer[:buffer.index('\0')]
     return str(buffer)
-
-
-

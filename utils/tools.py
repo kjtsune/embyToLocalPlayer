@@ -69,14 +69,18 @@ def dump_json_file(obj, file, encoding='utf-8'):
 
 
 def open_local_folder(data):
-    if os.name != 'nt':
-        _logger.info('open folder only work in windows')
-        return
-    from utils.windows_tool import open_in_explore
-    path = data['info'][0]['content_path']
+    path = data.get('full_path') or data['info'][0]['content_path']
     translate_path = translate_path_by_ini(path)
-    open_in_explore(translate_path)
-    _logger.info('open folder', translate_path)
+    path = os.path.normpath(translate_path)
+    # isdir = os.path.isdir(path)
+    isdir = False if os.path.splitext(path)[1] else True
+    windows = f'explorer "{path}"' if isdir else f'explorer /select, "{path}"'
+    # -R 确保前台显示
+    darwin = f'open -R "{path}"'
+    linux = f'xdg-open "{path}"' if isdir else f'xdg-open "{os.path.dirname(path)}"'
+    cmd = dict(windows=windows, darwin=darwin, linux=linux)[configs.platform.lower()]
+    _logger.info(cmd)
+    os.system(cmd)
 
 
 def play_media_file(data):
@@ -155,6 +159,7 @@ def use_dandan_exe_by_path(file_path):
 
 def translate_path_by_ini(file_path):
     config = configs.raw
+    path_check = config.getboolean('dev', 'path_check', fallback=False)
     if 'src' in config and 'dst' in config and not file_path.startswith('http'):
         src = config['src']
         dst = config['dst']
@@ -164,7 +169,10 @@ def translate_path_by_ini(file_path):
                 continue
             dst_prefix = dst[k]
             tmp_path = file_path.replace(src_prefix, dst_prefix, 1)
-            if os.path.exists(tmp_path):
+            if not path_check:
+                file_path = os.path.abspath(tmp_path)
+                break
+            elif os.path.exists(tmp_path):
                 file_path = os.path.abspath(tmp_path)
                 break
             else:

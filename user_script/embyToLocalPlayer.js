@@ -3,7 +3,7 @@
 // @name:zh-CN   embyToLocalPlayer
 // @name:en      embyToLocalPlayer
 // @namespace    https://github.com/kjtsune/embyToLocalPlayer
-// @version      1.1.5.1
+// @version      1.1.5.2
 // @description  需要 Python。Emby 调用外部本地播放器，并回传播放记录。适配 Jellyfin Plex。
 // @description:zh-CN 需要 Python。Emby 调用外部本地播放器，并回传播放记录。适配 Jellyfin Plex。
 // @description:en  Require Python. Play in an external player. Update watch history to emby server. Support Jellyfin Plex.
@@ -41,25 +41,25 @@
   * 播放器多开。
 */
 
-let fistTime = true;
+let config = {
+    logLevel: 2,
+    disableOpenFolder: false, // false 改为 true 则禁用打开文件夹的按钮。
+};
 
-let config = { logLevel: 2 };
+let fistTime = true;
 
 let logger = {
     error: function (...args) {
         if (config.logLevel >= 1)
-            console.log('%cerror', 'color: yellow; font-style: italic; background-color: blue;',
-                args);
+            console.log('%cerror', 'color: yellow; font-style: italic; background-color: blue;', args);
     },
     info: function (...args) {
         if (config.logLevel >= 2)
-            console.log('%cinfo', 'color: yellow; font-style: italic; background-color: blue;',
-                args);
+            console.log('%cinfo', 'color: yellow; font-style: italic; background-color: blue;', args);
     },
     debug: function (...args) {
         if (config.logLevel >= 3)
-            console.log('%cdebug', 'color: yellow; font-style: italic; background-color: blue;',
-                args);
+            console.log('%cdebug', 'color: yellow; font-style: italic; background-color: blue;', args);
     },
 }
 
@@ -109,20 +109,16 @@ function setModeSwitchMenu(storageKey, menuStart = '', menuEnd = '', defaultValu
 
 }
 
-const originFetch = fetch;
-unsafeWindow.fetch = async (url, request) => {
-    if (url.indexOf('/PlaybackInfo?UserId') > -1 && url.indexOf('IsPlayback=true') > -1
-        && localStorage.getItem('webPlayerEnable') != 'true') {
-        let response = await originFetch(url, request);
-        let data = await response.clone().json();
-        if (data.MediaSources[0].Path.search(/\Wbackdrop/i) != -1) {
-            logger.info('backdrop found');
-            return originFetch(url, request);
-        }
-        embyToLocalPlayer(url, request, data);
-    } else {
-        return originFetch(url, request);
-    }
+function sendDataToLocalServer(data, path) {
+    let url = `http://127.0.0.1:58000/${path}/`;
+    GM_xmlhttpRequest({
+        method: 'POST',
+        url: url,
+        data: JSON.stringify(data),
+        headers: {
+            'Content-Type': 'application/json'
+        },
+    });
 }
 
 async function embyToLocalPlayer(playbackUrl, request, response) {
@@ -145,20 +141,66 @@ async function embyToLocalPlayer(playbackUrl, request, response) {
     fistTime = false;
 }
 
-function sendDataToLocalServer(data, path) {
-    let url = `http://127.0.0.1:58000/${path}/`
-    GM_xmlhttpRequest({
-        method: 'POST',
-        url: url,
-        data: JSON.stringify(data),
-        headers: {
-            'Content-Type': 'application/json'
-        },
+function isHidden(el) {
+    return (el.offsetParent === null);
+}
+
+function getVisibleElement(elList) {
+    if (!elList) return;
+    if (NodeList.prototype.isPrototypeOf(elList)) {
+        for (let i = 0; i < elList.length; i++) {
+            if (!isHidden(elList[i])) {
+                return elList[i];
+            }
+        }
+    } else {
+        return elList;
+    }
+}
+
+async function addOpenFolderElement() {
+    if (config.disableOpenFolder) return;
+    let mediaSources = null;
+    for (const _ of Array(5).keys()) {
+        await sleep(500);
+        mediaSources = getVisibleElement(document.querySelectorAll('div.mediaSources'));
+        if (mediaSources) break;
+    }
+    if (!mediaSources) return;
+    let pathDiv = mediaSources.querySelector('div[class="sectionTitle sectionTitle-cards"] > div');
+    if (!pathDiv || pathDiv.className == 'mediaInfoItems') return;
+    let full_path = pathDiv.textContent;
+    if (!full_path.match(/[/:]/)) return;
+
+    let openButtonHtml = `<a id="openFolderButton" is="emby-linkbutton" class="raised item-tag-button 
+    nobackdropfilter emby-button" ><i class="md-icon button-icon button-icon-left">link</i>Open Folder</a>`
+    pathDiv.insertAdjacentHTML('beforebegin', openButtonHtml);
+    let btn = mediaSources.querySelector('a#openFolderButton');
+    btn.addEventListener("click", () => {
+        logger.info(full_path);
+        sendDataToLocalServer({ full_path: full_path }, 'openFolder');
     });
 }
 
+const originFetch = fetch;
+unsafeWindow.fetch = async (url, request) => {
+    if (url.indexOf('/PlaybackInfo?UserId') != -1) {
+        if (url.indexOf('IsPlayback=true') != -1 && localStorage.getItem('webPlayerEnable') != 'true') {
+            let response = await originFetch(url, request);
+            let data = await response.clone().json();
+            if (data.MediaSources[0].Path.search(/\Wbackdrop/i) == -1) {
+                embyToLocalPlayer(url, request, data);
+                return
+            }
+        } else {
+            addOpenFolderElement();
+        }
+    }
+    return originFetch(url, request);
+}
+
 function initXMLHttpRequest() {
-    let open = XMLHttpRequest.prototype.open;
+    const open = XMLHttpRequest.prototype.open;
     XMLHttpRequest.prototype.open = function (...args) {
         // 正常请求不匹配的网址       
         let url = args[1]

@@ -4,10 +4,16 @@ cls
 echo press a number
 echo 1: run in console
 echo 2: run in background and add to startup folder
-choice /N /C:123 /M "3: open startup folder"%1
+echo 3: open startup folder
+choice /N /C:1234 /M "4: path translate helper"%1
+IF ERRORLEVEL ==4 GOTO FOUR
 IF ERRORLEVEL ==3 GOTO THREE
 IF ERRORLEVEL ==2 GOTO TWO
 IF ERRORLEVEL ==1 GOTO ONE
+GOTO END
+:FOUR
+echo you have pressed four
+python utils/conf_helper.py
 GOTO END
 :THREE
 echo you have pressed three
