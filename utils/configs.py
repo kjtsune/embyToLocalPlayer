@@ -1,5 +1,6 @@
 import os
 import platform
+import sys
 import time
 from configparser import ConfigParser
 
@@ -32,8 +33,8 @@ class MyLogger:
     @staticmethod
     def mix_args_str(*args):
         return [str(i).replace(MyLogger.api_key, '_hide_api_key_')
-                .replace(MyLogger.netloc, MyLogger.netloc_replace)
-                .replace(MyLogger.user_name, '_hide_user_')
+                    .replace(MyLogger.netloc, MyLogger.netloc_replace)
+                    .replace(MyLogger.user_name, '_hide_user_')
                 for i in args]
 
     @staticmethod
@@ -64,6 +65,7 @@ class Configs:
         self.path = [os.path.join(self.cwd, 'embyToLocalPlayer' + ext) for ext in (
             f'-{self.platform}.ini', '.ini', '_config.ini')]
         self.path = [i for i in self.path if os.path.exists(i)][0]
+        MyLogger.log(MyLogger.mix_args_str(f'Python path: {sys.executable}'))
         MyLogger.log(MyLogger.mix_args_str(f'ini path: {self.path}'))
         MyLogger.log(f'{platform.platform(True)} Python-{platform.python_version()}')
         self.raw: ConfigParser = self.update()
@@ -74,6 +76,7 @@ class Configs:
         self.gui_is_enable = self.raw.getboolean('gui', 'enable', fallback=False)
         self.cache_path = self.raw.get('gui', 'cache_path', fallback=None)
         self.cache_db = self._get_cache_db()
+        self.sys_proxy = self._get_sys_proxy()
         self.dl_proxy = self._get_proxy('download')
         self.script_proxy = self._get_proxy('script')
         self.player_proxy = self._get_proxy('player')
@@ -91,7 +94,21 @@ class Configs:
         _dev_cache_db = os.path.join(self.cwd, 'z_cache.json')
         return _dev_cache_db if os.path.exists(_dev_cache_db) else _cache_db
 
+    def _get_sys_proxy(self):
+        if not self.raw.getboolean('dev', 'use_system_proxy', fallback=True):
+            return
+        import urllib.request
+        proxy = urllib.request.getproxies().get('http')
+        if not proxy:
+            return
+        print(f'system proxy: {proxy}')
+        proxy = proxy.split('://')
+        proxy = proxy[1] if len(proxy) == 2 else proxy[0]
+        return proxy
+
     def _get_proxy(self, for_what):
+        if self.sys_proxy:
+            return self.sys_proxy
         p_map = dict(download=['gui', 'http_poxy', ''],
                      script=['dev', 'script_proxy', ''],
                      player=['dev', 'player_proxy', ''])
