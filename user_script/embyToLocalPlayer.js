@@ -3,7 +3,7 @@
 // @name:zh-CN   embyToLocalPlayer
 // @name:en      embyToLocalPlayer
 // @namespace    https://github.com/kjtsune/embyToLocalPlayer
-// @version      1.1.5.2
+// @version      1.1.6
 // @description  需要 Python。Emby 调用外部本地播放器，并回传播放记录。适配 Jellyfin Plex。
 // @description:zh-CN 需要 Python。Emby 调用外部本地播放器，并回传播放记录。适配 Jellyfin Plex。
 // @description:en  Require Python. Play in an external player. Update watch history to emby server. Support Jellyfin Plex.
@@ -19,6 +19,14 @@
 // ==/UserScript==
 'use strict';
 /*
+2023-04-13:
+1. 默认读取系统代理。
+2. 默认取消播放器多开限制。
+* 版本间累积更新：
+  * 播放列表: 适配 Plex。
+  * 网页可跳转到对应文件夹。（限 Emby，按钮在文件路径上方。可改油猴脚本禁用，有注释。）
+  * “检查媒体文件是否存在” 降级为可选功能，缩短启动时间，可在 [dev] 中启用，适用于多网盘配置优先级。
+
 2023-02-16:
 1. 分离播放前回传。（提升非本地用户播放器启动速度）
 * 版本间累积更新：
@@ -50,16 +58,19 @@ let fistTime = true;
 
 let logger = {
     error: function (...args) {
-        if (config.logLevel >= 1)
+        if (config.logLevel >= 1) {
             console.log('%cerror', 'color: yellow; font-style: italic; background-color: blue;', args);
+        }
     },
     info: function (...args) {
-        if (config.logLevel >= 2)
+        if (config.logLevel >= 2) {
             console.log('%cinfo', 'color: yellow; font-style: italic; background-color: blue;', args);
+        }
     },
     debug: function (...args) {
-        if (config.logLevel >= 3)
+        if (config.logLevel >= 3) {
             console.log('%cdebug', 'color: yellow; font-style: italic; background-color: blue;', args);
+        }
     },
 }
 

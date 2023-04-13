@@ -7,7 +7,7 @@
 **特性**
 
 * 在首页也可以播放。点击原来的播放按钮就可以。播放无需二次确认。
-* 可持久性缓存文件到本地或预读取下一集。（网盘用户及 Emby 是别人分享的可能用到）
+* 可持久性缓存文件到本地。（网盘用户及 Emby 是别人分享的可能用到）
 * 视频文件 可本地 可挂载 可远端。
 * mpv VLC MPC PotPlayer 通过网络播放时也支持外挂字幕。(播放前先选择字幕)
 * 其他播放器一般也能用，只是不会回传进度。
@@ -26,7 +26,7 @@
 
 ## 使用说明
 
-### 基础配置
+> 基础配置
 
 1. 下载 `embyToLocalPlayer.zip` 并解压到任意文件夹。 [发布页](https://github.com/kjtsune/embyToLocalPlayer/releases)
    ｜ [加速链接](https://github.ixiaocai.net/https://github.com/kjtsune/embyToLocalPlayer/releases/latest/download/embyToLocalPlayer.zip)
@@ -35,19 +35,25 @@
 3. 安装 Python (勾选 add to path) [官网](https://www.python.org/downloads/)
 4. 填写播放器路径与名称 `embyToLocalPlayer_config.ini`
 
-### 前置说明
+> 前置说明
 
 * 网页闪一下是自动关闭兼容流提示。
 * 播放器要退出触发回传进度。
 * 报错就截图发群里。见 FAQ。
 
-### Windows
+> Windows
 
 * 双击 `embyToLocalPlayer_debug.bat`
 * 按 1（窗口运行），若无报错，可网页播放测试。
 * 按 2 则创建开机启动项并后台运行。
+* 以下可选：
+    * 命令行输入 `python -V` 检查 Python 是否安装成功及版本。  
+      Windows 11 有可能需要用商店安装。
+    * 若自启失败，检查启动项是否被禁用：任务管理器 > 启动。
+    * 若需要源码运行：安装 AutoHotKey v2 或把 `autohotkey_tool.ahk` 编译为 `exe`。
+    * ~~告诉我怎么可以取消 AutoHotKey 依赖，或 PR~~。即：通过 `.vbs` 自启后所有播放器都可以正常显示并捕获键盘快捷键。例如：mpv。
 
-### macOS
+> macOS
 
 1. 刚才保存的文件夹 > 右击 > 新建位于文件夹的终端窗口 `chmod +x *.command` 回车。
 2. 双击 `emby_script_run.command`, 若无报错，可播放测试。
@@ -57,7 +63,7 @@
     2. 启动台 > 刚才的应用 > 双击后台运行后再次播放测试。
     3. 系统偏好设置 > 用户与群组 > 登录项 > 添加刚才的应用。
 
-### Linux
+> Linux
 
 1. `apt install python3-tk`（没报错不装也行）
 2. 添加 `emby_script_run.command` 执行权限，并用终端打开。
@@ -66,17 +72,16 @@
 
 # FAQ
 
-### 通用说明
+> 通用说明
 
+* Python 最低支持版本为 3.8。
 * 用鼠标手势软件关闭播放器体验更舒服一点。
 * 同服务器同时开启多个浏览器标签页，会造成回传进度失败假象。手动刷新一下页面，或者只开一个标签。
-* 非本地用户：Plex 及部分域名有 dns 污染，若无法播放，修改系统 DNS 或使用代理。
-* Windows：若自启失败，检查启动项是否被禁用：任务管理器 > 启动
-* Windows：若源码运行：安装 AutoHotKey v2 或把 `autohotkey_tool.ahk` 编译为 `exe`。
+* Plex 及部分域名有 dns 污染，若无法播放，修改系统 DNS 或使用代理。
 * 反馈群组在频道置顶，提问前先把 FAQ 看一遍，不含敏感数据不私聊。  
   小更新会频道提醒，不过应该也没什么更新的了，反馈不需要关注频道。[https://t.me/embyToLocalPlayer](https://t.me/embyToLocalPlayer)
 
-### 如何切换模式
+> 如何切换模式
 
 * 点击浏览器油猴插件图标，会有菜单。
 * 网页播放模式：开启 > 禁用脚本。
@@ -85,81 +90,88 @@
   需要 `.ini` 里填好路径替换规则，服务端在本地则不用填。`.bat` 按 4 有辅助配置程序
 * 持久性缓存模式：只看配置文件，与油猴设置不冲突，不需要开启读取硬盘模式。
 
-### 如何更新
+> 如何更新
 
 * 将 `_config.ini` 重命名为 `.ini`，其他全删除。再次 GitHub 下载解压当前文件夹。（`.ini` 优先于 `_config.ini`  ）
 * 同时看看 `embyToLocalPlayer_config.ini` 有没有新内容。
 * 油猴脚本也记得要更新。
 
-### 如何反馈
+> 如何反馈
 
 1. 运行 `debug.bat` 选1。（ macOS 或 Linux 运行 `.command`)  
-   若闪退，命令行输入 `python -V` 检查 python 是否安装成功。
+   若闪退，命令行输入 `python -V` 检查 python 是否安装成功及版本。  
+   Python 低于 3.8.10 的先升级试试看。
 2. 换播放器及换视频文件测试是否复现。
 3. 截图或复制 `.bat` 窗口中的日志。
 4. 碰到什么问题及怎么复现。
 
-### 字幕相关
+> 字幕相关
 
 * Emby 里字幕选择无效。  
   外挂字幕选择有效，内置字幕会被忽略，由播放器选择。  
   视频文件的内置字幕当作外挂字幕处理会导致播放器语言设置失效。（外挂字幕最优先）  
   正常播放器都可以设置语言优先顺序。
 
-### 播放列表（多集回传）相关
+> 播放列表（多集回传）相关
 
 * 在配置文件里 `[playlist]` 中启用。（局域网用户已默认启用）
 * 播放列表添加完成前最好不退出
 
-**Windows:**
+* Windows:
 
-* mpv:
-* mpv.net:
-* vlc:
-* mpc: be: 播放列表条目超过10个可能会卡住，hc 没这问题。
-* pot: 下一集无法添加 http 外挂字幕。
+    * mpv:
+    * mpv.net:
+    * vlc:
+    * mpc: be: 播放列表条目超过10个可能会卡住，hc 没这问题。
+    * pot: 若日志显示`KeyError: 'stream.mkv'`，升级或者降级 pot，直至 pot 能显示电影标题。  
+      pot: 下一集无法添加 http 外挂字幕。
 
-**macOS**
+* macOS
 
-* mpv:
-* iina: 仅读盘模式支持并可回传
-* vlc: 下一集无法添加 http 外挂字幕。
+    * mpv:
+    * iina: 仅读盘模式支持并可回传
+    * vlc: 下一集无法添加 http 外挂字幕。
 
-**Linux**
+* Linux
 
-* mpv:
-* vlc: 下一集无法添加 http 外挂字幕。
+    * mpv:
+    * vlc: 下一集无法添加 http 外挂字幕。
 
 ## 播放器相关:
 
-### mpv.net
+> mpv.net
 
 * 设置播放完自动关闭。不加载下个文件。（触发回传进度）  
   右击 > Settings > Playback > idle:no, auto-load-folder:no （大概是这样
 
-### PotPlayer
+> PotPlayer
 
-* 若使用 http 播放，可能提示地址关闭  
-  220914-64bit.exe + Win10 没问题。   
-  Win8 32bit 碰到。解决方法是使用 [Portable](https://www.videohelp.com/software/PotPlayer/old-versions) 版本。  
-  先打开 `PotPlayerPortable.exe` 一次，但播放用 `C:\<path_to>\PotPlayerPortable\App\PotPlayer\PotPlayer.exe`  
-  不然会要求管理员权限运行。
 * 选项 > 播放 > 播放窗口尺寸：全屏
 * 配置/语言/其他 > 收尾处理 > 播放完当前后退出（触发回传进度）
+* Pot 自身问题：`.bat` 日志可能提示`KeyError: 'stream.mkv'`。  
+  解决方案：三选一。1. 本地用户使用读盘模式；2. 换 pot 版本；3. 把 `.ini` 文件里`多集回传` 部分删除。  
+  [PotPlayerSetup64-230208.exe](https://www.videohelp.com/download/PotPlayerSetup64-230208.exe)
+  可以换这个版本，文件与官网一致。   
+  sha1sum `fcd6404e32e6d28769365d9493627f15a0a302d5`
+* Pot 自身问题：若使用 http 播放，可能提示地址关闭。Win8 32bit 碰到。  
+  解决方案：本地用户使用读盘模式，或者换 pot 便携版。  
+  安全性未知：[PotPlayerPortable-220914.zip](https://www.videohelp.com/download/PotPlayerPortable-220914.zip)  
+  先打开 `PotPlayerPortable.exe` 一次，但播放用 `C:\<path_to>\PotPlayerPortable\App\PotPlayer\PotPlayer.exe`  
+  不然会要求管理员权限运行。
 
-### MPC：
+> MPC：
 
 * 会自动开启 WebUI 建议仅允许从 localhost 访问： 查看 > 选项 > Web 界面：  
   打勾 仅允许从 localhost 访问
 
-### IINA
+> IINA
 
 * 退出播放器才会回传进度。
 * 非读盘模式不支持外挂字幕文件（mpv 支持）
 
 ## 其他:
 
-### Jellyfin 相关
+> Jellyfin 相关
 
 * 首页播放结束后，10秒内重复播放**同文件**，本地播放器收到的播放时间会有误。    
   解决方法：
@@ -168,21 +180,21 @@
     3. 手动刷新页面后播放；
     4. ~~告诉我要发送什么请求可以解决这个问题~~
 
-### Plex 相关
+> Plex 相关
 
 * 可能 dns 污染，若无法播放。修改系统 DNS 或使用代理。
 * PotPlayer  
   播放 http 时无法读取外挂字幕，读取硬盘模式却可以。（字幕手动上传的，本地硬盘没有，比较玄学）
 * 会提示回放错误，随便点一下就会消失。
 
-### 弹弹play 相关
+> 弹弹play 相关
 
 * 若通过 http 播放，有以下缺点：
     1. 每次播放需要选择弹幕。（已把文件名发送给播放器匹配）
     2. 启动时无法及时跳转到 Emby 开始时间，需要播放开始后等待15秒。（每次看完一集则不影响）
     3. 无法加载外挂字幕。
 
-### 持久性缓存（边下边播）相关
+> 持久性缓存（边下边播）相关
 
 * 在配置文件里 `[gui]` 中启用
 * 如果播放进度超过下载进度，建议关闭播放器触发回传以保存播放进度。（以下为 Windows 平台测试）：   
@@ -206,6 +218,6 @@
     5. 删除当前下载
     6. 下载管理器
 
-### 感谢
+> 感谢
 
 * [iwalton3/python-mpv-jsonipc](https://github.com/iwalton3/python-mpv-jsonipc)
