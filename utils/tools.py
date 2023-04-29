@@ -426,7 +426,16 @@ def parse_received_data_emby(received_data):
                  f'?MediaSourceId={media_source_id}&Static=true&api_key={api_key}'
     # 避免将内置字幕转为外挂字幕，内置字幕选择由播放器决定
     sub_index = sub_index if sub_index < 0 or media_source_info['MediaStreams'][sub_index]['IsExternal'] else -1
-    sub_delivery_url = media_source_info['MediaStreams'][sub_index]['DeliveryUrl'] if sub_index >= 0 else None
+    if sub_index >= 0:
+        sub_jellyfin_str = '' if is_emby \
+            else f'{item_id[:8]}-{item_id[8:12]}-{item_id[12:16]}-{item_id[16:20]}-{item_id[20:]}/'
+        sub_emby_str = f'/{media_source_id}' if is_emby else ''
+        sub_data = media_source_info['MediaStreams'][sub_index]
+        fallback_sub = f'{extra_str}/videos/{sub_jellyfin_str}{item_id}{sub_emby_str}/Subtitles' \
+                       f'/{sub_index}/0/Stream.{sub_data["Codec"]}?api_key={api_key}'
+        sub_delivery_url = sub_data.get('DeliveryUrl') or fallback_sub
+    else:
+        sub_delivery_url = None
     sub_file = f'{scheme}://{netloc}{sub_delivery_url}' if sub_delivery_url else None
     mount_disk_mode = True if force_disk_mode_by_path(file_path) else mount_disk_mode
     media_path = translate_path_by_ini(file_path) if mount_disk_mode else stream_url

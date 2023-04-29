@@ -158,6 +158,8 @@
   安全性未知：[PotPlayerPortable-220914.zip](https://www.videohelp.com/download/PotPlayerPortable-220914.zip)  
   先打开 `PotPlayerPortable.exe` 一次，但播放用 `C:\<path_to>\PotPlayerPortable\App\PotPlayer\PotPlayer.exe`  
   不然会要求管理员权限运行。
+* Pot 自身问题：`.bat` 日志可能提示`请求的操作需要提升`。  
+  解决方案：升降级 pot 或者用 32bit 版本。
 
 > MPC：
 
