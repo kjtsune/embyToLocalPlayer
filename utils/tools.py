@@ -151,7 +151,7 @@ def use_dandan_exe_by_path(file_path):
         return False
     enable_path = dandan.get('enable_path', '').replace('，', ',')
     enable_path = [i.strip() for i in enable_path.split(',') if i]
-    path_match = [file_path.startswith(path) for path in enable_path]
+    path_match = [path in file_path for path in enable_path]
     if any(path_match) or not enable_path:
         return True
     _logger.error(f'dandanplay {enable_path=} \n{path_match=}')
