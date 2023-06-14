@@ -126,12 +126,18 @@ def activate_window_by_pid(pid, is_mpv=False, scrip_name='autohotkey_tool', slee
     #     activate_window_by_win32(pid)
     #     return
     # log('active by autohotkey mode')
-    for script_type in '.exe', '.ahk':
-        script_path = os.path.join(configs.cwd, 'utils', f'{scrip_name}{script_type}')
-        if os.path.exists(script_path):
-            _logger.info(script_path)
-            subprocess.run([script_path, 'activate', str(pid)], shell=True)
-            return
+    # for script_type in '.exe', '.ahk':
+    #     script_path = os.path.join(configs.cwd, 'utils', f'{scrip_name}{script_type}')
+    #     if os.path.exists(script_path):
+    #         _logger.info(script_path)
+    #         subprocess.run([script_path, 'activate', str(pid)], shell=True)
+    #         return
+    
+    # 调用进程必须在前台的问题已解决
+    # 如果无效，睡眠可略微调长一点，窗口还没出来就去激活会失效
+    time.sleep(0.5)
+    from utils.windows_tool import activate_window_by_win32
+    activate_window_by_win32(pid)
 
 
 def force_disk_mode_by_path(file_path):

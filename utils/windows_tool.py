@@ -33,9 +33,31 @@ def activate_window_by_win32(pid):
         target_pid = ctypes.c_ulong()
         user32.GetWindowThreadProcessId(hwnd, ctypes.byref(target_pid))
         if pid == target_pid.value:
-            # user32.SendMessageW(hwnd, 0x400, 0x5004, 1)
+            # SetForegroundWindow激活窗口至少满足以下条件之一
+            # https://learn.microsoft.com/zh-cn/windows/win32/api/winuser/nf-winuser-setforegroundwindow
+            # 1.调用进程是前台进程。
+            # 2.调用进程由前台进程启动。
+            # 3.当前没有前台窗口，因此没有前台进程。
+            # 4.调用进程收到了最后一个输入事件。
+            # 5.正在调试前台进程或调用进程。
+            
+            # 要一些特殊的操作来实现
+            
+            # 当前线程pid，即当前python程序的线程，是播放器进程的调用者
+            curr_pid = kernel32.GetCurrentThreadId()
+            # 当前激活的窗口
+            foregroundHwnd = user32.GetForegroundWindow()
+            # 当前激活窗口的pid
+            remote_pid = user32.GetWindowThreadProcessId(foregroundHwnd, 0)
+            # 关键点
+            # https://learn.microsoft.com/zh-cn/windows/win32/api/winuser/nf-winuser-attachthreadinput
+            # 一个线程的输入处理机制附加到另一个线程，两个线程共享输入状态
+            # 满足4.调用进程收到了最后一个输入事件
+            user32.AttachThreadInput(curr_pid, remote_pid, True)
             user32.SetForegroundWindow(hwnd)
             user32.BringWindowToTop(hwnd)
+            # 分离两个线程
+            user32.AttachThreadInput(curr_pid, remote_pid, False)
             return True
         else:
             return False
