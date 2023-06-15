@@ -28,36 +28,47 @@ def list_pid_and_cmd(name_re='.') -> list:
     return result
 
 
+class RECT(ctypes.Structure):
+    _fields_ = [
+        ('left', ctypes.c_long),
+        ('top', ctypes.c_long),
+        ('right', ctypes.c_long),
+        ('bottom', ctypes.c_long),
+    ]
+
 def activate_window_by_win32(pid):
+    max_size = 0
+    max_size_hwnd = None
+    
     def activate_window(hwnd):
+        nonlocal max_size
+        nonlocal max_size_hwnd
         target_pid = ctypes.c_ulong()
         user32.GetWindowThreadProcessId(hwnd, ctypes.byref(target_pid))
+        # 注意一个进程可能有多个窗口，要过滤出最合适的那个窗口
         if pid == target_pid.value:
-            # SetForegroundWindow激活窗口至少满足以下条件之一
-            # https://learn.microsoft.com/zh-cn/windows/win32/api/winuser/nf-winuser-setforegroundwindow
-            # 1.调用进程是前台进程。
-            # 2.调用进程由前台进程启动。
-            # 3.当前没有前台窗口，因此没有前台进程。
-            # 4.调用进程收到了最后一个输入事件。
-            # 5.正在调试前台进程或调用进程。
+            # 排除掉不可见窗口
+            visible = user32.IsWindowVisible(hwnd)
+            if not visible:
+                return False
+            # 排除掉标题为空的窗口
+            length = user32.GetWindowTextLengthW(hwnd)
+            if length == 0:
+                return False
             
-            # 要一些特殊的操作来实现
+            # buff = ctypes.create_unicode_buffer(length + 1)
+            # user32.GetWindowTextW(hwnd, buff, length + 1)
+            # print(f'title: {buff.value}')
             
-            # 当前线程pid，即当前python程序的线程，是播放器进程的调用者
-            curr_pid = kernel32.GetCurrentThreadId()
-            # 当前激活的窗口
-            foregroundHwnd = user32.GetForegroundWindow()
-            # 当前激活窗口的pid
-            remote_pid = user32.GetWindowThreadProcessId(foregroundHwnd, 0)
-            # 关键点
-            # https://learn.microsoft.com/zh-cn/windows/win32/api/winuser/nf-winuser-attachthreadinput
-            # 一个线程的输入处理机制附加到另一个线程，两个线程共享输入状态
-            # 满足4.调用进程收到了最后一个输入事件
-            user32.AttachThreadInput(curr_pid, remote_pid, True)
-            user32.SetForegroundWindow(hwnd)
-            user32.BringWindowToTop(hwnd)
-            # 分离两个线程
-            user32.AttachThreadInput(curr_pid, remote_pid, False)
+            # 以上两个过滤，已经可以通过mpv mpc-be mpc-hc vlc potplayer播放器的测试了
+            # 为兼容更多其他播放器 剩余窗口中保留最大那个窗口
+            rect = RECT()
+            user32.GetWindowRect(hwnd, ctypes.byref(rect))
+            # print(f'left: {rect.left}, right: {rect.right}, top: {rect.top}, bottom: {rect.bottom}')
+            if (rect.right - rect.left) * (rect.bottom - rect.top) <= max_size:
+                return False
+            max_size = (rect.right - rect.left) * (rect.bottom - rect.top)
+            max_size_hwnd = hwnd
             return True
         else:
             return False
@@ -70,6 +81,34 @@ def activate_window_by_win32(pid):
 
     proc = EnumWindowsProc(each_window)
     user32.EnumWindows(proc, 0)
+    
+    if not max_size_hwnd is None:
+        # SetForegroundWindow激活窗口至少满足以下条件之一
+        # https://learn.microsoft.com/zh-cn/windows/win32/api/winuser/nf-winuser-setforegroundwindow
+        # 1.调用进程是前台进程。
+        # 2.调用进程由前台进程启动。
+        # 3.当前没有前台窗口，因此没有前台进程。
+        # 4.调用进程收到了最后一个输入事件。
+        # 5.正在调试前台进程或调用进程。
+        
+        # 要一些特殊的操作来实现
+        
+        # 当前线程pid，即当前python程序的线程，是播放器进程的调用者
+        curr_pid = kernel32.GetCurrentThreadId()
+        # 当前激活的窗口
+        foregroundHwnd = user32.GetForegroundWindow()
+        # 当前激活窗口的pid
+        remote_pid = user32.GetWindowThreadProcessId(foregroundHwnd, 0)
+        # 关键点
+        # https://learn.microsoft.com/zh-cn/windows/win32/api/winuser/nf-winuser-attachthreadinput
+        # 一个线程的输入处理机制附加到另一个线程，两个线程共享输入状态
+        # 满足4.调用进程收到了最后一个输入事件
+        user32.AttachThreadInput(curr_pid, remote_pid, True)
+        user32.SetForegroundWindow(max_size_hwnd)
+        user32.BringWindowToTop(max_size_hwnd)
+        # 分离两个线程
+        user32.AttachThreadInput(curr_pid, remote_pid, False)
+        
 
 
 def process_is_running_by_pid(pid):

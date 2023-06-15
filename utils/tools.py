@@ -135,7 +135,7 @@ def activate_window_by_pid(pid, is_mpv=False, scrip_name='autohotkey_tool', slee
     
     # 调用进程必须在前台的问题已解决
     # 如果无效，睡眠可略微调长一点，窗口还没出来就去激活会失效
-    time.sleep(0.5)
+    time.sleep(1)
     from utils.windows_tool import activate_window_by_win32
     activate_window_by_win32(pid)
 
