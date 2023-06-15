@@ -431,7 +431,18 @@ def parse_received_data_emby(received_data):
     stream_url = f'{scheme}://{netloc}{extra_str}/videos/{item_id}/stream{container}' \
                  f'?MediaSourceId={media_source_id}&Static=true&api_key={api_key}'
     # 避免将内置字幕转为外挂字幕，内置字幕选择由播放器决定
-    sub_index = sub_index if sub_index < 0 or media_source_info['MediaStreams'][sub_index]['IsExternal'] else -1
+    # sub_index = sub_index if sub_index < 0 or media_source_info['MediaStreams'][sub_index]['IsExternal'] else -1
+    # mpv内置字幕使用启动参数--sid=2指定第几条字幕，下标从1开始
+    sid = -1
+    if sub_index >= 0 and not media_source_info['MediaStreams'][sub_index]['IsExternal']:
+        # 找到当前内置字幕是第几条内置字幕
+        sid = 0
+        for each in media_source_info['MediaStreams']:
+            if each['Type'] == 'Subtitle' and not each['IsExternal']: 
+                sid += 1
+            if each['Index'] == sub_index:
+                break  
+        sub_index = -1
     if sub_index >= 0:
         sub_jellyfin_str = '' if is_emby \
             else f'{item_id[:8]}-{item_id[8:12]}-{item_id[12:16]}-{item_id[16:20]}-{item_id[20:]}/'
@@ -484,6 +495,7 @@ def parse_received_data_emby(received_data):
         basename=basename,
         media_basename=media_basename,
         fist_time=received_data['fistTime'],
+        sid=sid,
     )
     return result
 

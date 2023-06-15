@@ -81,6 +81,7 @@ def start_play(data):
     start_sec = data['start_sec']
     sub_file = data['sub_file']
     media_title = data['media_title']
+    sid = data['sid']
 
     cmd = get_player_cmd(media_path=data['media_path'], dandan=use_dandan_exe_by_path(file_path))
     player_path = cmd[0]
@@ -94,14 +95,14 @@ def start_play(data):
                 and player_name in ('mpv', 'vlc', 'mpc', 'potplayer', 'iina') \
                 or (player_name == 'dandanplay' and not media_title):
             player_manager = PlayerManager(data=data, player_name=player_name, player_path=player_path)
-            player_manager.start_player(cmd=cmd, start_sec=start_sec, sub_file=sub_file, media_title=media_title)
+            player_manager.start_player(cmd=cmd, start_sec=start_sec, sub_file=sub_file, media_title=media_title, sid=sid)
             player_manager.playlist_add()
             player_manager.update_playlist_time_loop()
             player_manager.update_playback_for_eps()
             player_is_running = False
             return
         player_function = player_function_dict[player_name]
-        stop_sec_kwargs = player_function(cmd=cmd, start_sec=start_sec, sub_file=sub_file, media_title=media_title)
+        stop_sec_kwargs = player_function(cmd=cmd, start_sec=start_sec, sub_file=sub_file, media_title=media_title, sid=sid)
         stop_sec = stop_sec_function_dict[player_name](**stop_sec_kwargs)
         logger.info('stop_sec', stop_sec)
         if stop_sec is None:
