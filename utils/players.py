@@ -245,7 +245,7 @@ def init_player_instance(function, **kwargs):
     return player
 
 
-def mpv_player_start(cmd, start_sec=None, sub_file=None, media_title=None, get_stop_sec=True):
+def mpv_player_start(cmd, start_sec=None, sub_file=None, media_title=None, get_stop_sec=True, sid=-1):
     is_darwin = True if platform.system() == 'Darwin' else False
     is_iina = True if 'iina-cli' in cmd[0] else False
     pipe_name = get_pipe_or_port_str(get_pipe=True)
@@ -274,6 +274,8 @@ def mpv_player_start(cmd, start_sec=None, sub_file=None, media_title=None, get_s
             cmd.append(f'--start={start_sec}')
     if is_darwin:
         cmd.append('--focus-on-open')
+    if sid > -1:
+        cmd.append(f'--sid={sid}')
     cmd.append(fr'--input-ipc-server={cmd_pipe}')
     if configs.fullscreen:
         cmd.append('--fullscreen=yes')
