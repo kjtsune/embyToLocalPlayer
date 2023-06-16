@@ -4,6 +4,7 @@ import re
 import signal
 import socket
 import subprocess
+import threading
 import time
 import urllib.parse
 import urllib.request
@@ -88,7 +89,7 @@ def play_media_file(data):
     big_file = sorted(data['file'], key=lambda i: i['size'], reverse=True)[0]['name']
     file_path = os.path.join(save_path, big_file)
     media_path = translate_path_by_ini(file_path)
-    cmd = get_player_cmd(media_path)
+    cmd = get_player_cmd(media_path, file_path=file_path)
     player = subprocess.Popen(cmd)
     activate_window_by_pid(player.pid)
 
@@ -111,33 +112,20 @@ def kill_multi_process(name_re, not_re=None):
     time.sleep(1)
 
 
-def activate_window_by_pid(pid, is_mpv=False, scrip_name='autohotkey_tool', sleep=1.5):
+def activate_window_by_pid(pid, sleep=1.5):
     if os.name != 'nt':
         time.sleep(sleep)
         return
-    if not is_mpv:
-        # mpv vlc 不支持此模式
-        # win32 api 激活窗口到前台的前提是：提出请求的进程需要在前台之类的。或者有输入什么的。
-        pass
-    #     time.sleep(1)
-    #     log('active by win32 api mode')
-    #     from windows_tool import activate_window_by_win32
-    #     # time.sleep(0.5)
-    #     activate_window_by_win32(pid)
-    #     return
-    # log('active by autohotkey mode')
-    # for script_type in '.exe', '.ahk':
-    #     script_path = os.path.join(configs.cwd, 'utils', f'{scrip_name}{script_type}')
-    #     if os.path.exists(script_path):
-    #         _logger.info(script_path)
-    #         subprocess.run([script_path, 'activate', str(pid)], shell=True)
-    #         return
-    
-    # 调用进程必须在前台的问题已解决
-    # 如果无效，睡眠可略微调长一点，窗口还没出来就去激活会失效
-    time.sleep(1)
+
     from utils.windows_tool import activate_window_by_win32
-    activate_window_by_win32(pid)
+
+    def activate_loop():
+        for _ in range(30):
+            time.sleep(0.5)
+            if activate_window_by_win32(pid):
+                return
+
+    threading.Thread(target=activate_loop).start()
 
 
 def force_disk_mode_by_path(file_path):
@@ -186,11 +174,28 @@ def translate_path_by_ini(file_path):
     return file_path
 
 
-def get_player_cmd(media_path, dandan=False):
+def select_player_by_path(file_path):
+    data = configs.raw.get('dev', 'player_by_path', fallback='')
+    if not data:
+        return False
+    data = data.replace('：', ':').replace('，', ',').replace('；', ';')
+    data = [i.strip() for i in data.split(';') if i]
+    path_map = {}
+    for rule in data:
+        player, path = [i.strip() for i in rule.split(':', maxsplit=1)]
+        for p in [i.strip() for i in path.split(',') if i]:
+            path_map[p] = player
+    result = [player for path, player in path_map.items() if file_path.startswith(path)]
+    return result[0] if result else False
+
+
+def get_player_cmd(media_path, file_path):
     config = configs.raw
     player = config['emby']['player']
     exe = config['exe'][player]
-    exe = config['dandan']['exe'] if dandan else exe
+    exe = config['dandan']['exe'] if use_dandan_exe_by_path(file_path) else exe
+    if player_by_path := select_player_by_path(file_path):
+        exe = config['exe'][player_by_path]
     result = [exe, media_path]
     _logger.info(result, 'cmd')
     if not media_path.startswith('http') and not os.path.exists(media_path):
@@ -431,18 +436,7 @@ def parse_received_data_emby(received_data):
     stream_url = f'{scheme}://{netloc}{extra_str}/videos/{item_id}/stream{container}' \
                  f'?MediaSourceId={media_source_id}&Static=true&api_key={api_key}'
     # 避免将内置字幕转为外挂字幕，内置字幕选择由播放器决定
-    # sub_index = sub_index if sub_index < 0 or media_source_info['MediaStreams'][sub_index]['IsExternal'] else -1
-    # mpv内置字幕使用启动参数--sid=2指定第几条字幕，下标从1开始
-    sid = -1
-    if sub_index >= 0 and not media_source_info['MediaStreams'][sub_index]['IsExternal']:
-        # 找到当前内置字幕是第几条内置字幕
-        sid = 0
-        for each in media_source_info['MediaStreams']:
-            if each['Type'] == 'Subtitle' and not each['IsExternal']: 
-                sid += 1
-            if each['Index'] == sub_index:
-                break  
-        sub_index = -1
+    sub_index = sub_index if sub_index < 0 or media_source_info['MediaStreams'][sub_index]['IsExternal'] else -1
     if sub_index >= 0:
         sub_jellyfin_str = '' if is_emby \
             else f'{item_id[:8]}-{item_id[8:12]}-{item_id[12:16]}-{item_id[16:20]}-{item_id[20:]}/'
@@ -495,7 +489,6 @@ def parse_received_data_emby(received_data):
         basename=basename,
         media_basename=media_basename,
         fist_time=received_data['fistTime'],
-        sid=sid,
     )
     return result
 
