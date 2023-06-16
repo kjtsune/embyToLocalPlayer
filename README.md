@@ -50,8 +50,6 @@
     * 命令行输入 `python -V` 检查 Python 是否安装成功及版本。  
       Windows 11 有可能需要用商店安装。
     * 若自启失败，检查启动项是否被禁用：任务管理器 > 启动。
-    * 若需要源码运行：安装 AutoHotKey v2 或把 `autohotkey_tool.ahk` 编译为 `exe`。
-    * ~~告诉我怎么可以取消 AutoHotKey 依赖，或 PR~~。即：通过 `.vbs` 自启后所有播放器都可以正常显示并捕获键盘快捷键。例如：mpv。
 
 > macOS
 
@@ -146,10 +144,11 @@
 
 > PotPlayer
 
+* 若碰到问题，建议：[MPC-HC](https://github.com/clsid2/mpc-hc/releases) 自带 LAV，同样支持 madVR MPCVR 等。
 * 选项 > 播放 > 播放窗口尺寸：全屏
 * 配置/语言/其他 > 收尾处理 > 播放完当前后退出（触发回传进度）
 * Pot 自身问题：`.bat` 日志可能提示`KeyError: 'stream.mkv'`。  
-  解决方案：三选一。1. 本地用户使用读盘模式；2. 换 pot 版本；3. 把 `.ini` 文件里`多集回传` 部分删除。  
+  解决方案：三选一（若前两个方法失败就目前无解）。1. 本地用户使用读盘模式；2. 把 `.ini` 文件里`多集回传` 部分删除。2. 换 pot 版本；  
   [PotPlayerSetup64-230208.exe](https://www.videohelp.com/download/PotPlayerSetup64-230208.exe)
   可以换这个版本，文件与官网一致。   
   sha1sum `fcd6404e32e6d28769365d9493627f15a0a302d5`
@@ -163,8 +162,9 @@
 
 > MPC：
 
+* 会自动开启 WebUI 系统防火墙提示的时候可以拒绝（不影响使用）。
 * 会自动开启 WebUI 建议仅允许从 localhost 访问： 查看 > 选项 > Web 界面：  
-  打勾 仅允许从 localhost 访问
+  打勾 仅允许从 localhost 访问  
 
 > IINA
 

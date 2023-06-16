@@ -36,10 +36,11 @@ class RECT(ctypes.Structure):
         ('bottom', ctypes.c_long),
     ]
 
+
 def activate_window_by_win32(pid):
     max_size = 0
     max_size_hwnd = None
-    
+
     def activate_window(hwnd):
         nonlocal max_size
         nonlocal max_size_hwnd
@@ -55,11 +56,11 @@ def activate_window_by_win32(pid):
             length = user32.GetWindowTextLengthW(hwnd)
             if length == 0:
                 return False
-            
+
             # buff = ctypes.create_unicode_buffer(length + 1)
             # user32.GetWindowTextW(hwnd, buff, length + 1)
             # print(f'title: {buff.value}')
-            
+
             # 以上两个过滤，已经可以通过mpv mpc-be mpc-hc vlc potplayer播放器的测试了
             # 为兼容更多其他播放器 剩余窗口中保留最大那个窗口
             rect = RECT()
@@ -81,8 +82,8 @@ def activate_window_by_win32(pid):
 
     proc = EnumWindowsProc(each_window)
     user32.EnumWindows(proc, 0)
-    
-    if not max_size_hwnd is None:
+
+    if max_size_hwnd is not None:
         # SetForegroundWindow激活窗口至少满足以下条件之一
         # https://learn.microsoft.com/zh-cn/windows/win32/api/winuser/nf-winuser-setforegroundwindow
         # 1.调用进程是前台进程。
@@ -90,15 +91,15 @@ def activate_window_by_win32(pid):
         # 3.当前没有前台窗口，因此没有前台进程。
         # 4.调用进程收到了最后一个输入事件。
         # 5.正在调试前台进程或调用进程。
-        
+
         # 要一些特殊的操作来实现
-        
+
         # 当前线程pid，即当前python程序的线程，是播放器进程的调用者
         curr_pid = kernel32.GetCurrentThreadId()
         # 当前激活的窗口
-        foregroundHwnd = user32.GetForegroundWindow()
+        foreground_hwnd = user32.GetForegroundWindow()
         # 当前激活窗口的pid
-        remote_pid = user32.GetWindowThreadProcessId(foregroundHwnd, 0)
+        remote_pid = user32.GetWindowThreadProcessId(foreground_hwnd, 0)
         # 关键点
         # https://learn.microsoft.com/zh-cn/windows/win32/api/winuser/nf-winuser-attachthreadinput
         # 一个线程的输入处理机制附加到另一个线程，两个线程共享输入状态
@@ -108,7 +109,7 @@ def activate_window_by_win32(pid):
         user32.BringWindowToTop(max_size_hwnd)
         # 分离两个线程
         user32.AttachThreadInput(curr_pid, remote_pid, False)
-        
+        return True
 
 
 def process_is_running_by_pid(pid):

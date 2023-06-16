@@ -9,7 +9,7 @@ from utils.players import player_function_dict, PlayerManager, stop_sec_function
 from utils.tools import (configs, logger_setup, MyLogger, run_server, open_local_folder, play_media_file,
                          kill_multi_process, activate_window_by_pid, clean_tmp_dir,
                          parse_received_data_emby, parse_received_data_plex, update_server_playback_progress,
-                         get_player_cmd, use_dandan_exe_by_path)
+                         get_player_cmd)
 
 
 class _RequestHandler(BaseHTTPRequestHandler):
@@ -81,13 +81,12 @@ def start_play(data):
     start_sec = data['start_sec']
     sub_file = data['sub_file']
     media_title = data['media_title']
-    sid = data['sid']
 
-    cmd = get_player_cmd(media_path=data['media_path'], dandan=use_dandan_exe_by_path(file_path))
+    cmd = get_player_cmd(media_path=data['media_path'], file_path=file_path)
     player_path = cmd[0]
     player_path_lower = player_path.lower()
     # 播放器特殊处理
-    player_is_running = True if configs.raw.getboolean('dev', 'one_instance_mode', fallback=True) else False
+    player_is_running = True if configs.raw.getboolean('dev', 'one_instance_mode', fallback=False) else False
     player_name = [i for i in player_function_dict if i in player_path_lower]
     if player_name:
         player_name = player_name[0]
