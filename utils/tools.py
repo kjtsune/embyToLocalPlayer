@@ -112,9 +112,9 @@ def kill_multi_process(name_re, not_re=None):
     time.sleep(1)
 
 
-def activate_window_by_pid(pid, sleep=1.5):
+def activate_window_by_pid(pid, sleep=0):
     if os.name != 'nt':
-        time.sleep(sleep)
+        time.sleep(1.5)
         return
 
     from utils.windows_tool import activate_window_by_win32
@@ -126,6 +126,7 @@ def activate_window_by_pid(pid, sleep=1.5):
                 return
 
     threading.Thread(target=activate_loop).start()
+    time.sleep(sleep)
 
 
 def force_disk_mode_by_path(file_path):

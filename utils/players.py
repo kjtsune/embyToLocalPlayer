@@ -283,7 +283,7 @@ def mpv_player_start(cmd, start_sec=None, sub_file=None, media_title=None, get_s
     cmd = ['--mpv-' + i.replace('--', '', 1) if is_darwin and is_iina and i.startswith('--') else i for i in cmd]
     logger.info(cmd)
     player = subprocess.Popen(cmd)
-    activate_window_by_pid(player.pid, sleep=0)
+    activate_window_by_pid(player.pid)
 
     mpv = init_player_instance(MPV, start_mpv=False, ipc_socket=pipe_name)
     if sub_file and not is_iina and mpv:
@@ -535,7 +535,7 @@ class MPCHttpApi:
             return {k: data[k] for k in key}
 
 
-def playlist_add_mpc(mpc_path, data, limit=5, **_):
+def playlist_add_mpc(mpc_path, data, limit=4, **_):
     playlist_data = {}
     if not mpc_path:
         logger.error('mpc_path not found skip playlist_add_mpv')
@@ -544,7 +544,7 @@ def playlist_add_mpc(mpc_path, data, limit=5, **_):
     append = False
     eps_list = []
     mount_disk_mode = data['mount_disk_mode']
-    limit = 10 if limit == 5 and mount_disk_mode else limit
+    limit = 10 if limit == 4 and mount_disk_mode else limit
     for ep in episodes:
         basename = ep['basename']
         playlist_data[ep['media_path']] = ep
@@ -606,7 +606,7 @@ def pot_player_start(cmd: list, start_sec=None, sub_file=None, media_title=None,
         cmd += [f'/title={media_title}']
     logger.info(cmd)
     player = subprocess.Popen(cmd)
-    activate_window_by_pid(player.pid)
+    activate_window_by_pid(player.pid, sleep=1)
     if not get_stop_sec:
         return
 
@@ -632,6 +632,7 @@ def playlist_add_pot(pot_path, data, limit=5, **_):
         limit -= 1
         # f'/sub={ep["sub_file"]}' pot 下一集会丢失字幕
         # /add /title 不能复用，会丢失 /title
+        time.sleep(1)
         subprocess.run([pot_path, '/add', ep['media_path'], f'/title={basename}', ])
     return playlist_data
 
