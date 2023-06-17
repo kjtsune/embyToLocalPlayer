@@ -29,8 +29,6 @@
 > 基础配置
 
 1. 下载 `embyToLocalPlayer.zip` 并解压到任意文件夹。 [发布页](https://github.com/kjtsune/embyToLocalPlayer/releases)
-   ｜ [加速链接](https://github.ixiaocai.net/https://github.com/kjtsune/embyToLocalPlayer/releases/latest/download/embyToLocalPlayer.zip)
-   （感谢）
 2. 安装油猴脚本。 [发布页](https://greasyfork.org/zh-CN/scripts/448648-embytolocalplayer)
 3. 安装 Python (勾选 add to path) [官网](https://www.python.org/downloads/)
 4. 填写播放器路径与名称 `embyToLocalPlayer_config.ini`
@@ -47,8 +45,13 @@
 * 按 1（窗口运行），若无报错，可网页播放测试。
 * 按 2 则创建开机启动项并后台运行。
 * 以下可选：
-    * 命令行输入 `python -V` 检查 Python 是否安装成功及版本。  
-      Windows 11 有可能需要用商店安装。
+    * 命令行输入 `python -V` 检查 Python 是否安装成功及版本。(`-V`是大写）  
+      若安装失败，轮流尝试安装以下三种 Python 安装程序：
+        * 通用流程：卸载 Python > 重启 > 安装 Python (勾选 add to path) > 重启 >  命令行输入 `python -V`
+            * 三种安装程序：
+            * 1：[官网](https://www.python.org/downloads/)
+            * 2：[Miniconda](https://docs.conda.io/en/latest/miniconda.html)
+            * 3：微软商店
     * 若自启失败，检查启动项是否被禁用：任务管理器 > 启动。
 
 > macOS
@@ -100,7 +103,7 @@
    若闪退，命令行输入 `python -V` 检查 python 是否安装成功及版本。  
    Python 低于 3.8.10 的先升级试试看。
 2. 换播放器及换视频文件测试是否复现。
-3. 截图或复制 `.bat` 窗口中的日志。
+3. 截图或复制 `.bat` 窗口中的日志（选中后回车即复制）。
 4. 碰到什么问题及怎么复现。
 
 > 字幕相关
@@ -121,7 +124,7 @@
     * mpv.net:
     * vlc:
     * mpc: be: 播放列表条目超过10个可能会卡住，hc 没这问题。
-    * pot: 若日志显示`KeyError: 'stream.mkv'`，升级或者降级 pot，直至 pot 能显示电影标题。  
+    * pot: 若日志显示`KeyError: 'stream.mkv'`，看下方 FAQ。  
       pot: 下一集无法添加 http 外挂字幕。
 
 * macOS
@@ -148,7 +151,8 @@
 * 选项 > 播放 > 播放窗口尺寸：全屏
 * 配置/语言/其他 > 收尾处理 > 播放完当前后退出（触发回传进度）
 * Pot 自身问题：`.bat` 日志可能提示`KeyError: 'stream.mkv'`。  
-  解决方案：三选一（若前两个方法失败就目前无解）。1. 本地用户使用读盘模式；2. 把 `.ini` 文件里`多集回传` 部分删除。2. 换 pot 版本；  
+  解决方案：三选一（若前两个方法失败换版本估计也不行）。1. 本地用户使用读盘模式；2. 把 `.ini` 文件里`多集回传` 部分删除。3. 换 pot
+  版本；  
   [PotPlayerSetup64-230208.exe](https://www.videohelp.com/download/PotPlayerSetup64-230208.exe)
   可以换这个版本，文件与官网一致。   
   sha1sum `fcd6404e32e6d28769365d9493627f15a0a302d5`
@@ -162,9 +166,9 @@
 
 > MPC：
 
-* 会自动开启 WebUI 系统防火墙提示的时候可以拒绝（不影响使用）。
-* 会自动开启 WebUI 建议仅允许从 localhost 访问： 查看 > 选项 > Web 界面：  
-  打勾 仅允许从 localhost 访问  
+* 会自动开启 WebUI，系统防火墙提示的时候可以拒绝（不影响使用）。
+* 会自动开启 WebUI，建议仅允许从 localhost 访问： 查看 > 选项 > Web 界面：  
+  打勾 仅允许从 localhost 访问
 
 > IINA
 

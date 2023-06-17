@@ -5,11 +5,21 @@ echo press a number
 echo 1: run in console
 echo 2: run in background and add to startup folder
 echo 3: open startup folder
-choice /N /C:1234 /M "4: path translate helper"%1
+echo 4: path translate helper
+echo 5: copy script path to clipboard
+choice /N /C:12345 /M "press a number"%1
+IF ERRORLEVEL ==5 GOTO FIVE
 IF ERRORLEVEL ==4 GOTO FOUR
 IF ERRORLEVEL ==3 GOTO THREE
 IF ERRORLEVEL ==2 GOTO TWO
 IF ERRORLEVEL ==1 GOTO ONE
+GOTO END
+:FIVE
+echo you have pressed five
+set mainCmd=python "%cd%\embyToLocalPlayer.py"
+echo %mainCmd%
+echo already copied, pause command is "Ctrl + V"
+echo %mainCmd%|clip
 GOTO END
 :FOUR
 echo you have pressed four

@@ -3,7 +3,7 @@
 // @name:zh-CN   embyToLocalPlayer
 // @name:en      embyToLocalPlayer
 // @namespace    https://github.com/kjtsune/embyToLocalPlayer
-// @version      1.1.6
+// @version      1.1.7
 // @description  需要 Python。Emby 调用外部本地播放器，并回传播放记录。适配 Jellyfin Plex。
 // @description:zh-CN 需要 Python。Emby 调用外部本地播放器，并回传播放记录。适配 Jellyfin Plex。
 // @description:en  Require Python. Play in an external player. Update watch history to emby server. Support Jellyfin Plex.
@@ -19,6 +19,13 @@
 // ==/UserScript==
 'use strict';
 /*
+2023-06-17:
+1. 去除：AutoHotKey 依赖（感谢@verygoodlee）
+2. 增加：根据路径选择播放器。
+3. 修复：pot 播放列表可能异常。
+* 版本间累积更新：
+  * 外挂字幕适配 Jellyfin 字幕烧录。
+
 2023-04-13:
 1. 默认读取系统代理。
 2. 默认取消播放器多开限制。
@@ -35,18 +42,6 @@
   * 增加：脚本代理及 mpv 系播放器代理。
   * 播放列表：首集进度被重置。
   * 日志：模糊域名及密钥。
-
-2023-02-04:
-1. 修复：播放进度被重置。
-2. 修复：.iso 圆盘禁用回传避免莫名已观看。
-3. 适配：.m3u8 直播源。
-* 版本间累积更新：
-  * 弹弹play: 读盘模式支持多集回传，配置改动。
-  * 播放列表: 修复错误的集数限制逻辑。
-  * mpc: 修复回传错误。
-  * force_disk_mode: 合并到 [dev] 里。
-  * 伪随机播放器管道名或端口，增加容错率。
-  * 播放器多开。
 */
 
 let config = {
