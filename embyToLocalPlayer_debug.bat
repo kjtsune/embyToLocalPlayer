@@ -16,14 +16,14 @@ IF ERRORLEVEL ==1 GOTO ONE
 GOTO END
 :FIVE
 echo you have pressed five
-set mainCmd=python "%cd%\embyToLocalPlayer.py"
+set mainCmd=python "%~dp0embyToLocalPlayer.py"
 echo %mainCmd%
 echo already copied, pause command is "Ctrl + V"
 echo %mainCmd%|clip
 GOTO END
 :FOUR
 echo you have pressed four
-python utils/conf_helper.py
+python "%~dp0utils/conf_helper.py"
 GOTO END
 :THREE
 echo you have pressed three
@@ -33,14 +33,14 @@ GOTO END
 echo you have pressed two
 set startupVbs="%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup\embyToLocalPlayer.vbs"
 rem echo "%startupVbs%"
-echo CreateObject("Wscript.Shell").Run """python"" ""%cd%\embyToLocalPlayer.py""" , 0, True > %startupVbs%
+echo CreateObject("Wscript.Shell").Run """python"" ""%~dp0embyToLocalPlayer.py""" , 0, True > %startupVbs%
 echo close this window manually
 wscript.exe ""%startupVbs%""
 exit
 GOTO END
 :ONE
 echo you have pressed one
-python embyToLocalPlayer.py
+python "%~dp0embyToLocalPlayer.py"
 :END
 
 pause
