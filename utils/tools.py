@@ -437,7 +437,14 @@ def parse_received_data_emby(received_data):
     stream_url = f'{scheme}://{netloc}{extra_str}/videos/{item_id}/stream{container}' \
                  f'?MediaSourceId={media_source_id}&Static=true&api_key={api_key}'
     # 避免将内置字幕转为外挂字幕，内置字幕选择由播放器决定
-    sub_index = sub_index if sub_index < 0 or media_source_info['MediaStreams'][sub_index]['IsExternal'] else -1
+    sub_index = sub_index if sub_index < 0 or media_source_info['MediaStreams'][sub_index]['IsExternal'] else -2
+    sub_lang = tuple(configs._ini_str_split('dev', 'sub_lang_check'))
+    if sub_lang and sub_index == -1:
+        sub_streams = [i for i in media_source_info['MediaStreams'] if i['Type'] == 'Subtitle']
+        sub_check = [i for i in sub_streams if not i['IsExternal'] and i['Language'].startswith(sub_lang)]
+        sub_ext = [i for i in sub_streams if i['IsExternal']]
+        if not sub_check and sub_ext:
+            sub_index = sub_ext[0]['Index']
     if sub_index >= 0:
         sub_jellyfin_str = '' if is_emby \
             else f'{item_id[:8]}-{item_id[8:12]}-{item_id[12:16]}-{item_id[16:20]}-{item_id[20:]}/'
@@ -515,6 +522,7 @@ def parse_received_data_plex(received_data):
                           )
     res_list = []
     fist_sub = None
+    sub_lang = tuple(configs._ini_str_split('dev', 'sub_lang_check'))
     for index, meta in enumerate(metas):
         res = base_info_dict.copy()
         data = meta['Media'][0]
@@ -524,13 +532,20 @@ def parse_received_data_plex(received_data):
         size = data['Part'][0]['size']
         stream_path = data['Part'][0]['key']
         stream_url = f'{scheme}://{netloc}{stream_path}?download=1&X-Plex-Token={api_key}'
-        sub_path = [i for i in data['Part'][0]['Stream'] if i.get('key') and i.get('streamType') == 3]
+        sub_streams = [i for i in data['Part'][0]['Stream'] if i.get('streamType') == 3]
         if index == 0:
-            sub_path = fist_sub = [i['key'] for i in sub_path if i.get('selected')]
+            fist_sub = [i for i in sub_streams if i.get('selected')]
+            if sub_lang and not fist_sub:
+                sub_check = [i for i in sub_streams if not i.get('key') and i['languageCode'].startswith(sub_lang)]
+                sub_ext = [i for i in sub_streams if i.get('key')]
+                if not sub_check and sub_ext:
+                    fist_sub = sub_ext
+            sub_path = fist_sub
         else:
-            sub_path = [s['key'] for s in sub_path if fist_sub
+            sub_path = [s for s in sub_streams if fist_sub and s.get('key')
                         and configs.check_str_match(s['displayTitle'], 'playlist', 'subtitle_priority', log=False)]
-        sub_file = f'{scheme}://{netloc}{sub_path[0]}?download=1&X-Plex-Token={api_key}' if sub_path else None
+        sub_file = f'{scheme}://{netloc}{sub_path[0]["key"]}?download=1&X-Plex-Token={api_key}' \
+            if sub_path and sub_path[0].get('key') else None
         media_path = translate_path_by_ini(file_path) if mount_disk_mode else stream_url
         basename = os.path.basename(file_path)
         media_basename = os.path.basename(media_path)

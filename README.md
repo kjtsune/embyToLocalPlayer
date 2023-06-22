@@ -16,7 +16,7 @@
 
 * PotPlayer [发布页](https://potplayer.daum.net/)
   若使用 http 播放，**可能提示地址关闭**， 解决方法在 FAQ。
-* mpv（纯快捷键）[Windows](https://sourceforge.net/projects/mpv-player-windows/files/release/) 。 macOS
+* mpv（纯快捷键）[Windows](https://sourceforge.net/projects/mpv-player-windows/files/64bit/) 。 macOS
   解压后拖到应用程序即可 [macOS](https://laboratory.stolendata.net/~djinn/mpv_osx/)
 * mpv.net（可鼠标）[发布页](https://github.com/stax76/mpv.net/releases)
 * VLC [发布页](https://www.videolan.org/vlc/)
@@ -63,6 +63,8 @@
        把 `emby_script_run.command` 文件拖入 > 点击运行后测试播放 > 文件 > 存储 > 取名并保存到应用程序。
     2. 启动台 > 刚才的应用 > 双击后台运行后再次播放测试。
     3. 系统偏好设置 > 用户与群组 > 登录项 > 添加刚才的应用。
+    4. 如果状态栏有齿轮，把文件拖入的操作替换成写以下内容，注意更改cd目录为你保存的目录。  
+       `cd ~/App/embyToLocalPlayer && nohup ./emby_script_run.command > run.log 2&>1 &`
 
 > Linux
 
@@ -87,8 +89,8 @@
 * 点击浏览器油猴插件图标，会有菜单。
 * 网页播放模式：开启 > 禁用脚本。
 * 读取硬盘模式：关闭 > 调用本地播放器但使用服务器网络链接。（默认）
-* 读取硬盘模式：开启 > 调用本地播放器并转换服务器路径为本地文件地址。  
-  需要 `.ini` 里填好路径替换规则，服务端在本地则不用填。`.bat` 按 4 有辅助配置程序
+* 读取硬盘模式：开启 > 调用本地播放器并转换服务器路径为本地文件地址。前提是本地有文件或挂载。  
+  在 `.ini` 里填好路径替换规则，服务端在本地则不用填。`.bat` 按 4 有辅助配置程序
 * 持久性缓存模式：只看配置文件，与油猴设置不冲突，不需要开启读取硬盘模式。
 
 > 如何更新
