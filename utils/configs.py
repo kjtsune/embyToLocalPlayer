@@ -135,8 +135,9 @@ class Configs:
             result = False
         _log = {True: "match", False: "not match"}[bool(result)]
         if log:
+            _log = f'{_str} {_log}: {section}[{option}] {ini_list}'
             if MyLogger.need_mix:
-                _log = MyLogger.mix_args_str(f'{_str} {_log}: {section}[{option}] {ini_list}')
+                _log = MyLogger.mix_args_str(_log)
             MyLogger.log(_log)
         return result
 

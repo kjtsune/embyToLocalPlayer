@@ -1,6 +1,7 @@
 import base64
 import os.path
 import platform
+import re
 import subprocess
 import threading
 import time
@@ -178,11 +179,45 @@ def list_episodes(data: dict):
     season_id = response['SeasonId']
     series_id = response['SeriesId']
 
+    def version_filter(file_path, episodes_data):
+        ver_re = configs.raw.get('playlist', 'version_filter', fallback='').strip().strip('|')
+        if not ver_re:
+            return episodes_data
+        try:
+            ep_num = len(set([i['IndexNumber'] for i in episodes_data]))
+        except KeyError:
+            logger.error('version_filter: KeyError: some ep not IndexNumber')
+            return episodes_data
+
+        if ep_num == len(episodes_data):
+            return episodes_data
+
+        official_rule = file_path.rsplit(' - ', 1)
+        official_rule = official_rule[-1] if len(official_rule) == 2 else None
+        if official_rule:
+            _ep_data = [i for i in episodes_data if official_rule in i['Path']]
+            if len(_ep_data) == ep_num:
+                logger.info(f'version_filter: success with {official_rule=}')
+                return _ep_data
+            else:
+                logger.info(f'version_filter: fail, {official_rule=}, pass {len(_ep_data)}, not equal {ep_num=}')
+
+        ini_re = re.findall(ver_re, file_path, re.I)
+        ver_re = re.compile('|'.join(ini_re))
+        _ep_data = [i for i in episodes_data if len(ver_re.findall(i['Path'])) == len(ini_re)]
+        if len(_ep_data) == ep_num:
+            logger.info(f'version_filter: success with {ini_re=}')
+            return _ep_data
+        else:
+            logger.info(f'version_filter: fail, {ini_re=}, pass {len(_ep_data)}, not equal {ep_num=}')
+            # if len(_ep_data) < ep_num:
+            #     [print(i['Path']) for i in episodes_data if len(ver_re.findall(i['Path'])) != len(ini_re)]
+
+        return episodes_data
+
     def parse_item(item):
         source_info = item['MediaSources'][0]
-        file_path = source_info.get('Path')
-        if not file_path or 'RunTimeTicks' not in item:
-            return None
+        file_path = source_info['Path']
         fake_name = os.path.splitdrive(file_path)[1].replace('/', '__').replace('\\', '__')
         item_id = item['Id']
         container = os.path.splitext(file_path)[-1]
@@ -226,7 +261,8 @@ def list_episodes(data: dict):
     url = f'{scheme}://{netloc}{extra_str}/Shows/{series_id}/Episodes'
     episodes = requests_urllib(url, params=params, headers=headers, get_json=True)
     # dump_json_file(episodes, 'z_ep_parse.json')
-    episodes = episodes['Items']
+    episodes = [i for i in episodes['Items'] if 'Path' in i and 'RunTimeTicks' in i]
+    episodes = version_filter(data['file_path'], episodes) if data['server'] == 'emby' else episodes
     episodes = [parse_item(i) for i in episodes]
     return [i for i in episodes if i]
 

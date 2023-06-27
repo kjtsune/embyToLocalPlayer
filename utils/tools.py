@@ -439,13 +439,13 @@ def parse_received_data_emby(received_data):
     # 避免将内置字幕转为外挂字幕，内置字幕选择由播放器决定
     sub_index = sub_index if sub_index < 0 or media_source_info['MediaStreams'][sub_index]['IsExternal'] else -2
     sub_lang = tuple(configs._ini_str_split('dev', 'sub_lang_check'))
-    if sub_lang and sub_index == -1:
-        sub_streams = [i for i in media_source_info['MediaStreams'] if i['Type'] == 'Subtitle']
+    if not mount_disk_mode and sub_lang and sub_index == -1:
+        sub_streams = [i for i in media_source_info['MediaStreams'] if i['Type'] == 'Subtitle' and 'Language' in i]
         sub_check = [i for i in sub_streams if not i['IsExternal'] and i['Language'].startswith(sub_lang)]
         sub_ext = [i for i in sub_streams if i['IsExternal']]
         if not sub_check and sub_ext:
             sub_index = sub_ext[0]['Index']
-    if sub_index >= 0:
+    if not mount_disk_mode and sub_index >= 0:
         sub_jellyfin_str = '' if is_emby \
             else f'{item_id[:8]}-{item_id[8:12]}-{item_id[12:16]}-{item_id[16:20]}-{item_id[20:]}/'
         sub_emby_str = f'/{media_source_id}' if is_emby else ''
@@ -545,7 +545,7 @@ def parse_received_data_plex(received_data):
             sub_path = [s for s in sub_streams if fist_sub and s.get('key')
                         and configs.check_str_match(s['displayTitle'], 'playlist', 'subtitle_priority', log=False)]
         sub_file = f'{scheme}://{netloc}{sub_path[0]["key"]}?download=1&X-Plex-Token={api_key}' \
-            if sub_path and sub_path[0].get('key') else None
+            if not mount_disk_mode and sub_path and sub_path[0].get('key') else None
         media_path = translate_path_by_ini(file_path) if mount_disk_mode else stream_url
         basename = os.path.basename(file_path)
         media_basename = os.path.basename(media_path)
