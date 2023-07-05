@@ -440,8 +440,8 @@ def parse_received_data_emby(received_data):
     sub_index = sub_index if sub_index < 0 or media_source_info['MediaStreams'][sub_index]['IsExternal'] else -2
     sub_lang = tuple(configs._ini_str_split('dev', 'sub_lang_check'))
     if not mount_disk_mode and sub_lang and sub_index == -1:
-        sub_streams = [i for i in media_source_info['MediaStreams'] if i['Type'] == 'Subtitle' and 'Language' in i]
-        sub_check = [i for i in sub_streams if not i['IsExternal'] and i['Language'].startswith(sub_lang)]
+        sub_streams = [i for i in media_source_info['MediaStreams'] if i['Type'] == 'Subtitle']
+        sub_check = [i for i in sub_streams if not i['IsExternal'] and i.get('Language', '').startswith(sub_lang)]
         sub_ext = [i for i in sub_streams if i['IsExternal']]
         if not sub_check and sub_ext:
             sub_index = sub_ext[0]['Index']
