@@ -208,7 +208,7 @@ unsafeWindow.fetch = async (url, request) => {
 function initXMLHttpRequest() {
     const open = XMLHttpRequest.prototype.open;
     XMLHttpRequest.prototype.open = function (...args) {
-        // 正常请求不匹配的网址       
+        // 正常请求不匹配的网址
         let url = args[1]
         if (url.indexOf('playQueues?type=video') == -1) {
             return open.apply(this, args);
@@ -241,5 +241,5 @@ function initXMLHttpRequest() {
 // 初始化请求并拦截 plex
 initXMLHttpRequest()
 
-setModeSwitchMenu('webPlayerEnable', '网页播放模式已经 ')
+setModeSwitchMenu('webPlayerEnable', '脚本在当前服务器 已', '', '启用', '禁用', '启用')
 setModeSwitchMenu('mountDiskEnable', '读取硬盘模式已经 ')
