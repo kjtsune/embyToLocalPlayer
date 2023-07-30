@@ -7,6 +7,7 @@ for /F "usebackq tokens=*" %%A in (`python --version 2^>^&1`) do set PYTHON_VERS
 
 if "%PYTHON_VERSION:~0,6%" == "Python" (
     echo %PYTHON_VERSION%
+    python -c "import sys; print(sys.executable)"
     echo press a number
     echo 1: run in console
     echo 2: run in background and add to startup folder

@@ -186,7 +186,7 @@ def select_player_by_path(file_path):
         player, path = [i.strip() for i in rule.split(':', maxsplit=1)]
         for p in [i.strip() for i in path.split(',') if i]:
             path_map[p] = player
-    result = [player for path, player in path_map.items() if file_path.startswith(path)]
+    result = [player for path, player in path_map.items() if path in file_path]
     return result[0] if result else False
 
 
@@ -231,7 +231,7 @@ def requests_urllib(host, params=None, _json=None, decode=False, timeout=3.0, he
                 return response
             break
         except socket.timeout:
-            _logger.error(f'urllib {try_times=}', silence=silence)
+            _logger.error(f'urllib {try_times=} {host=}', silence=silence)
             if try_times == retry:
                 raise TimeoutError(f'{try_times=} {host=}')
     if decode:

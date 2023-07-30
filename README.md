@@ -45,13 +45,15 @@
 * 按 2 则创建开机启动项并后台运行。
 * 问题排查：
     * 若提示找不到 Python，轮流尝试安装以下三种 Python 安装程序：  
-      通用流程：卸载 Python > 重启 > 安装 Python (勾选 add to path) > 重启 >  双击 `.bat`  
-      * 1：[官网](https://www.python.org/downloads/)
-      * 2：[Miniconda](https://docs.conda.io/en/latest/miniconda.html)
-      * 3：微软商店
+      通用流程：卸载 Python > 重启 > 安装 Python (勾选 add to path) > 重启 >  双击 `.bat`
+        * 1：[官网](https://www.python.org/downloads/)
+        * 2：[Miniconda](https://docs.conda.io/en/latest/miniconda.html)
+        * 3：微软商店
     * 若自启失败，检查启动项是否被禁用：任务管理器 > 启动。
 
 > macOS
+
+macOS 可能无法开机自启
 
 1. 刚才保存的文件夹 > 右击 > 新建位于文件夹的终端窗口 `chmod +x *.command` 回车。
 2. 双击 `emby_script_run.command`, 若无报错，可播放测试。
@@ -60,7 +62,7 @@
        把 `emby_script_run.command` 文件拖入 > 点击运行后测试播放 > 文件 > 存储 > 取名并保存到应用程序。
     2. 启动台 > 刚才的应用 > 双击后台运行后再次播放测试。
     3. 系统偏好设置 > 用户与群组 > 登录项 > 添加刚才的应用。
-    4. 如果状态栏有齿轮，把文件拖入的操作替换成写以下内容，注意更改cd目录为你保存的目录。  
+    4. 如果 Monterey 12.6.6 状态栏有齿轮，把文件拖入的操作替换成写以下内容，注意更改cd目录为你保存的目录。  
        `cd ~/App/embyToLocalPlayer && nohup ./emby_script_run.command > run.log 2&>1 &`
 
 > Linux
@@ -112,7 +114,7 @@
   视频文件的内置字幕当作外挂字幕处理会导致播放器语言设置失效。（外挂字幕最优先）  
   正常播放器都可以设置语言优先顺序。
 
-> 播放列表（多集回传）相关
+> 播放列表（连续播放|多集回传）相关
 
 * 在配置文件里 `[playlist]` 中启用。（局域网用户已默认启用）
 * 播放列表添加完成前最好不退出
@@ -146,7 +148,7 @@
 
 > PotPlayer
 
-* 若碰到问题，建议：[MPC-HC](https://github.com/clsid2/mpc-hc/releases) 自带 LAV，同样支持 madVR MPCVR 等。
+* 若碰到问题，本地用户可考虑：[MPC-HC](https://github.com/clsid2/mpc-hc/releases) 自带 LAV，同样支持 madVR MPCVR BFRC 等。  
 * 选项 > 播放 > 播放窗口尺寸：全屏
 * 配置/语言/其他 > 收尾处理 > 播放完当前后退出（触发回传进度）
 * Pot 自身问题：`.bat` 日志可能提示`KeyError: 'stream.mkv'`。  
@@ -168,6 +170,7 @@
 * 会自动开启 WebUI，系统防火墙提示的时候可以拒绝（不影响使用）。
 * 会自动开启 WebUI，建议仅允许从 localhost 访问： 查看 > 选项 > Web 界面：  
   打勾 仅允许从 localhost 访问
+* MPC 播放 http 具有加载和拖动慢，视频总时长可能有误的缺点。
 
 > IINA
 
