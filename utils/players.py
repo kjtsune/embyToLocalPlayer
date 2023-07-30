@@ -270,7 +270,7 @@ def list_episodes(data: dict):
 def init_player_instance(function, **kwargs):
     init_times = 1
     player = None
-    while init_times <= 3:
+    while init_times <= 5:
         try:
             time.sleep(1)
             player = function(**kwargs)
@@ -583,7 +583,7 @@ def playlist_add_mpc(mpc_path, data, limit=4, **_):
     limit = 10 if limit == 4 and mount_disk_mode else limit
     for ep in episodes:
         basename = ep['basename']
-        playlist_data[ep['media_path']] = ep
+        playlist_data[os.path.basename(ep['media_path'])] = ep
         if basename == data['basename']:
             append = True
             continue
@@ -608,20 +608,24 @@ def stop_sec_mpc(mpc: MPCHttpApi, stop_sec_only=True, **_):
     if not mpc:
         logger.error('mpc not found skip stop_sec_mpc')
         return None if stop_sec_only else {}
-    stop_sec = None
     stop_stack = [None, None]
     path_stack = [None, None]
     name_stop_sec_dict = {}
     while True:
         try:
             state, position, media_path = mpc.get(['state', 'position', 'filepath'], return_list=True)
-            position = position // 1000
-            stop_sec = position if state != '-1' else stop_sec
+            if state == '-1':
+                time.sleep(0.3)
+                continue
+            stop_sec = position // 1000
             stop = stop_stack.pop(0)
             stop_stack.append(stop_sec)
             path = path_stack.pop(0)
             path_stack.append(media_path)
             if not stop_sec_only and path:
+                # emby 播放多版本时，PlaybackInfo 返回的数据里，不同版本 DirectStreamUrl 的 itemid 都一样（理应不同）。
+                # 所以用 basename 去除 itemid 来保证数据准确性。
+                path = os.path.basename(path)
                 name_stop_sec_dict[path] = stop
                 prefetch_data['stop_sec_dict'][path] = stop
         except Exception:
