@@ -149,6 +149,7 @@ macOS 可能无法开机自启
 > PotPlayer
 
 * 若碰到问题，本地用户可考虑：[MPC-HC](https://github.com/clsid2/mpc-hc/releases) 自带 LAV，同样支持 madVR MPCVR BFRC 等。  
+  网络用户或没有特殊需求的话，mpv 系的播放器综合体验较好。
 * 选项 > 播放 > 播放窗口尺寸：全屏
 * 配置/语言/其他 > 收尾处理 > 播放完当前后退出（触发回传进度）
 * Pot 自身问题：`.bat` 日志可能提示`KeyError: 'stream.mkv'`。  

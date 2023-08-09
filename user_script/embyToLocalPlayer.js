@@ -3,7 +3,7 @@
 // @name:zh-CN   embyToLocalPlayer
 // @name:en      embyToLocalPlayer
 // @namespace    https://github.com/kjtsune/embyToLocalPlayer
-// @version      1.1.7
+// @version      1.1.8
 // @description  需要 Python。Emby 调用外部本地播放器，并回传播放记录。适配 Jellyfin Plex。
 // @description:zh-CN 需要 Python。Emby 调用外部本地播放器，并回传播放记录。适配 Jellyfin Plex。
 // @description:en  Require Python. Play in an external player. Update watch history to emby server. Support Jellyfin Plex.
@@ -19,29 +19,19 @@
 // ==/UserScript==
 'use strict';
 /*
+2023-08-09:
+1. 代理配置热更新。
+* 版本间累积更新：
+  * 内封字幕无中文，且未选中字幕时（或无字幕时），尝试加载外挂字幕。（配置文件有新增条目 [dev] )
+  * 播放列表：下一集保持相同版本。（限emby，配置文件有新增条目)
+  * mpc 修复多版本播放回传失败。
+
 2023-06-17:
 1. 去除：AutoHotKey 依赖（感谢@verygoodlee）
 2. 增加：根据路径选择播放器。
 3. 修复：pot 播放列表可能异常。
 * 版本间累积更新：
   * 外挂字幕适配 Jellyfin 字幕烧录。
-
-2023-04-13:
-1. 默认读取系统代理。
-2. 默认取消播放器多开限制。
-* 版本间累积更新：
-  * 播放列表: 适配 Plex。
-  * 网页可跳转到对应文件夹。（限 Emby，按钮在文件路径上方。可改油猴脚本禁用，有注释。）
-  * “检查媒体文件是否存在” 降级为可选功能，缩短启动时间，可在 [dev] 中启用，适用于多网盘配置优先级。
-
-2023-02-16:
-1. 分离播放前回传。（提升非本地用户播放器启动速度）
-* 版本间累积更新：
-  * 适配：网盘直链重定向。
-  * 油猴：适配背景视频。
-  * 增加：脚本代理及 mpv 系播放器代理。
-  * 播放列表：首集进度被重置。
-  * 日志：模糊域名及密钥。
 */
 
 let config = {

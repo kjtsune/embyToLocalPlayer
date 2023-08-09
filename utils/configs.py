@@ -124,6 +124,14 @@ class Configs:
         config = ConfigParser()
         config.read(self.path, encoding='utf-8-sig')
         self.raw = config
+        self.fullscreen = self.raw.getboolean('emby', 'fullscreen', fallback=True)
+        self.debug_mode = self.raw.getboolean('dev', 'debug', fallback=False)
+        self.disable_audio = self.raw.getboolean('dev', 'disable_audio', fallback=False)  # test in vm
+        self.gui_is_enable = self.raw.getboolean('gui', 'enable', fallback=False)
+        self.sys_proxy = self._get_sys_proxy()
+        self.dl_proxy = self._get_proxy('download')
+        self.script_proxy = self._get_proxy('script')
+        self.player_proxy = self._get_proxy('player')
         return config
 
     def check_str_match(self, _str, section, option, return_value=False, log=True):
