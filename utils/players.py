@@ -166,6 +166,7 @@ def list_episodes(data: dict):
     user_id = data['user_id']
     mount_disk_mode = data['mount_disk_mode']
     extra_str = '/emby' if data['server'] == 'emby' else ''
+    device_id, play_session_id = data['device_id'], data['play_session_id']
 
     params = {'X-Emby-Token': api_key, }
     headers = {'accept': 'application/json', }
@@ -222,7 +223,8 @@ def list_episodes(data: dict):
         item_id = item['Id']
         container = os.path.splitext(file_path)[-1]
         stream_url = f'{scheme}://{netloc}{extra_str}/videos/{item_id}/stream{container}' \
-                     f'?MediaSourceId={source_info["Id"]}&Static=true&api_key={api_key}'
+                     f'?DeviceId={device_id}&MediaSourceId={source_info["Id"]}&Static=true' \
+                     f'&PlaySessionId={play_session_id}&api_key={api_key}'
         media_path = translate_path_by_ini(file_path) if mount_disk_mode else stream_url
         basename = os.path.basename(file_path)
         media_basename = os.path.basename(media_path)

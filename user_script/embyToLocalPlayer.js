@@ -15,6 +15,7 @@
 // @grant        GM_registerMenuCommand
 // @grant        GM_unregisterMenuCommand
 // @run-at       document-start
+// @connect      127.0.0.1
 // @license MIT
 // ==/UserScript==
 'use strict';

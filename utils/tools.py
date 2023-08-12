@@ -120,7 +120,7 @@ def activate_window_by_pid(pid, sleep=0):
     from utils.windows_tool import activate_window_by_win32
 
     def activate_loop():
-        for _ in range(30):
+        for _ in range(100):
             time.sleep(0.5)
             if activate_window_by_win32(pid):
                 return
@@ -435,7 +435,8 @@ def parse_received_data_emby(received_data):
     container = os.path.splitext(file_path)[-1]
     extra_str = '/emby' if is_emby else ''
     stream_url = f'{scheme}://{netloc}{extra_str}/videos/{item_id}/stream{container}' \
-                 f'?MediaSourceId={media_source_id}&Static=true&api_key={api_key}'
+                 f'?DeviceId={device_id}&MediaSourceId={media_source_id}&Static=true' \
+                 f'&PlaySessionId={play_session_id}&api_key={api_key}'
     # 避免将内置字幕转为外挂字幕，内置字幕选择由播放器决定
     sub_index = sub_index if sub_index < 0 or media_source_info['MediaStreams'][sub_index]['IsExternal'] else -2
     sub_lang = tuple(configs._ini_str_split('dev', 'sub_lang_check'))
