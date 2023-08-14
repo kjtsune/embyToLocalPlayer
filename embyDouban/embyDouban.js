@@ -3,7 +3,7 @@
 // @name:zh-CN   embyDouban
 // @name:en      embyDouban
 // @namespace    https://github.com/kjtsune/embyToLocalPlayer/tree/main/embyDouban
-// @version      0.1.6
+// @version      0.1.7
 // @description  emby 里展示: 豆瓣 Bangumi bgm.tv 评分 链接 (豆瓣评论可关)
 // @description:zh-CN emby 里展示: 豆瓣 Bangumi bgm.tv 评分 链接 (豆瓣评论可关)
 // @description:en  show douban Bangumi ratings in emby
@@ -29,18 +29,17 @@ let config = {
 let logger = {
     error: function (...args) {
         if (config.logLevel >= 1) {
-            console.log('%cerror', 'color: yellow; font-style: italic; background-color: blue;', args);
+            console.log('%cerror', 'color: yellow; font-style: italic; background-color: blue;', ...args);
         }
     },
     info: function (...args) {
-        if (args.length == 1) { args = args[0] }
         if (config.logLevel >= 2) {
-            console.log('%cinfo', 'color: yellow; font-style: italic; background-color: blue;', args);
+            console.log('%cinfo', 'color: yellow; font-style: italic; background-color: blue;', ...args);
         }
     },
     debug: function (...args) {
         if (config.logLevel >= 3) {
-            console.log('%cdebug', 'color: yellow; font-style: italic; background-color: blue;', args);
+            console.log('%cdebug', 'color: yellow; font-style: italic; background-color: blue;', ...args);
         }
     },
 }
@@ -245,7 +244,7 @@ async function insertDoubanMain(linkZone) {
         });
         var doubanId = localStorage.getItem(imdbId);
     }
-    console.log('%c%o%s', "color:orange;", 'douban id ', doubanId)
+    console.log('%c%o%s', "color:orange;", 'douban id ', doubanId, String(imdbId));
     if (!doubanId) {
         localStorage.setItem(imdbId, '');
         return;
@@ -314,28 +313,23 @@ async function insertBangumiMain(infoTable, linkZone) {
     let mediaInfoItems = infoTable.querySelectorAll('div[class="mediaInfoItem"] > a');
     let isAnime = 0;
     mediaInfoItems.forEach(tagItem => {
-        if (tagItem.textContent && tagItem.textContent == '动画') { isAnime++ }
+        if (tagItem.textContent && tagItem.textContent.search(/动画|Anim/) != -1) { isAnime++ }
     });
     if (isAnime == 0) return;
 
     let bgmRate = infoTable.querySelector('a#bgmScore');
     if (bgmRate) return;
 
-    let imgTitle = infoTable.querySelector('img[class="itemLogoAsTitle"]');
-    let h1Title = infoTable.querySelector('h1[class="itemName-primary"]');
-    let title = (imgTitle) ? imgTitle.alt : h1Title.textContent;
-    let year = infoTable.querySelector('div[class="mediaInfoItem"]').textContent;
-
-    let doubanSubTitle;
     let imdbButton = linkZone.querySelector('a[href^="https://www.imdb"]');
+    if (!imdbButton) return;
     let imdbId = imdbButton.href.match(/tt\d+/);
-    if (!imdbId) return;
-    logger.info(String(imdbId));
 
     let imdbExpireKey = imdbId + 'expire'
+    let year = infoTable.querySelector('div[class="mediaInfoItem"]').textContent;
+    let expireDay = (Number(year) < new Date().getFullYear() && new Date().getMonth() + 1 != 1) ? 30 : 3
     let needUpdate = false;
     if (imdbExpireKey in localStorage) {
-        if (checkIsExpire(imdbExpireKey, 7)) {
+        if (checkIsExpire(imdbExpireKey, expireDay)) {
             needUpdate = true;
             localStorage.setItem(imdbExpireKey, JSON.stringify(Date.now()));
         }
@@ -356,48 +350,61 @@ async function insertBangumiMain(infoTable, linkZone) {
     if (!checkIsExpire(imdbNotBgmKey)) {
         return;
     }
-
-    if (imdbId in localStorage && localStorage.getItem(imdbId)) {
-        let doubanId = localStorage.getItem(imdbId);
-        let doubanInfo = JSON.parse(localStorage.getItem(doubanId + 'Info'));
-        logger.info('doubanInfo', doubanInfo);
-        title = doubanInfo.sub_title || doubanInfo.title; // 豆瓣优先，且原始名称优先
-        doubanSubTitle = doubanInfo.sub_title;
+    let userId = ApiClient._serverInfo.UserId;
+    let itemId = /\?id=(\d*)/.exec(window.location.hash)[1];
+    let itemInfo = await ApiClient.getItem(userId, itemId);
+    let title = itemInfo.Name;
+    let originalTitle = itemInfo.OriginalTitle;
+    if (originalTitle.indexOf('／') != -1) { //纸片人
+        logger.info(originalTitle);
+        let zprTitle = originalTitle.split('／');
+        for (let _i in zprTitle) {
+            let _t = zprTitle[_i];
+            if (/[ぁ-んァ-ヶー一-龥々]/.test(_t)) {
+                originalTitle = _t;
+                break
+            } else {
+                originalTitle = zprTitle[0];
+            }
+        }
     }
-    if (year.search(/^\d{4}$/) != -1) {
-        // pass
-    } else if (year.search(/ – /)) {
-        year = year.split(' ')[0]
-    } else {
-        year = null
-    }
+    let premiereDate = new Date(itemInfo.PremiereDate);
+    premiereDate.setDate(premiereDate.getDate() - 2);
+    let startDate = premiereDate.toISOString().slice(0, 10);
+    premiereDate.setDate(premiereDate.getDate() + 4);
+    let endDate = premiereDate.toISOString().slice(0, 10);
 
-    logger.info(title, year)
+    logger.info('bgm ->', originalTitle, startDate, endDate);
     let bgmInfo = await getJSON_GM(`https://api.bgm.tv/v0/search/subjects?limit=10`, JSON.stringify({
-        "keyword": title,
+        "keyword": originalTitle,
         // "keyword": 'titletitletitletitletitletitletitle',
         "filter": {
             "type": [
                 2
             ],
             "air_date": [
-                `>=${year}-01-01`,
-                `<=${year}-12-31`
+                `>=${startDate}`,
+                `<${endDate}`
             ],
             "nsfw": true
         }
     }))
-    logger.info(bgmInfo['data'])
+    logger.info('bgmInfo', bgmInfo['data'])
     bgmInfo = (bgmInfo['data']) ? bgmInfo['data'][0] : null;
-    if (!bgmInfo) return;
+    if (!bgmInfo) {
+        localStorage.setItem(imdbNotBgmKey, JSON.stringify(Date.now()));
+        logger.error('getJSON_GM not bgmInfo return');
+        return;
+    };
 
+    let trust = false;
     if (!bgmObj) {
-        if (textSimilarity(title, bgmInfo['name_cn']) < 0.4 && (textSimilarity(title, bgmInfo['name'])) < 0.4) {
+        if (textSimilarity(originalTitle, bgmInfo['name']) < 0.4 && (textSimilarity(title, bgmInfo['name_cn'])) < 0.4
+            && (textSimilarity(title, bgmInfo['name'])) < 0.4) {
             localStorage.setItem(imdbNotBgmKey, JSON.stringify(Date.now()));
             logger.error('not bgmObj and title not Similarity, skip');
-            return;
         } else {
-            doubanSubTitle = true
+            trust = true
         }
     }
     logger.info(bgmInfo)
@@ -406,7 +413,7 @@ async function insertBangumiMain(infoTable, linkZone) {
         score: bgmInfo['score'],
         name: bgmInfo['name'],
         name_cn: bgmInfo['name_cn'],
-        trust: Boolean(doubanSubTitle),
+        trust: trust,
     }
     localStorage.setItem(imdbBgmKey, JSON.stringify(bgmObj));
     insertBangumiScore(bgmObj, infoTable, linkZone);
@@ -442,12 +449,14 @@ async function main() {
     let linkZone = getVisibleElement(document.querySelectorAll('div[class="verticalSection linksSection verticalSection-extrabottompadding"]'));
     let infoTable = getVisibleElement(document.querySelectorAll('div[class="flex-grow detailTextContainer details-largefont"]'));
     if (infoTable && linkZone) {
-        if (infoTable.querySelector('h3.itemName-secondary')) return; // eps page
-        await insertDoubanMain(linkZone);
-        await insertBangumiMain(infoTable, linkZone)
+        if (!infoTable.querySelector('h3.itemName-secondary')) { // not eps page
+            insertDoubanMain(linkZone);
+            await insertBangumiMain(infoTable, linkZone)
+        } else {
+            let bgmIdNode = document.evaluate('//div[contains(text(), "[bgm=")]', document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+            if (bgmIdNode) { insertBangumiByPath(bgmIdNode) };
+        }
     }
-    let bgmIdNode = document.evaluate('//div[contains(text(), "[bgm=")]', document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
-    if (bgmIdNode) { insertBangumiByPath(bgmIdNode) };
     if (runLimit > 50) {
         cleanDoubanError();
         runLimit = 0
