@@ -3,7 +3,7 @@
 // @name:zh-CN   embyToLocalPlayer
 // @name:en      embyToLocalPlayer
 // @namespace    https://github.com/kjtsune/embyToLocalPlayer
-// @version      1.1.8
+// @version      1.1.8.1
 // @description  需要 Python。Emby 调用外部本地播放器，并回传播放记录。适配 Jellyfin Plex。
 // @description:zh-CN 需要 Python。Emby 调用外部本地播放器，并回传播放记录。适配 Jellyfin Plex。
 // @description:en  Require Python. Play in an external player. Update watch history to emby server. Support Jellyfin Plex.
@@ -45,17 +45,17 @@ let fistTime = true;
 let logger = {
     error: function (...args) {
         if (config.logLevel >= 1) {
-            console.log('%cerror', 'color: yellow; font-style: italic; background-color: blue;', args);
+            console.log('%cerror', 'color: yellow; font-style: italic; background-color: blue;', ...args);
         }
     },
     info: function (...args) {
         if (config.logLevel >= 2) {
-            console.log('%cinfo', 'color: yellow; font-style: italic; background-color: blue;', args);
+            console.log('%cinfo', 'color: yellow; font-style: italic; background-color: blue;', ...args);
         }
     },
     debug: function (...args) {
         if (config.logLevel >= 3) {
-            console.log('%cdebug', 'color: yellow; font-style: italic; background-color: blue;', args);
+            console.log('%cdebug', 'color: yellow; font-style: italic; background-color: blue;', ...args);
         }
     },
 }
@@ -168,6 +168,7 @@ async function addOpenFolderElement() {
     if (!pathDiv || pathDiv.className == 'mediaInfoItems') return;
     let full_path = pathDiv.textContent;
     if (!full_path.match(/[/:]/)) return;
+    if (full_path.match(/\d{1,3}\.\d{1,2} (MB|GB)/)) return;
 
     let openButtonHtml = `<a id="openFolderButton" is="emby-linkbutton" class="raised item-tag-button 
     nobackdropfilter emby-button" ><i class="md-icon button-icon button-icon-left">link</i>Open Folder</a>`
