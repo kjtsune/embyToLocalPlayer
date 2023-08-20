@@ -18,8 +18,11 @@ def list_pid_and_cmd(name_re='.') -> list:
     default_encoding = locale.getpreferredencoding()
     # encoding = 'gbk' if default_encoding == 'cp936' else 'utf-8'
     cmd = 'Get-WmiObject Win32_Process | Select ProcessId,CommandLine | ConvertTo-Json'
-    proc = subprocess.run(['powershell', '-Command', cmd], capture_output=True,
-                          encoding=default_encoding)
+    try:
+        proc = subprocess.run(['powershell', '-Command', cmd], capture_output=True,
+                              encoding=default_encoding)
+    except FileNotFoundError:
+        raise FileNotFoundError('powershell not found in cmd, check sys and user environment path') from None
     if proc.returncode != 0:
         return []
     stdout = [(i['ProcessId'], i['CommandLine']) for i in json.loads(proc.stdout)

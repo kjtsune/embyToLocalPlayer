@@ -298,7 +298,7 @@ function checkIsExpire(key, expireDay = 1) {
     let timestamp = localStorage.getItem(key);
     if (!timestamp) return true;
     let expireMs = expireDay * 864E5;
-    if (timestamp + expireMs < Date.now()) {
+    if (Number(timestamp) + expireMs < Date.now()) {
         localStorage.removeItem(key)
         logger.info(key, "IsExpire, old", timestamp, "now", Date.now());
         return true;
@@ -325,7 +325,7 @@ async function insertBangumiMain(infoTable, linkZone) {
     let imdbId = imdbButton.href.match(/tt\d+/);
 
     let imdbExpireKey = imdbId + 'expire'
-    let year = infoTable.querySelector('div[class="mediaInfoItem"]').textContent;
+    let year = infoTable.querySelector('div[class="mediaInfoItem"]').textContent.match(/^\d{4}/);
     let expireDay = (Number(year) < new Date().getFullYear() && new Date().getMonth() + 1 != 1) ? 30 : 3
     let needUpdate = false;
     if (imdbExpireKey in localStorage) {
@@ -352,15 +352,21 @@ async function insertBangumiMain(infoTable, linkZone) {
     }
     let userId = ApiClient._serverInfo.UserId;
     let itemId = /\?id=(\d*)/.exec(window.location.hash)[1];
-    let itemInfo = await ApiClient.getItem(userId, itemId);
+    let itemInfo = await ApiClient.getItems(userId, {
+        'Ids': itemId,
+        'Fields': 'OriginalTitle,PremiereDate'
+    })
+    itemInfo = itemInfo['Items'][0]
     let title = itemInfo.Name;
     let originalTitle = itemInfo.OriginalTitle;
-    if (originalTitle.indexOf('／') != -1) { //纸片人
+
+    let splitRe = /[／\/]/;
+    if (splitRe.test(originalTitle)) { //纸片人
         logger.info(originalTitle);
-        let zprTitle = originalTitle.split('／');
+        let zprTitle = originalTitle.split(splitRe);
         for (let _i in zprTitle) {
             let _t = zprTitle[_i];
-            if (/[ぁ-んァ-ヶー一-龥々]/.test(_t)) {
+            if (/[あいうえおかきくけこさしすせそたちつてとなにぬねのひふへほまみむめもやゆよらりるれろわをんー]/.test(_t)) {
                 originalTitle = _t;
                 break
             } else {
@@ -368,6 +374,7 @@ async function insertBangumiMain(infoTable, linkZone) {
             }
         }
     }
+
     let premiereDate = new Date(itemInfo.PremiereDate);
     premiereDate.setDate(premiereDate.getDate() - 2);
     let startDate = premiereDate.toISOString().slice(0, 10);
@@ -433,14 +440,14 @@ function cleanDoubanError() {
     if (!needClean) return;
 
     let count = 0
-    for (i in localStorage) {
+    for (let i in localStorage) {
         if (i.search(/^tt\d+/) != -1 && localStorage.getItem(i) === '') {
             console.log(i);
             count++;
             localStorage.removeItem(i);
         }
     }
-    console.log(`cleanDoubanError done, count=${count}`);
+    logger.info(`cleanDoubanError done, count=${count}`);
 }
 
 var runLimit = 50;

@@ -8,6 +8,7 @@ import threading
 import time
 import urllib.parse
 import urllib.request
+import urllib.error
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from http.server import HTTPServer
 from typing import Union
@@ -205,7 +206,7 @@ def get_player_cmd(media_path, file_path):
 
 
 def requests_urllib(host, params=None, _json=None, decode=False, timeout=3.0, headers=None, req_only=False,
-                    http_proxy='', get_json=False, save_path='', retry=3, silence=False, res_only=False):
+                    http_proxy='', get_json=False, save_path='', retry=5, silence=False, res_only=False):
     _json = json.dumps(_json).encode('utf-8') if _json else None
     params = urllib.parse.urlencode(params) if params else None
     host = host + '?' + params if params else host
@@ -230,10 +231,10 @@ def requests_urllib(host, params=None, _json=None, decode=False, timeout=3.0, he
             if res_only:
                 return response
             break
-        except socket.timeout:
+        except (socket.timeout , urllib.error.URLError):
             _logger.error(f'urllib {try_times=} {host=}', silence=silence)
             if try_times == retry:
-                raise TimeoutError(f'{try_times=} {host=}')
+                raise TimeoutError(f'{try_times=} {host=}') from None
     if decode:
         return response.read().decode()
     if get_json:
