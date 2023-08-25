@@ -59,11 +59,23 @@ class EmbyApi:
         )
 
     def get_genre_id(self, name):
-        res = self.get(f'Genres/{name}').json()['Id']
+        try:
+            res = self.get(f'Genres/{name}').json()['Id']
+        except Exception:
+            raise KeyError(f'Genres: {name} not exists, check it') from None
         return res
 
+    def get_library_id(self, name):
+        if not name:
+            return
+        res = self.get(f'Library/VirtualFolders')
+        lib_id = [i['ItemId'] for i in res.json() if i['Name'] == name]
+        if not lib_id:
+            raise KeyError(f'library: {name} not exists, check it')
+        return lib_id[0] if lib_id else None
+
     def get_items(self, genre='', types='Movie,Series,Video', fields='CommunityRating,CriticRating', start_index=0,
-                  ids=None, limit=50,
+                  ids=None, limit=50, parent_id=None,
                   sort_by='DateCreated,SortName',
                   recursive=True):
         params = {
@@ -82,19 +94,22 @@ class EmbyApi:
             params.update({'GenreIds': self.get_genre_id(genre)})
         if ids:
             params.update({'Ids': ids})
+        if parent_id:
+            params.update({'ParentId': parent_id})
 
         res = self.get('Items', params=params)
         return res.json()
 
     def yield_all_items(self, genre='', types='Movie,Series,Video', fields='CommunityRating,CriticRating',
-                        start_index=0, limit=200):
-        fist = self.get_items(genre=genre, types=types, fields=fields, start_index=start_index, limit=limit)
+                        start_index=0, limit=200, parent_id=None):
+        fist = self.get_items(genre=genre, types=types, fields=fields, start_index=start_index, limit=limit,
+                              parent_id=parent_id)
         total = fist['TotalRecordCount']
         yield from fist['Items']
         for i in range(1, (total - start_index) // limit + 1):
             _start_index = i * limit + start_index
             yield from self.get_items(genre=genre, types=types, fields=fields, start_index=_start_index,
-                                      limit=limit)['Items']
+                                      limit=limit, parent_id=parent_id)['Items']
 
     def update_critic_rating(self, item_id, rating):
         get_path = f'/Users/{self.user_id}/Items/{item_id}'
@@ -260,9 +275,14 @@ class NotResultDataBase(JsonDataBase):
         self.data[tmdb_id] = str(datetime.date.today())
 
 
-def update_critic_rating_by_bgm(emby: EmbyApi, bgm: BangumiApiEmbyVer, genre='åŠ¨ç”»', types='Movie,Series,Video',
-                                req_limit=50,
+def update_critic_rating_by_bgm(emby: EmbyApi, bgm: BangumiApiEmbyVer, genre='', types='Movie,Series,Video',
+                                lib_name='', req_limit=50,
                                 item_limit=100, start_index=0, dry_run=True):
+    if not genre and not lib_name:
+        print('not library_name and not genre, check ini settings')
+        return
+
+    parent_id = emby.get_library_id(lib_name)
     tmdb_db = TmdbBgmDataBase('tmdb_bgm')
     tmdb_db.clean_not_trust_data()
     # tmdb_db.clean_not_trust_data(expire_days=0, min_trust=0.5)
@@ -281,7 +301,8 @@ def update_critic_rating_by_bgm(emby: EmbyApi, bgm: BangumiApiEmbyVer, genre='åŠ
                                          'CriticRating',
                                          'OriginalTitle',
                                      ]),
-                                     start_index=start_index):
+                                     start_index=start_index,
+                                     parent_id=parent_id):
 
         if req_count >= req_limit or item_count >= item_limit:
             break
@@ -367,10 +388,13 @@ def update_critic_rating_by_bgm(emby: EmbyApi, bgm: BangumiApiEmbyVer, genre='åŠ
         tmdb_db.save()
 
     print(f'\napi.bgm.tv requests count {req_count}')
-    print(f'total update count {item_count}')
-    res = emby.get_items(genre=genre, types=types)
-    print('total items count', res['TotalRecordCount'])
-    print(f'tmdb_bgm.json count {len(tmdb_db.data)}')
+    res = emby.get_items(genre=genre, types=types, parent_id=parent_id, start_index=start_index)
+    print('emby items count', res['TotalRecordCount'])
+    print(f'tmdb_bgm.json count {len(tmdb_db.data)}\n')
+    if dry_run:
+        print(f'Nothing update because of {dry_run=}')
+    else:
+        print(f'Total update count {item_count}')
 
 
 def main():
@@ -386,7 +410,8 @@ def main():
     update_critic_rating_by_bgm(
         emby=my_emby,
         bgm=my_bgm,
-        genre=conf.get('genre'),
+        genre=conf.get('genre', ''),
+        lib_name=conf.get('library_name', ''),
         types=conf.get('types').strip(',').strip('ï¼Œ'),
         req_limit=conf.get_int('req_limit', 50),
         item_limit=conf.get_int('item_limit', 999),

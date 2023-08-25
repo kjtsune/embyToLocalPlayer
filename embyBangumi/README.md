@@ -17,7 +17,8 @@
 3. 在解压文件夹里打开终端。
 4. 安装依赖：`python -m pip install -i http://pypi.douban.com/simple/ --trusted-host=pypi.douban.com/simple requests`
 5. 运行命令：`python embyBangumi.py`
-6. 媒体库节目列表 > 右上角：••• > 勾选显示：影评人评分
+6. 没问题后 `dry_run = no`，再次运行。
+7. 媒体库节目列表 > 右上角：••• > 勾选显示：影评人评分
 
 ### 其他
 
