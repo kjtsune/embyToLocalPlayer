@@ -3,7 +3,7 @@
 // @name:zh-CN   embyDouban
 // @name:en      embyDouban
 // @namespace    https://github.com/kjtsune/embyToLocalPlayer/tree/main/embyDouban
-// @version      0.1.8
+// @version      0.1.9
 // @description  emby 里展示: 豆瓣 Bangumi bgm.tv 评分 链接 (豆瓣评论可关)
 // @description:zh-CN emby 里展示: 豆瓣 Bangumi bgm.tv 评分 链接 (豆瓣评论可关)
 // @description:en  show douban Bangumi ratings in emby
@@ -405,14 +405,12 @@ async function insertBangumiMain(infoTable, linkZone) {
     };
 
     let trust = false;
-    if (!bgmObj) {
-        if (textSimilarity(originalTitle, bgmInfo['name']) < 0.4 && (textSimilarity(title, bgmInfo['name_cn'])) < 0.4
-            && (textSimilarity(title, bgmInfo['name'])) < 0.4) {
-            localStorage.setItem(imdbNotBgmKey, JSON.stringify(Date.now()));
-            logger.error('not bgmObj and title not Similarity, skip');
-        } else {
-            trust = true
-        }
+    if (textSimilarity(originalTitle, bgmInfo['name']) < 0.4 && (textSimilarity(title, bgmInfo['name_cn'])) < 0.4
+        && (textSimilarity(title, bgmInfo['name'])) < 0.4) {
+        localStorage.setItem(imdbNotBgmKey, JSON.stringify(Date.now()));
+        logger.error('not bgmObj and title not Similarity, skip');
+    } else {
+        trust = true
     }
     logger.info(bgmInfo)
     bgmObj = {
