@@ -231,7 +231,7 @@ def requests_urllib(host, params=None, _json=None, decode=False, timeout=3.0, he
             if res_only:
                 return response
             break
-        except (socket.timeout , urllib.error.URLError):
+        except (socket.timeout, urllib.error.URLError):
             _logger.error(f'urllib {try_times=} {host=}', silence=silence)
             if try_times == retry:
                 raise TimeoutError(f'{try_times=} {host=}') from None
@@ -402,6 +402,26 @@ def update_server_playback_progress(stop_sec, data, store=True, check_fist_time=
         change_plex_play_position(stop_sec=stop_sec, **data)
 
 
+def version_prefer_emby(sources):
+    rules = configs._ini_str_split('dev', 'version_prefer')
+    if not rules:
+        return sources[0]
+    rules = [i.lower() for i in rules]
+    name_list = [os.path.basename(i).lower() for i in [s['Path'] for s in sources]]
+    join_str = '_|_'
+    name_all = join_str.join(name_list)
+    for rule in rules:
+        if rule not in name_all:
+            continue
+        name_all = name_all[:name_all.index(rule)]
+        name_list = name_all.split(join_str)
+        index = len(name_list) - 1
+        _logger.info(f'version_prefer: success with {rule=}')
+        return sources[index]
+    _logger.info(f'version_prefer: fail')
+    return sources[0]
+
+
 def parse_received_data_emby(received_data):
     mount_disk_mode = True if received_data['mountDiskEnable'] == 'true' else False
     url = urllib.parse.urlparse(received_data['playbackUrl'])
@@ -429,7 +449,7 @@ def parse_received_data_emby(received_data):
     if media_source_id:
         media_source_info = [i for i in media_sources if i['Id'] == media_source_id][0]
     else:
-        media_source_info = media_sources[0]
+        media_source_info = version_prefer_emby(media_sources) if is_emby else media_sources[0]
         media_source_id = media_source_info['Id']
     file_path = media_source_info['Path']
     # stream_url = f'{scheme}://{netloc}{media_source_info["DirectStreamUrl"]}'

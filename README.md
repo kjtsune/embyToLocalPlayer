@@ -31,7 +31,7 @@
 1. 下载 `embyToLocalPlayer.zip` 并解压到任意文件夹。 [发布页](https://github.com/kjtsune/embyToLocalPlayer/releases)
 2. 安装油猴脚本。 [发布页](https://greasyfork.org/zh-CN/scripts/448648-embytolocalplayer)
 3. 安装 Python (勾选 add to path) [官网](https://www.python.org/downloads/)
-4. 填写播放器路径与名称 `embyToLocalPlayer_config.ini`
+4. 修改播放器路径，以及修改播放器选择 `embyToLocalPlayer_config.ini`
 
 > 前置说明
 
