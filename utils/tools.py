@@ -449,7 +449,8 @@ def parse_received_data_emby(received_data):
     if media_source_id:
         media_source_info = [i for i in media_sources if i['Id'] == media_source_id][0]
     else:
-        media_source_info = version_prefer_emby(media_sources) if is_emby else media_sources[0]
+        media_source_info = version_prefer_emby(media_sources) \
+            if len(media_sources) > 1 and is_emby else media_sources[0]
         media_source_id = media_source_info['Id']
     file_path = media_source_info['Path']
     # stream_url = f'{scheme}://{netloc}{media_source_info["DirectStreamUrl"]}'
