@@ -3,7 +3,7 @@
 // @name:zh-CN   embyToLocalPlayer
 // @name:en      embyToLocalPlayer
 // @namespace    https://github.com/kjtsune/embyToLocalPlayer
-// @version      1.1.8.1
+// @version      1.1.8.2
 // @description  需要 Python。Emby 调用外部本地播放器，并回传播放记录。适配 Jellyfin Plex。
 // @description:zh-CN 需要 Python。Emby 调用外部本地播放器，并回传播放记录。适配 Jellyfin Plex。
 // @description:en  Require Python. Play in an external player. Update watch history to emby server. Support Jellyfin Plex.
@@ -165,7 +165,7 @@ async function addOpenFolderElement() {
     }
     if (!mediaSources) return;
     let pathDiv = mediaSources.querySelector('div[class="sectionTitle sectionTitle-cards"] > div');
-    if (!pathDiv || pathDiv.className == 'mediaInfoItems') return;
+    if (!pathDiv || pathDiv.className == 'mediaInfoItems' || pathDiv.id == 'addFileNameElement') return;
     let full_path = pathDiv.textContent;
     if (!full_path.match(/[/:]/)) return;
     if (full_path.match(/\d{1,3}\.\d{1,2} (MB|GB)/)) return;
@@ -180,6 +180,34 @@ async function addOpenFolderElement() {
     });
 }
 
+async function addFileNameElement(url, request) {
+    let mediaSources = null;
+    for (const _ of Array(5).keys()) {
+        await sleep(500);
+        mediaSources = getVisibleElement(document.querySelectorAll('div.mediaSources'));
+        if (mediaSources) break;
+    }
+    if (!mediaSources) return;
+    let pathDivs = mediaSources.querySelectorAll('div[class="sectionTitle sectionTitle-cards"] > div');
+    if (!pathDivs) return;
+    pathDivs = Array.from(pathDivs);
+    let _pathDiv = pathDivs[0];
+    if (!/\d{4}\/\d+\/\d+/.test(_pathDiv.textContent)) return;
+    if (_pathDiv.id == 'addFileNameElement') return;
+
+    let response = await originFetch(url, request);
+    let data = await response.json();
+    data = data.MediaSources;
+
+    for (let index = 0; index < pathDivs.length; index++) {
+        const pathDiv = pathDivs[index];
+        let filePath = data[index].Path;
+        let fileName = filePath.split('\\').pop().split('/').pop();
+        let fileDiv = `<div id="addFileNameElement">${fileName}</div> `
+        pathDiv.insertAdjacentHTML('beforebegin', fileDiv);
+    }
+}
+
 const originFetch = fetch;
 unsafeWindow.fetch = async (url, request) => {
     if (url.indexOf('/PlaybackInfo?UserId') != -1) {
@@ -192,6 +220,7 @@ unsafeWindow.fetch = async (url, request) => {
             }
         } else {
             addOpenFolderElement();
+            addFileNameElement(url, request);
         }
     }
     return originFetch(url, request);
