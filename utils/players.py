@@ -17,6 +17,7 @@ from utils.tools import (activate_window_by_pid, requests_urllib, update_server_
 logger = MyLogger()
 prefetch_data = dict(on=True, running=False, stop_sec_dict={}, done_list=[], playlist_data={})
 pipe_port_stack = list(reversed(range(25)))
+trakt_emby_done_ids = []
 
 
 # *_player_start 返回获取播放时间等操作所需参数字典
@@ -118,6 +119,7 @@ class PlayerManager:
         prefetch_data['stop_sec_dict'].clear()
 
     def update_playback_for_eps(self):
+        update_trakt_eps = []
         if not self.playlist_data:
             logger.error(f'playlist_data not found skip update progress')
             return
@@ -129,6 +131,30 @@ class PlayerManager:
             logger.info(f'update {ep["basename"]} {_stop_sec=}')
             update_server_playback_progress(stop_sec=_stop_sec, data=ep, store=is_fist)
             is_fist = False
+            ep['stop_sec'] = _stop_sec
+            update_trakt_eps.append(ep)
+        if configs.raw.get('trakt', 'enable_host', fallback=''):
+            self.update_trakt_for_eps(update_trakt_eps)
+
+    @staticmethod
+    def update_trakt_for_eps(eps):
+        if not eps:
+            return
+        if not configs.check_str_match(eps[0]['netloc'], 'trakt', 'enable_host', log=True):
+            return
+        useful_items = []
+        for ep in eps:
+            item_id = ep['item_id']
+            if item_id in trakt_emby_done_ids:
+                continue
+            if ep['stop_sec'] / ep['total_sec'] > 0.9:
+                trakt_emby_done_ids.append(item_id)
+                useful_items.append(ep)
+        if useful_items:
+            from utils.trakt_sync import local_import_sync_ep_or_movie_to_trakt
+            local_import_sync_ep_or_movie_to_trakt(emby_items=useful_items)
+            names = [i['basename'] for i in useful_items]
+            logger.info(f'sync trakt {names}')
 
 
 def list_episodes_plex(data: dict):
@@ -176,6 +202,8 @@ def list_episodes(data: dict):
                                params=params, headers=headers, get_json=True)
     # if video is movie
     if 'SeasonId' not in response:
+        data['Type'] = response['Type']
+        data['ProviderIds'] = response['ProviderIds']
         return [data]
     season_id = response['SeasonId']
     series_id = response['SeriesId']
@@ -255,6 +283,8 @@ def list_episodes(data: dict):
                    f'/{sub_dict["index"]}/Stream{os.path.splitext(sub_dict["path"])[-1]}' if sub_dict else None
         sub_file = None if mount_disk_mode else sub_file
 
+        data['Type'] = item['Type']
+        data['ProviderIds'] = item['ProviderIds']
         result = data.copy()
         result.update(dict(
             basename=basename,
@@ -271,7 +301,7 @@ def list_episodes(data: dict):
         ))
         return result
 
-    params.update({'Fields': 'MediaSources,Path',
+    params.update({'Fields': 'MediaSources,Path,ProviderIds',
                    'SeasonId': season_id, })
     url = f'{scheme}://{netloc}{extra_str}/Shows/{series_id}/Episodes'
     episodes = requests_urllib(url, params=params, headers=headers, get_json=True)

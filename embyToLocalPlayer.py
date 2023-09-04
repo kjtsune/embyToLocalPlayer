@@ -131,6 +131,10 @@ if __name__ == '__main__':
                                    r'mpv.*exe|mpc-.*exe|vlc.exe|PotPlayer.*exe|' +
                                    r'/IINA|/VLC|/mpv)',
                            not_re='(tmux|greasyfork|github)')
+    if configs.raw.get('trakt', 'enable_host', fallback=''):
+        from utils.trakt_sync import local_import_sync_ep_or_movie_to_trakt
+
+        threading.Thread(target=local_import_sync_ep_or_movie_to_trakt, kwargs={'test': True}).start()
     logger = MyLogger()
     logger.info(__file__)
     clean_tmp_dir()
