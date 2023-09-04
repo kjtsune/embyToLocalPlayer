@@ -205,16 +205,29 @@ def list_episodes(data: dict):
 
         ini_re = re.findall(ver_re, file_path, re.I)
         ver_re = re.compile('|'.join(ini_re))
+        _ep_current = [i for i in episodes_data if i['Path'] == file_path][0]
         _ep_data = [i for i in episodes_data if len(ver_re.findall(i['Path'])) == len(ini_re)]
-        if len(_ep_data) == ep_num:
+        _ep_data_num = len(_ep_data)
+        if _ep_data_num == ep_num:
             logger.info(f'version_filter: success with {ini_re=}')
             return _ep_data
+        elif _ep_data_num > ep_num:
+            logger.info(f'version_filter: fail, {ini_re=}, pass {_ep_data_num}, {ep_num=}, disable playlist')
+            return [_ep_current]
         else:
-            logger.info(f'version_filter: fail, {ini_re=}, pass {len(_ep_data)}, not equal {ep_num=}')
-            # if len(_ep_data) < ep_num:
-            #     [print(i['Path']) for i in episodes_data if len(ver_re.findall(i['Path'])) != len(ini_re)]
-
-        return episodes_data
+            index = _ep_current['IndexNumber']
+            _ep_success = []
+            for _ep in _ep_data:
+                if _ep['IndexNumber'] == index:
+                    _ep_success.append(_ep)
+                    index += 1
+            _success = True if len(_ep_success) > 1 else False
+            if _success:
+                logger.info(f'version_filter: success with {ini_re=}, pass {len(_ep_success)} ep')
+                return _ep_success
+            else:
+                logger.info(f'version_filter: fail, {ini_re=}, disable playlist')
+                return [_ep_current]
 
     def parse_item(item):
         source_info = item['MediaSources'][0]
