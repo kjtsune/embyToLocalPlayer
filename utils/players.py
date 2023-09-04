@@ -152,9 +152,10 @@ class PlayerManager:
                 useful_items.append(ep)
         if useful_items:
             from utils.trakt_sync import local_import_sync_ep_or_movie_to_trakt
-            local_import_sync_ep_or_movie_to_trakt(emby_items=useful_items)
-            names = [i['basename'] for i in useful_items]
-            logger.info(f'sync trakt {names}')
+            res = local_import_sync_ep_or_movie_to_trakt(emby_items=useful_items)
+            if res:
+                names = [i['basename'] for i in useful_items]
+                logger.info(f'sync trakt {names}')
 
 
 def list_episodes_plex(data: dict):

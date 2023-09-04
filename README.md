@@ -171,7 +171,8 @@ macOS 可能无法开机自启
 * 会自动开启 WebUI，系统防火墙提示的时候可以拒绝（不影响使用）。
 * 会自动开启 WebUI，建议仅允许从 localhost 访问： 查看 > 选项 > Web 界面：  
   打勾 仅允许从 localhost 访问
-* MPC 播放 http 具有加载和拖动慢，视频总时长可能有误的缺点。
+* MPC 播放 http 具有加载和拖动慢，视频总时长可能有误的缺点。  
+  以及点击关闭播放器后，进程可能残留在后台。
 
 > IINA
 
@@ -179,6 +180,25 @@ macOS 可能无法开机自启
 * 非读盘模式不支持外挂字幕文件（mpv 支持）
 
 ## 其他:
+
+> Trakt 相关
+
+* 不推荐使用的理由：
+    1. 媒体服务器一般本身就有 Trakt 插件。
+    2. 只能往 Trakt 单向同步。
+    3. 只在正常播放器关闭后，同步播放器已播放的（网页点击已播放不触发）。
+    4. 配置和使用都麻烦。
+* 使用说明：
+    1. 安装依赖：`python -m pip install -i http://pypi.douban.com/simple/ --trusted-host=pypi.douban.com/simple requests`
+    2. [Trakt app 管理页面](https://trakt.tv/oauth/applications)：   
+       创建 app，名字任意，Redirect uri 填写: `http://localhost/trakt` ，然后保存。
+    3. ini 配置文件`[trakt]` 填写 `enable_host` `user_name` `client_id` `client_secret` 这四项。
+    4. 点击 app 详情页面的 `Authorize` 按钮，二次同意后，复制网址并填到配置文件 `oauth_code` 里。
+    5. 启动脚本，播放一个视频，拖到最后，关闭播放器。看日志是否同步成功。
+* 常见问题：
+    1. 若同步失败。电影看是否缺失IMDb，剧集看单集下方是否有 IMDb 或 TheTVDB。
+    2. 目录下`trakt_token.json`可以复制给新电脑用。然后删除原来的，并填写新的 `oauth_code` 来重新生成。   
+       如果只是复制到新电脑，重复使用 token 的话，有效期只有三个月。
 
 > Jellyfin 相关
 

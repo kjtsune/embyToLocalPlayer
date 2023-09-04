@@ -3,7 +3,7 @@
 // @name:zh-CN   embyToLocalPlayer
 // @name:en      embyToLocalPlayer
 // @namespace    https://github.com/kjtsune/embyToLocalPlayer
-// @version      1.1.8.2
+// @version      1.1.9
 // @description  需要 Python。Emby 调用外部本地播放器，并回传播放记录。适配 Jellyfin Plex。
 // @description:zh-CN 需要 Python。Emby 调用外部本地播放器，并回传播放记录。适配 Jellyfin Plex。
 // @description:en  Require Python. Play in an external player. Update watch history to emby server. Support Jellyfin Plex.
@@ -20,19 +20,19 @@
 // ==/UserScript==
 'use strict';
 /*
+2023-09-04:
+1. Trakt 播放记录单向同步。（详见 FAQ）
+2. 剧集多版本：下一集匹配失败则禁用播放列表。
+* 版本间累积更新：
+  * 自动选择视频版本（限emby，配置文件有新增条目 [dev]）
+  * 油猴：非管理员可显示文件名。
+
 2023-08-09:
 1. 代理配置热更新。
 * 版本间累积更新：
   * 内封字幕无中文，且未选中字幕时（或无字幕时），尝试加载外挂字幕。（配置文件有新增条目 [dev] )
   * 播放列表：下一集保持相同版本。（限emby，配置文件有新增条目)
   * mpc 修复多版本播放回传失败。
-
-2023-06-17:
-1. 去除：AutoHotKey 依赖（感谢@verygoodlee）
-2. 增加：根据路径选择播放器。
-3. 修复：pot 播放列表可能异常。
-* 版本间累积更新：
-  * 外挂字幕适配 Jellyfin 字幕烧录。
 */
 
 let config = {
@@ -168,7 +168,7 @@ async function addOpenFolderElement() {
     if (!pathDiv || pathDiv.className == 'mediaInfoItems' || pathDiv.id == 'addFileNameElement') return;
     let full_path = pathDiv.textContent;
     if (!full_path.match(/[/:]/)) return;
-    if (full_path.match(/\d{1,3}\.\d{1,2} (MB|GB)/)) return;
+    if (full_path.match(/\d{1,3}\.?\d{0,2} (MB|GB)/)) return;
 
     let openButtonHtml = `<a id="openFolderButton" is="emby-linkbutton" class="raised item-tag-button 
     nobackdropfilter emby-button" ><i class="md-icon button-icon button-icon-left">link</i>Open Folder</a>`

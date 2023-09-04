@@ -20,28 +20,29 @@ def sync_ep_or_movie_to_trakt(trakt, emby=None, emby_ids=None, emby_items=None):
         if tvdb_id := provider_ids.get('Tvdb') and not trakt_ids:
             trakt_ids = trakt.id_lookup('tvdb', tvdb_id)
         if not trakt_ids:
-            logger.info('not trakt_ids')
+            logger.info('not trakt_ids, skip sync trakt')
             continue
         trakt_ids = trakt_ids[0]
         watched = trakt.get_watch_history(trakt_ids)
         if watched:
-            logger.info('trakt history exists, skip requests trakt')
+            logger.info('trakt history exists, skip sync trakt')
             continue
 
         trakt_ids_list.append(trakt_ids)
-    res = trakt.add_ep_or_movie_to_history(trakt_ids_list)
-    return res
+    if trakt_ids_list:
+        res = trakt.add_ep_or_movie_to_history(trakt_ids_list)
+        return res
 
 
 def local_import_sync_ep_or_movie_to_trakt(emby_items=None, test=False):
     from utils.trakt_api import TraktApi
-    user_id = configs.raw.get('trakt', 'user_id', fallback='')
+    user_id = configs.raw.get('trakt', 'user_name', fallback='')
     client_id = configs.raw.get('trakt', 'client_id', fallback='')
     client_secret = configs.raw.get('trakt', 'client_secret', fallback='')
     oauth_code = configs.raw.get('trakt', 'oauth_code', fallback='').split('code=')
     oauth_code = oauth_code[1] if len(oauth_code) == 2 else oauth_code[0]
     if not all([user_id, client_id, client_secret]):
-        raise ValueError('require user_id, client_id, client_secret')
+        raise ValueError('require user_name, client_id, client_secret')
     trakt = TraktApi(
         user_id=user_id,
         client_id=client_id,
@@ -52,4 +53,5 @@ def local_import_sync_ep_or_movie_to_trakt(emby_items=None, test=False):
         return trakt
     else:
         res = sync_ep_or_movie_to_trakt(trakt=trakt, emby_items=emby_items)
+        res and logger.info('trakt:', res)
         return res

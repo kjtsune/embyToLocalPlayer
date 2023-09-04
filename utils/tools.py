@@ -6,9 +6,9 @@ import socket
 import subprocess
 import threading
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
-import urllib.error
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from http.server import HTTPServer
 from typing import Union
@@ -582,6 +582,14 @@ def parse_received_data_plex(received_data):
         total_sec = int(meta['duration']) // (10 ** 3)
         position = start_sec / total_sec
 
+        provider_ids = [tuple(i['id'].split('://')) for i in meta['Guid']]
+        provider_ids = {k.title(): v for (k, v) in provider_ids}
+
+        trakt_emby_ver_dict = dict(
+            Type=meta['type'],
+            ProviderIds=provider_ids
+        )
+
         playlist_diff_dict = dict(
             basename=basename,
             media_basename=media_basename,
@@ -603,6 +611,7 @@ def parse_received_data_plex(received_data):
             rating_key=rating_key,
             position=position,
         )
+        res.update(trakt_emby_ver_dict)
         res.update(playlist_diff_dict)
         res.update(other_info_dict)
         res_list.append(res)
