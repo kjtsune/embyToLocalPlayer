@@ -93,6 +93,13 @@ class TraktApi:
         res = self.get(f'search/{id_type}/{_id}')
         return res
 
+    @staticmethod
+    def ids_items_to_ids(ids_items):
+        is_list = isinstance(ids_items, list)
+        ids_items = ids_items if is_list else [ids_items]
+        res = [i[i['type']]['ids'] for i in ids_items]
+        return res if is_list else res[0]
+
     def get_watch_history(self, ids_item):
         # id_lookup -> ids_item
         _type = ids_item['type']
@@ -113,21 +120,6 @@ class TraktApi:
             if watched_at:
                 obj['watched_at'] = watched_at
             _json[f'{_type}s'].append(obj)
-        res = self.post('sync/history', _json=_json)
-        return res
-
-    def add_movie_to_history(self, item, watched_at=''):
-        item = item if isinstance(item, list) else [item]
-        movies = []
-        for mv in item:
-            ids = mv['movie']['ids']
-            _data = {'ids': ids}
-            if watched_at:
-                _data['watched_at'] = watched_at
-            movies.append(_data)
-        _json = {
-            'movies': movies
-        }
         res = self.post('sync/history', _json=_json)
         return res
 

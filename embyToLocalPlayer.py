@@ -5,11 +5,11 @@ import threading
 from http.server import BaseHTTPRequestHandler
 
 from utils.downloader import DownloadManager, prefetch_resume_tv
-from utils.players import player_function_dict, PlayerManager, stop_sec_function_dict
+from utils.players import player_function_dict, PlayerManager, stop_sec_function_dict, list_episodes
 from utils.tools import (configs, logger_setup, MyLogger, run_server, open_local_folder, play_media_file,
                          kill_multi_process, activate_window_by_pid, clean_tmp_dir,
                          parse_received_data_emby, parse_received_data_plex, update_server_playback_progress,
-                         get_player_cmd)
+                         get_player_cmd, ThreadWithReturnValue)
 
 
 class _RequestHandler(BaseHTTPRequestHandler):
@@ -81,6 +81,8 @@ def start_play(data):
     start_sec = data['start_sec']
     sub_file = data['sub_file']
     media_title = data['media_title']
+    eps_data_thread = ThreadWithReturnValue(target=list_episodes, args=(data,))
+    eps_data_thread.start()
 
     cmd = get_player_cmd(media_path=data['media_path'], file_path=file_path)
     player_path = cmd[0]
@@ -98,11 +100,13 @@ def start_play(data):
                 player_manager.start_player(cmd=cmd, start_sec=start_sec, sub_file=sub_file, media_title=media_title)
             except FileNotFoundError:
                 raise FileNotFoundError(f'player not exists, check ini config, {cmd[0]}') from None
-            player_manager.playlist_add()
+            eps_data = eps_data_thread.join()
+            player_manager.playlist_add(eps_data=eps_data)
             player_manager.update_playlist_time_loop()
             player_manager.update_playback_for_eps()
             player_is_running = False
             return
+
         player_function = player_function_dict[player_name]
         stop_sec_kwargs = player_function(cmd=cmd, start_sec=start_sec, sub_file=sub_file, media_title=media_title)
         stop_sec = stop_sec_function_dict[player_name](**stop_sec_kwargs)
@@ -111,6 +115,13 @@ def start_play(data):
             player_is_running = False
             return
         update_server_playback_progress(stop_sec=stop_sec, data=data)
+
+        if configs.raw.get('trakt', 'enable_host', fallback=''):
+            eps_data = eps_data_thread.join()
+            current_ep = [i for i in eps_data if i['item_id'] == data['item_id']][0]
+            current_ep['_stop_sec'] = stop_sec
+            PlayerManager.update_trakt_for_eps([current_ep])
+
         if configs.gui_is_enable \
                 and stop_sec / data['total_sec'] * 100 > configs.raw.getfloat('gui', 'delete_at', fallback=99.9) \
                 and file_path.startswith(configs.raw['gui']['cache_path']):

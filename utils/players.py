@@ -50,7 +50,7 @@ class PlayerManager:
     def start_player(self, **kwargs):
         self.player_kwargs = player_function_dict[self.player_name](**kwargs)
 
-    def playlist_add(self, data=None):
+    def playlist_add(self, data=None, eps_data=None):
         data = data or self.data
         playlist_fun = dict(mpv=playlist_add_mpv,
                             iina=playlist_add_mpv,
@@ -61,7 +61,7 @@ class PlayerManager:
         limit = configs.raw.getint('playlist', 'item_limit', fallback=-1)
         if limit > 0:
             self.player_kwargs['limit'] = limit
-        self.playlist_data = playlist_fun[self.player_name](data=data, **self.player_kwargs)
+        self.playlist_data = playlist_fun[self.player_name](data=data, eps_data=eps_data, **self.player_kwargs)
 
         prefetch_data['playlist_data'] = self.playlist_data
         threading.Thread(target=self.prefetch_loop, daemon=True).start()
@@ -131,7 +131,8 @@ class PlayerManager:
             logger.info(f'update {ep["basename"]} {_stop_sec=}')
             update_server_playback_progress(stop_sec=_stop_sec, data=ep, store=is_fist)
             is_fist = False
-            ep['stop_sec'] = _stop_sec
+
+            ep['_stop_sec'] = _stop_sec
             update_trakt_eps.append(ep)
         if configs.raw.get('trakt', 'enable_host', fallback=''):
             self.update_trakt_for_eps(update_trakt_eps)
@@ -147,7 +148,7 @@ class PlayerManager:
             item_id = ep['item_id']
             if item_id in trakt_emby_done_ids:
                 continue
-            if ep['stop_sec'] / ep['total_sec'] > 0.9:
+            if ep['_stop_sec'] / ep['total_sec'] > 0.9:
                 trakt_emby_done_ids.append(item_id)
                 useful_items.append(ep)
         if useful_items:
@@ -310,7 +311,15 @@ def list_episodes(data: dict):
     episodes = [i for i in episodes['Items'] if 'Path' in i and 'RunTimeTicks' in i]
     episodes = version_filter(data['file_path'], episodes) if data['server'] == 'emby' else episodes
     episodes = [parse_item(i) for i in episodes]
-    return [i for i in episodes if i]
+
+    if stream_redirect := configs.ini_str_split('dev', 'stream_redirect'):
+        stream_redirect = zip(stream_redirect[0::2], stream_redirect[1::2])
+        for (_raw, _jump) in stream_redirect:
+            if _raw in episodes[0]['stream_url']:
+                for i in episodes:
+                    i['stream_url'] = i['stream_url'].replace(_raw, _jump)
+                break
+    return episodes
 
 
 def init_player_instance(function, **kwargs):
@@ -379,12 +388,12 @@ def mpv_player_start(cmd, start_sec=None, sub_file=None, media_title=None, get_s
     return dict(mpv=mpv)
 
 
-def playlist_add_mpv(mpv: MPV, data, limit=10):
+def playlist_add_mpv(mpv: MPV, data, eps_data=None, limit=10):
     playlist_data = {}
     if not mpv:
         logger.error('mpv not found skip playlist_add_mpv')
         return {}
-    episodes = list_episodes(data)
+    episodes = eps_data or list_episodes(data)
     append = False
     for ep in episodes:
         basename = ep['basename']
@@ -492,12 +501,12 @@ class VLCHttpApi:
         return self.command('in_enqueue', input=path)
 
 
-def playlist_add_vlc(vlc: VLCHttpApi, data, limit=5):
+def playlist_add_vlc(vlc: VLCHttpApi, data, eps_data=None, limit=5):
     playlist_data = {}
     if not vlc:
         logger.error('vlc not found skip playlist_add')
         return {}
-    episodes = list_episodes(data)
+    episodes = eps_data or list_episodes(data)
     append = False
     data_path = data['media_path']
     mount_disk_mode = data['mount_disk_mode']
@@ -617,12 +626,12 @@ class MPCHttpApi:
             return {k: data[k] for k in key}
 
 
-def playlist_add_mpc(mpc_path, data, limit=4, **_):
+def playlist_add_mpc(mpc_path, data, eps_data=None, limit=4, **_):
     playlist_data = {}
     if not mpc_path:
         logger.error('mpc_path not found skip playlist_add_mpv')
         return {}
-    episodes = list_episodes(data)
+    episodes = eps_data or list_episodes(data)
     append = False
     eps_list = []
     mount_disk_mode = data['mount_disk_mode']
@@ -699,12 +708,12 @@ def pot_player_start(cmd: list, start_sec=None, sub_file=None, media_title=None,
     return dict(pot_pid=player.pid, pot_path=cmd[0])
 
 
-def playlist_add_pot(pot_path, data, limit=5, **_):
+def playlist_add_pot(pot_path, data, eps_data=None, limit=5, **_):
     playlist_data = {}
     if not pot_path:
         logger.error('pot_path not found skip playlist_add_mpv')
         return {}
-    episodes = list_episodes(data)
+    episodes = eps_data or list_episodes(data)
     append = False
     mount_disk_mode = data['mount_disk_mode']
     for ep in episodes:
@@ -791,9 +800,9 @@ def dandan_player_start(cmd: list, start_sec=None, sub_file=None, media_title=No
     return dict(start_sec=start_sec, is_http=is_http)
 
 
-def playlist_add_dandan(data, **_):
+def playlist_add_dandan(data, eps_data=None, **_):
     playlist_data = {}
-    episodes = list_episodes(data)
+    episodes = eps_data or list_episodes(data)
     for ep in episodes:
         size = ep['size']
         playlist_data[size] = ep

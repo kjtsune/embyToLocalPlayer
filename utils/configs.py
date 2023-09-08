@@ -33,8 +33,8 @@ class MyLogger:
     @staticmethod
     def mix_args_str(*args):
         return [str(i).replace(MyLogger.api_key, '_hide_api_key_')
-                    .replace(MyLogger.netloc, MyLogger.netloc_replace)
-                    .replace(MyLogger.user_name, '_hide_user_')
+                .replace(MyLogger.netloc, MyLogger.netloc_replace)
+                .replace(MyLogger.user_name, '_hide_user_')
                 for i in args]
 
     @staticmethod
@@ -84,7 +84,7 @@ class Configs:
             print('dl_proxy:', self.dl_proxy)
             print('cache_db:', self.cache_db)
 
-    def _ini_str_split(self, section, option, fallback=''):
+    def ini_str_split(self, section, option, fallback=''):
         ini = self.raw.get(section, option, fallback=fallback).replace('，', ',')
         ini = [i.strip() for i in ini.split(',') if i]
         return ini
@@ -135,7 +135,7 @@ class Configs:
         return config
 
     def check_str_match(self, _str, section, option, return_value=False, log=True):
-        ini_list = self._ini_str_split(section, option, fallback='')
+        ini_list = self.ini_str_split(section, option, fallback='')
         match_list = [i for i in ini_list if i in _str]
         if ini_list and any(match_list):
             result = match_list[0] if return_value else True

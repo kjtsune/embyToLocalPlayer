@@ -70,6 +70,20 @@ def dump_json_file(obj, file, encoding='utf-8'):
         json.dump(obj, f, indent=2, ensure_ascii=False)
 
 
+class ThreadWithReturnValue(threading.Thread):
+    def __init__(self, group=None, target=None, name=None, args=(), kwargs=None, *, daemon=None):
+        threading.Thread.__init__(self, group, target, name, args, kwargs, daemon=daemon)
+        self._return = None
+
+    def run(self):
+        if self._target is not None:
+            self._return = self._target(*self._args, **self._kwargs)
+
+    def join(self):
+        threading.Thread.join(self)
+        return self._return
+
+
 def open_local_folder(data):
     path = data.get('full_path') or data['info'][0]['content_path']
     translate_path = translate_path_by_ini(path)
@@ -213,7 +227,8 @@ def requests_urllib(host, params=None, _json=None, decode=False, timeout=3.0, he
     req = urllib.request.Request(host)
     http_proxy = http_proxy or configs.script_proxy
     if http_proxy and not host.startswith(('http://127.0.0.1', 'http://localhost')):
-        req.set_proxy(http_proxy, 'http')
+        if 'plex.direct' not in host:
+            req.set_proxy(http_proxy, 'http')
         if host.startswith('https'):
             req.set_proxy(http_proxy, 'https')
     req.add_header('User-Agent', 'embyToLocalPlayer/1.1')
@@ -403,7 +418,7 @@ def update_server_playback_progress(stop_sec, data, store=True, check_fist_time=
 
 
 def version_prefer_emby(sources):
-    rules = configs._ini_str_split('dev', 'version_prefer')
+    rules = configs.ini_str_split('dev', 'version_prefer')
     if not rules:
         return sources[0]
     rules = [i.lower() for i in rules]
@@ -459,9 +474,14 @@ def parse_received_data_emby(received_data):
     stream_url = f'{scheme}://{netloc}{extra_str}/videos/{item_id}/stream{container}' \
                  f'?DeviceId={device_id}&MediaSourceId={media_source_id}&Static=true' \
                  f'&PlaySessionId={play_session_id}&api_key={api_key}'
+
+    if stream_redirect := configs.ini_str_split('dev', 'stream_redirect'):
+        stream_redirect = zip(stream_redirect[0::2], stream_redirect[1::2])
+        for (_raw, _jump) in stream_redirect:
+            stream_url = stream_url.replace(_raw, _jump)
     # 避免将内置字幕转为外挂字幕，内置字幕选择由播放器决定
     sub_index = sub_index if sub_index < 0 or media_source_info['MediaStreams'][sub_index]['IsExternal'] else -2
-    sub_lang = tuple(configs._ini_str_split('dev', 'sub_lang_check'))
+    sub_lang = tuple(configs.ini_str_split('dev', 'sub_lang_check'))
     if not mount_disk_mode and sub_lang and sub_index == -1:
         sub_streams = [i for i in media_source_info['MediaStreams'] if i['Type'] == 'Subtitle']
         sub_check = [i for i in sub_streams if not i['IsExternal'] and i.get('Language', '').startswith(sub_lang)]
@@ -545,7 +565,7 @@ def parse_received_data_plex(received_data):
                           )
     res_list = []
     fist_sub = None
-    sub_lang = tuple(configs._ini_str_split('dev', 'sub_lang_check'))
+    sub_lang = tuple(configs.ini_str_split('dev', 'sub_lang_check'))
     for index, meta in enumerate(metas):
         res = base_info_dict.copy()
         data = meta['Media'][0]
