@@ -181,16 +181,19 @@ macOS 可能无法开机自启
 
 ## 其他:
 
-> Trakt 相关
+> Trakt 单向同步功能
 
-* 不推荐使用的理由：
+* 缺点：
     1. 媒体服务器一般本身就有 Trakt 插件。
     2. 只能往 Trakt 单向同步。
-    3. 只在正常播放器关闭后，同步播放器已播放的（网页点击已播放不触发）。
+    3. 只在播放器正常关闭后，同步播放器已播放的（网页点击已播放不触发）。
     4. 配置和使用都麻烦。
 * 使用说明：
-    1. 安装依赖：`python -m pip install -i http://pypi.douban.com/simple/ --trusted-host=pypi.douban.com/simple requests`
-    2. [Trakt app 管理页面](https://trakt.tv/oauth/applications)：   
+    1. 安装依赖：命令行终端运行，安装失败尝试在启用或禁用代理的环境来安装：  
+       `python -m pip install requests`  
+       或者：  
+       `python -m pip install requests -i https://mirrors.aliyun.com/pypi/simple/ --trusted-host=mirrors.aliyun.com`
+    2. [点击访问：Trakt app 管理页面](https://trakt.tv/oauth/applications)：   
        创建 app，名字任意，Redirect uri 填写: `http://localhost/trakt` ，然后保存。
     3. ini 配置文件`[trakt]` 填写 `enable_host` `user_name` `client_id` `client_secret` 这四项。
     4. 点击 app 详情页面的 `Authorize` 按钮，二次同意后，复制网址并填到配置文件 `oauth_code` 里。
@@ -200,6 +203,26 @@ macOS 可能无法开机自启
     2. 目录下`trakt_token.json`可以复制给新电脑用。然后删除原来的，并填写新的 `oauth_code` 来重新生成。   
        如果只是复制到新电脑，重复使用 token 的话，有效期只有三个月。
 
+> bangumi.tv（bgm.tv） 单向同步功能
+
+* 缺点：
+    1. 只能往 Bangumi 单向同步。
+    2. 只在播放器正常关闭后，同步播放器已播放的（网页点击已播放不触发）。
+    3. 只支持常规剧集，不支持剧场版等。
+    4. 不支持 Plex。
+* 使用说明：
+    1. 安装依赖：命令行终端运行，安装失败尝试在启用或禁用代理的环境来安装：  
+       `python -m pip install requests`  
+       或者：  
+       `python -m pip install requests -i https://mirrors.aliyun.com/pypi/simple/ --trusted-host=mirrors.aliyun.com`
+    2. 访问并创建令牌 [https://next.bgm.tv/demo/access-token](https://next.bgm.tv/demo/access-token)：   
+       复制令牌到 ini 配置文件 `[bangumi]` 部分，` access_token = ` 里
+    3. ini 配置文件 `[bangumi]` 填写 `enable_host` `user_name` 这两项。
+    4. 启动脚本，播放一集动漫，拖到最后，关闭播放器。看日志是否同步成功。
+* 常见问题：
+    1. 5季或者50集以上的条目暂不支持。
+    2. 日志提示 `Unauthorized` 一般是令牌过期或者没填对，Windows 会自动弹出令牌生成页面。
+    
 > Jellyfin 相关
 
 * 首页播放结束后，10秒内重复播放**同文件**，本地播放器收到的播放时间会有误。    

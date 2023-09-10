@@ -116,11 +116,13 @@ def start_play(data):
             return
         update_server_playback_progress(stop_sec=stop_sec, data=data)
 
-        if configs.raw.get('trakt', 'enable_host', fallback=''):
-            eps_data = eps_data_thread.join()
-            current_ep = [i for i in eps_data if i['item_id'] == data['item_id']][0]
-            current_ep['_stop_sec'] = stop_sec
-            PlayerManager.update_trakt_for_eps([current_ep])
+        eps_data = eps_data_thread.join()
+        current_ep = [i for i in eps_data if i['item_id'] == data['item_id']][0]
+        current_ep['_stop_sec'] = stop_sec
+        for provider in 'trakt', 'bangumi':
+            if configs.raw.get(provider, 'enable_host', fallback=''):
+                threading.Thread(target=PlayerManager.sync_third_party_for_eps,
+                                 kwargs={'eps': [current_ep], 'provider': provider}, daemon=True).start()
 
         if configs.gui_is_enable \
                 and stop_sec / data['total_sec'] * 100 > configs.raw.getfloat('gui', 'delete_at', fallback=99.9) \
@@ -142,10 +144,15 @@ if __name__ == '__main__':
                                    r'mpv.*exe|mpc-.*exe|vlc.exe|PotPlayer.*exe|' +
                                    r'/IINA|/VLC|/mpv)',
                            not_re='(tmux|greasyfork|github)')
-    if configs.raw.get('trakt', 'enable_host', fallback=''):
-        from utils.trakt_sync import local_import_sync_ep_or_movie_to_trakt
 
-        threading.Thread(target=local_import_sync_ep_or_movie_to_trakt, kwargs={'test': True}).start()
+    for _provider in 'trakt', 'bangumi':
+        if configs.raw.get(_provider, 'enable_host', fallback=''):
+            from utils.trakt_sync import trakt_sync_main
+            from utils.bangumi_sync import bangumi_sync_main
+
+            threading.Thread(target={'trakt': trakt_sync_main, 'bangumi': bangumi_sync_main}[_provider],
+                             kwargs={'test': True}, daemon=True).start()
+
     logger = MyLogger()
     logger.info(__file__)
     clean_tmp_dir()

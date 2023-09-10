@@ -6,7 +6,7 @@ import requests
 
 
 class TraktApi:
-    def __init__(self, user_id, client_id, client_secret, oauth_code=None):
+    def __init__(self, user_id, client_id, client_secret, oauth_code=None, http_proxy=None):
         self.base_url = 'https://api.trakt.tv'
         self.user_id = user_id
         self.client_id = client_id
@@ -15,6 +15,8 @@ class TraktApi:
         self.req.headers.update({'Accept': 'application/json',
                                  'trakt-api-key': client_id,
                                  'trakt-api-version': '2', })
+        if http_proxy:
+            self.req.proxies = {'http': http_proxy, 'https': http_proxy}
         self.oauth_code = oauth_code
         self.access_token = {}
         self.token_file = 'trakt_token.json'

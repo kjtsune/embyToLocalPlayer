@@ -10,31 +10,35 @@ def sync_ep_or_movie_to_trakt(trakt, emby=None, emby_ids=None, emby_items=None):
     trakt_ids_list = []
     allow = ['episode', 'movie']
     for obj in objs:
+        name = obj.get('basename', obj.get('Name'))
         item = obj if emby_items else emby.get_item(obj)
         if item['Type'].lower() not in allow:
             raise ValueError(f'type not in {allow}')
         provider_ids = item['ProviderIds']
+        if not provider_ids:
+            logger.info(f'trakt: not provider_ids, skip | {name}')
+            continue
         trakt_ids = None
         if imdb_id := provider_ids.get('Imdb'):
             trakt_ids = trakt.id_lookup('imdb', imdb_id)
         if tvdb_id := provider_ids.get('Tvdb') and not trakt_ids:
             trakt_ids = trakt.id_lookup('tvdb', tvdb_id)
         if not trakt_ids:
-            logger.info('not trakt_ids, skip sync trakt')
+            logger.info(f'trakt: not trakt_ids, skip | {name}')
             continue
         trakt_ids = trakt_ids[0]
         watched = trakt.get_watch_history(trakt_ids)
         if watched:
-            logger.info('trakt history exists, skip sync trakt')
+            logger.info(f'trakt: watch history exists, skip | {name}')
             continue
-
+        logger.info(f'trakt :sync {name}')
         trakt_ids_list.append(trakt_ids)
     if trakt_ids_list:
         res = trakt.add_ep_or_movie_to_history(trakt_ids_list)
         return res
 
 
-def local_import_sync_ep_or_movie_to_trakt(emby_items=None, test=False):
+def trakt_sync_main(emby_items=None, test=False):
     from utils.trakt_api import TraktApi
     user_id = configs.raw.get('trakt', 'user_name', fallback='')
     client_id = configs.raw.get('trakt', 'client_id', fallback='')
@@ -47,7 +51,8 @@ def local_import_sync_ep_or_movie_to_trakt(emby_items=None, test=False):
         user_id=user_id,
         client_id=client_id,
         client_secret=client_secret,
-        oauth_code=oauth_code)
+        oauth_code=oauth_code,
+        http_proxy=configs.script_proxy)
     if test:
         trakt.test()
         return trakt
