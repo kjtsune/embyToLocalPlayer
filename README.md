@@ -7,21 +7,25 @@
 **特性**
 
 * 在首页也可以播放。点击原来的播放按钮就可以。播放无需二次确认。
-* 可持久性缓存文件到本地。（网盘用户及 Emby 是别人分享的可能用到）
+* 播放列表（连续播放）支持，下一集保持相同版本。可设置版本偏好。
+* trakt.tv bangumi.tv bgm.tv 标记已观看支持。
 * 视频文件 可本地 可挂载 可远端。
-* mpv VLC MPC PotPlayer 通过网络播放时也支持外挂字幕。(播放前先选择字幕)
+* mpv VLC MPC PotPlayer 通过网络播放时也支持外挂字幕。
+* 多网盘挂载可设置优先级，优先播放速度快的盘。
+* 可持久性缓存文件到本地。
 * 其他播放器一般也能用，只是不会回传进度。
 
 **以下播放器支持回传进度**
 
-* PotPlayer [发布页](https://potplayer.daum.net/)
-  若使用 http 播放，**可能提示地址关闭**， 解决方法在 FAQ。
+* 没特殊要求的话，mpv 系的播放器综合体验较好。
 * mpv（纯快捷键）[Windows](https://sourceforge.net/projects/mpv-player-windows/files/64bit/) 。 macOS
   解压后拖到应用程序即可 [macOS](https://laboratory.stolendata.net/~djinn/mpv_osx/)
-* mpv.net（可鼠标）[发布页](https://github.com/stax76/mpv.net/releases)
-* VLC [发布页](https://www.videolan.org/vlc/)
+* mpv.net（可鼠标）[发布页](https://github.com/stax76/mpv.net/releases)。 其他 mpv 内核的播放器一般也可以。
+* PotPlayer [发布页](https://potplayer.daum.net/)
+  若使用 http 播放，**可能提示地址关闭**， 解决方法在 FAQ。
 * MPC-HC [发布页](https://github.com/clsid2/mpc-hc/releases)
 * MPC-BE [发布页](https://sourceforge.net/projects/mpcbe/files/MPC-BE/Release%20builds/)
+* VLC [发布页](https://www.videolan.org/vlc/)
 * IINA（macOS）[发布页](https://iina.io/) 若使用 http 播放不支持外挂字幕文件（mpv 支持）
 
 ## 使用说明
@@ -222,7 +226,7 @@ macOS 可能无法开机自启
 * 常见问题：
     1. 5季或者50集以上的条目暂不支持。
     2. 日志提示 `Unauthorized` 一般是令牌过期或者没填对，Windows 会自动弹出令牌生成页面。
-    
+
 > Jellyfin 相关
 
 * 首页播放结束后，10秒内重复播放**同文件**，本地播放器收到的播放时间会有误。    
