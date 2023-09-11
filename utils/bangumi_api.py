@@ -85,23 +85,26 @@ class BangumiApi:
         ep_num_list = target_ep if isinstance(target_ep, list) else None
         target_ep = ep_num_list[0] if isinstance(target_ep, list) else target_ep
 
-        if target_season >= 5 or (target_ep and target_ep > 99):
+        if target_season > 5 or (target_ep and target_ep > 99):
             return None, None if target_ep else None
 
         if target_season == 1:
+            if not target_ep:
+                return current_id
             fist_part = True
             while True:
-                if not target_ep:
-                    return current_id
+                if not fist_part:
+                    current_info = self.get_subject(current_id)
+                    if current_info['platform'] != 'TV':
+                        continue
                 episodes = self.get_episodes(current_id)
                 ep_info = episodes['data']
+                _target_ep = [i for i in ep_info if i['sort'] == target_ep]
+                if _target_ep:
+                    if ep_num_list:
+                        return current_id, [i['id'] for i in ep_info if i['sort'] in ep_num_list]
+                    return current_id, _target_ep[0]['id']
                 normal_season = True if episodes['total'] > 3 and ep_info[0]['sort'] <= 1 else False
-                if normal_season:
-                    _target_ep = [i for i in ep_info if i['sort'] == target_ep]
-                    if _target_ep:
-                        if ep_num_list:
-                            return current_id, [i['id'] for i in ep_info if i['sort'] in ep_num_list]
-                        return current_id, _target_ep[0]['id']
                 if not fist_part and normal_season:
                     break
                 related = self.get_related_subjects(current_id)
@@ -118,23 +121,26 @@ class BangumiApi:
             if not next_id:
                 break
             current_id = next_id[0]['id']
+            current_info = self.get_subject(current_id)
+            if current_info['platform'] != 'TV':
+                continue
             episodes = self.get_episodes(current_id)
             ep_info = episodes['data']
             normal_season = True if episodes['total'] > 3 and ep_info[0]['sort'] <= 1 else False
             _target_ep = [i for i in ep_info if i['sort'] == target_ep]
-            need_next_part = False if target_ep and _target_ep else True
-            if normal_season and not need_next_part:
+            ep_found = True if target_ep and _target_ep else False
+            if normal_season:
                 season_num += 1
+            if season_num > target_season:
+                break
             if season_num == target_season:
                 if not target_ep:
                     return current_id
-                if _target_ep:
-                    if ep_num_list:
-                        return current_id, [i['id'] for i in ep_info if i['sort'] in ep_num_list]
-                    return current_id, _target_ep[0]['id']
-                if need_next_part:
+                if not ep_found:
                     continue
-                break
+                if ep_num_list:
+                    return current_id, [i['id'] for i in ep_info if i['sort'] in ep_num_list]
+                return current_id, _target_ep[0]['id']
         return None, None if target_ep else None
 
     def get_subject_collection(self, subject_id):
