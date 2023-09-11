@@ -85,26 +85,24 @@ class BangumiApi:
         ep_num_list = target_ep if isinstance(target_ep, list) else None
         target_ep = ep_num_list[0] if isinstance(target_ep, list) else target_ep
 
-        if target_season >= 5:
-            if target_ep:
-                return None, None
-            return None
-        if target_ep and target_ep > 50:
-            return None, None
+        if target_season >= 5 or (target_ep and target_ep > 99):
+            return None, None if target_ep else None
 
         if target_season == 1:
             fist_part = True
             while True:
                 if not target_ep:
                     return current_id
-                ep_info = self.get_episodes(current_id)['data']
-                _target_ep = [i for i in ep_info if i['sort'] == target_ep]
-                if _target_ep:
-                    if ep_num_list:
-                        return current_id, [i['id'] for i in ep_info if i['sort'] in ep_num_list]
-                    return current_id, _target_ep[0]['id']
-                is_new_season = True if ep_info[0]['sort'] <= 1 else False
-                if not fist_part and is_new_season:
+                episodes = self.get_episodes(current_id)
+                ep_info = episodes['data']
+                normal_season = True if episodes['total'] > 3 and ep_info[0]['sort'] <= 1 else False
+                if normal_season:
+                    _target_ep = [i for i in ep_info if i['sort'] == target_ep]
+                    if _target_ep:
+                        if ep_num_list:
+                            return current_id, [i['id'] for i in ep_info if i['sort'] in ep_num_list]
+                        return current_id, _target_ep[0]['id']
+                if not fist_part and normal_season:
                     break
                 related = self.get_related_subjects(current_id)
                 next_id = [i for i in related if i['relation'] == '续集']
@@ -112,7 +110,7 @@ class BangumiApi:
                     break
                 current_id = next_id[0]['id']
                 fist_part = False
-            raise ValueError(f'{subject_id=} {target_season=} {target_ep=} not found')
+            return None, None if target_ep else None
 
         while True:
             related = self.get_related_subjects(current_id)
@@ -120,14 +118,13 @@ class BangumiApi:
             if not next_id:
                 break
             current_id = next_id[0]['id']
-            ep_info = self.get_episodes(current_id)['data']
-            is_new_season = True if ep_info[0]['sort'] <= 1 else False
+            episodes = self.get_episodes(current_id)
+            ep_info = episodes['data']
+            normal_season = True if episodes['total'] > 3 and ep_info[0]['sort'] <= 1 else False
             _target_ep = [i for i in ep_info if i['sort'] == target_ep]
             need_next_part = False if target_ep and _target_ep else True
-            if is_new_season:
+            if normal_season and not need_next_part:
                 season_num += 1
-            if is_new_season and need_next_part:
-                season_num -= 1
             if season_num == target_season:
                 if not target_ep:
                     return current_id
@@ -138,7 +135,7 @@ class BangumiApi:
                 if need_next_part:
                     continue
                 break
-        raise ValueError(f'{subject_id=} {target_season=} {target_ep=} not found')
+        return None, None if target_ep else None
 
     def get_subject_collection(self, subject_id):
         res = self.get(f'users/{self.username}/collections/{subject_id}')
@@ -165,7 +162,7 @@ class BangumiApi:
     def change_episode_state(self, ep_id, state=2):
         res = self.put(f'users/-/collections/-/episodes/{ep_id}',
                        _json={'type': state})
-        if res.status_code > 333:
+        if 333 < res.status_code < 444:
             raise ValueError(f'{res.status_code=} {res.text}')
         return res
 

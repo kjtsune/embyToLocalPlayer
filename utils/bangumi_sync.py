@@ -44,11 +44,11 @@ def bangumi_sync(emby, bgm, emby_eps: list = None, emby_ids: list = None):
     if bgm.title_diff_ratio(title=emby_title, ori_title=ori_title, bgm_data=bgm_data) < 0.5:
         logger.error('bgm: bgm_data not match, skip')
         return
-
+    subject_id = bgm_data['id']
     bgm_se_id, bgm_ep_ids = bgm.get_target_season_episode_id(
-        subject_id=bgm_data['id'], target_season=season_num, target_ep=ep_nums)
+        subject_id=subject_id, target_season=season_num, target_ep=ep_nums)
     if not bgm_ep_ids:
-        logger.info(f'bgm: {season_num=} {ep_nums=}, too big, not support')
+        logger.info(f'bgm: {subject_id=} {season_num=} {ep_nums=}, not exists or too big, skip')
         return
     logger.info(f'bgm: get {bgm_data["name"]} S0{season_num}E{ep_nums} https://bgm.tv/subject/{bgm_se_id}')
     for bgm_ep_id, ep_num in zip(bgm_ep_ids, ep_nums):
