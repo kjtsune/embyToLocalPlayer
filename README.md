@@ -1,17 +1,16 @@
 # embyToLocalPlayer-Python
 
 * Emby 调用 PotPlayer mpv IINA MPC VLC 播放，并回传播放进度（可关）。适配 Jellyfin Plex。
-* 支持：纯本地｜网络｜持久性缓存｜下载 多种模式。
 * 本地需要安装 Python
 
 **特性**
 
 * 在首页也可以播放。点击原来的播放按钮就可以。播放无需二次确认。
 * 播放列表（连续播放）支持，下一集保持相同版本。可设置版本偏好。
-* trakt.tv bangumi.tv bgm.tv 标记已观看支持。
+* trakt.tv bangumi.tv bgm.tv 单向标记已观看支持。
 * 视频文件 可本地 可挂载 可远端。
-* mpv VLC MPC PotPlayer 通过网络播放时也支持外挂字幕。
-* 多网盘挂载可设置优先级，优先播放速度快的盘。
+* mpv MPC PotPlayer VLC 通过网络播放时也支持外挂字幕。
+* 多网盘重复挂载可设置优先级，优先播放速度快的盘。
 * 可持久性缓存文件到本地。
 * 其他播放器一般也能用，只是不会回传进度。
 
@@ -143,6 +142,54 @@ macOS 可能无法开机自启
     * mpv:
     * vlc: 下一集无法添加 http 外挂字幕。
 
+## 观看记录存储服务相关
+
+> trakt.tv 单向同步
+
+* 缺点：
+    1. 媒体服务器一般本身就有 Trakt 插件。
+    2. 只能往 Trakt 单向同步。
+    3. 只在播放器正常关闭后，同步播放器已播放的（网页点击已播放不触发）。
+    4. 配置和使用都麻烦。
+* 使用说明：
+    1. 安装依赖：命令行终端运行，安装失败尝试在启用或禁用代理的环境来安装：  
+       `python -m pip install requests`  
+       或者：  
+       `python -m pip install requests -i https://mirrors.aliyun.com/pypi/simple/ --trusted-host=mirrors.aliyun.com`
+    2. [点击访问：Trakt app 管理页面](https://trakt.tv/oauth/applications)：   
+       创建 app，名字任意，Redirect uri 填写: `http://localhost/trakt` ，然后保存。
+    3. ini 配置文件`[trakt]` 填写 `enable_host` `user_name` `client_id` `client_secret` 这四项。
+    4. 点击 app 详情页面的 `Authorize` 按钮，二次同意后，复制网址并填到配置文件 `oauth_code` 里。
+    5. 启动脚本，播放一个视频，拖到最后，关闭播放器。看日志是否同步成功。
+* 常见问题：
+    1. 若同步失败。电影看是否缺失IMDb，剧集看单集下方是否有 IMDb 或 TheTVDB。
+    2. 目录下`trakt_token.json`可以复制给新电脑用。然后删除原来的，并填写新的 `oauth_code` 来重新生成。   
+       如果只是复制到新电脑，重复使用 token 的话，有效期只有三个月。
+
+> bangumi.tv（bgm.tv） 单向同步
+
+* 缺点：
+    1. 只能往 Bangumi 单向同步。
+    2. 只在播放器正常关闭后，同步播放器已播放的（网页点击已播放不触发）。
+    3. 只支持常规剧集，不支持剧场版等。
+    4. 不支持 Plex。
+* 使用说明：
+    1. 安装依赖：命令行终端运行，安装失败尝试在启用或禁用代理的环境来安装：  
+       `python -m pip install requests`  
+       或者：  
+       `python -m pip install requests -i https://mirrors.aliyun.com/pypi/simple/ --trusted-host=mirrors.aliyun.com`
+    2. 访问并创建令牌 [https://next.bgm.tv/demo/access-token](https://next.bgm.tv/demo/access-token)：   
+       复制令牌到 ini 配置文件 `[bangumi]` 部分，` access_token = ` 里
+    3. ini 配置文件 `[bangumi]` 填写 `enable_host` `user_name` 这两项。
+    4. 启动脚本，播放一集动漫，拖到最后，关闭播放器。看日志是否同步成功。
+* 常见问题：
+    1. 5季或者90集以上的条目暂不支持。
+    2. 日志提示 `Unauthorized` 一般是令牌过期或者没填对，Windows 会自动弹出令牌生成页面。
+    3. 由于 `bgm.tv` 的 `续集` 不一定是下一季，导致第几季可能关联失败。  
+       目前把 `续集` 里：集数大于3，同时第一集的序号小于2的 `续集` 当作正常的下一季。  
+       如果还有其他特殊情况，可以反馈。  
+       同时还会核查 Emby 里的季上映时间（一般是 TMDb 的时间）与 bgm.tv 的上映时间相差是否超过15天，来保证准确性。
+
 ## 播放器相关:
 
 > mpv.net
@@ -184,48 +231,6 @@ macOS 可能无法开机自启
 * 非读盘模式不支持外挂字幕文件（mpv 支持）
 
 ## 其他:
-
-> Trakt 单向同步功能
-
-* 缺点：
-    1. 媒体服务器一般本身就有 Trakt 插件。
-    2. 只能往 Trakt 单向同步。
-    3. 只在播放器正常关闭后，同步播放器已播放的（网页点击已播放不触发）。
-    4. 配置和使用都麻烦。
-* 使用说明：
-    1. 安装依赖：命令行终端运行，安装失败尝试在启用或禁用代理的环境来安装：  
-       `python -m pip install requests`  
-       或者：  
-       `python -m pip install requests -i https://mirrors.aliyun.com/pypi/simple/ --trusted-host=mirrors.aliyun.com`
-    2. [点击访问：Trakt app 管理页面](https://trakt.tv/oauth/applications)：   
-       创建 app，名字任意，Redirect uri 填写: `http://localhost/trakt` ，然后保存。
-    3. ini 配置文件`[trakt]` 填写 `enable_host` `user_name` `client_id` `client_secret` 这四项。
-    4. 点击 app 详情页面的 `Authorize` 按钮，二次同意后，复制网址并填到配置文件 `oauth_code` 里。
-    5. 启动脚本，播放一个视频，拖到最后，关闭播放器。看日志是否同步成功。
-* 常见问题：
-    1. 若同步失败。电影看是否缺失IMDb，剧集看单集下方是否有 IMDb 或 TheTVDB。
-    2. 目录下`trakt_token.json`可以复制给新电脑用。然后删除原来的，并填写新的 `oauth_code` 来重新生成。   
-       如果只是复制到新电脑，重复使用 token 的话，有效期只有三个月。
-
-> bangumi.tv（bgm.tv） 单向同步功能
-
-* 缺点：
-    1. 只能往 Bangumi 单向同步。
-    2. 只在播放器正常关闭后，同步播放器已播放的（网页点击已播放不触发）。
-    3. 只支持常规剧集，不支持剧场版等。
-    4. 不支持 Plex。
-* 使用说明：
-    1. 安装依赖：命令行终端运行，安装失败尝试在启用或禁用代理的环境来安装：  
-       `python -m pip install requests`  
-       或者：  
-       `python -m pip install requests -i https://mirrors.aliyun.com/pypi/simple/ --trusted-host=mirrors.aliyun.com`
-    2. 访问并创建令牌 [https://next.bgm.tv/demo/access-token](https://next.bgm.tv/demo/access-token)：   
-       复制令牌到 ini 配置文件 `[bangumi]` 部分，` access_token = ` 里
-    3. ini 配置文件 `[bangumi]` 填写 `enable_host` `user_name` 这两项。
-    4. 启动脚本，播放一集动漫，拖到最后，关闭播放器。看日志是否同步成功。
-* 常见问题：
-    1. 5季或者50集以上的条目暂不支持。
-    2. 日志提示 `Unauthorized` 一般是令牌过期或者没填对，Windows 会自动弹出令牌生成页面。
 
 > Jellyfin 相关
 

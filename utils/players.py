@@ -295,6 +295,7 @@ def list_episodes(data: dict):
         data['ProviderIds'] = item['ProviderIds']
         data['ParentIndexNumber'] = item['ParentIndexNumber']
         data['SeriesId'] = item['SeriesId']
+        data['SeasonId'] = season_id
         result = data.copy()
         result.update(dict(
             basename=basename,

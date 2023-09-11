@@ -1,9 +1,26 @@
+import datetime
 import os
 import re
 
 from utils.configs import configs, MyLogger
+from utils.tools import ThreadWithReturnValue
 
 logger = MyLogger()
+
+
+def emby_bgm_season_date_check(emby_info, bgm_info):
+    emby_date = emby_info.get('PremiereDate', '')[:10]
+    bgm_date = bgm_info['date']
+    if not emby_date:
+        logger.info(f'bgm: emby season air date not found')
+        return False
+    emby_date = datetime.date.fromisoformat(emby_date)
+    bgm_date = datetime.date.fromisoformat(bgm_date)
+    diff = emby_date - bgm_date
+    if abs(diff.days) > 15:
+        logger.info(f'bgm: check {emby_date=} {bgm_date=} diff greater than 15')
+        return False
+    return True
 
 
 def bangumi_sync(emby, bgm, emby_eps: list = None, emby_ids: list = None):
@@ -44,12 +61,22 @@ def bangumi_sync(emby, bgm, emby_eps: list = None, emby_ids: list = None):
     if bgm.title_diff_ratio(title=emby_title, ori_title=ori_title, bgm_data=bgm_data) < 0.5:
         logger.error('bgm: bgm_data not match, skip')
         return
+    emby_se_info_t = ThreadWithReturnValue(target=emby.get_item, args=(item_info['SeasonId'],))
+    emby_se_info_t.start()
+
     subject_id = bgm_data['id']
     bgm_se_id, bgm_ep_ids = bgm.get_target_season_episode_id(
         subject_id=subject_id, target_season=season_num, target_ep=ep_nums)
     if not bgm_ep_ids:
         logger.info(f'bgm: {subject_id=} {season_num=} {ep_nums=}, not exists or too big, skip')
         return
+
+    emby_se_info = emby_se_info_t.join()
+    bgm_se_info = bgm.get_subject(bgm_se_id)
+    if not emby_bgm_season_date_check(emby_se_info, bgm_se_info):
+        logger.info(f'bgm: season_date_check failed, skip | https://bgm.tv/subject/{bgm_se_id}')
+        return
+
     logger.info(f'bgm: get {bgm_data["name"]} S0{season_num}E{ep_nums} https://bgm.tv/subject/{bgm_se_id}')
     for bgm_ep_id, ep_num in zip(bgm_ep_ids, ep_nums):
         bgm.mark_episode_watched(subject_id=bgm_se_id, ep_id=bgm_ep_id)
