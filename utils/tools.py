@@ -438,6 +438,7 @@ def version_prefer_emby(sources):
 
 
 def parse_received_data_emby(received_data):
+    api_client = received_data['ApiClient']
     mount_disk_mode = True if received_data['mountDiskEnable'] == 'true' else False
     url = urllib.parse.urlparse(received_data['playbackUrl'])
     headers = received_data['request']['headers']
@@ -453,8 +454,7 @@ def parse_received_data_emby(received_data):
     item_id = item_id[item_id.index('Items') + 1]
     media_source_id = query.get('MediaSourceId')
     api_key = query['X-Emby-Token'] if is_emby else jellyfin_auth['Token']
-    netloc = url.netloc
-    scheme = url.scheme
+    scheme, netloc = api_client['_serverAddress'].split('://')
     device_id = query['X-Emby-Device-Id'] if is_emby else jellyfin_auth['DeviceId']
     sub_index = int(query.get('SubtitleStreamIndex', -1))
 
