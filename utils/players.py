@@ -20,6 +20,8 @@ pipe_port_stack = list(reversed(range(25)))
 sync_third_party_done_ids = {'trakt': [],
                              'bangumi': []}
 
+bangumi_api_cache = {'cache_time': time.time(), 'bangumi': None}
+
 
 # *_player_start 返回获取播放时间等操作所需参数字典
 # stop_sec_* 接收字典参数
@@ -37,6 +39,41 @@ def save_sub_file(url, name='tmp_sub.srt'):
     srt = os.path.join(configs.cwd, '.tmp', name)
     requests_urllib(url, save_path=srt)
     return srt
+
+
+def sync_third_party_for_eps(eps, provider):
+    if not eps:
+        return
+    if not configs.check_str_match(eps[0]['netloc'], provider, 'enable_host', log=True):
+        return
+    useful_items = []
+    for ep in eps:
+        item_id = ep['item_id']
+        if item_id in sync_third_party_done_ids[provider]:
+            continue
+        if ep['_stop_sec'] / ep['total_sec'] > 0.9:
+            sync_third_party_done_ids[provider].append(item_id)
+            useful_items.append(ep)
+    if not useful_items:
+        return
+
+    if provider == 'trakt':
+        from utils.trakt_sync import trakt_sync_main
+        trakt_sync_main(eps_data=useful_items)
+
+    if provider == 'bangumi':
+        from utils.bangumi_sync import bangumi_sync_main
+        bgm = bangumi_api_cache.get(provider)
+        if bgm:
+            bgm.username = configs.raw.get('bangumi', 'username', fallback='')
+            bgm.private = configs.raw.getboolean('bangumi', 'private', fallback=True)
+            bgm.access_token = configs.raw.get('bangumi', 'access_token', fallback='')
+            bgm.http_proxy = configs.script_proxy
+            bgm.init()
+        bgm = bangumi_sync_main(bangumi=bgm, eps_data=useful_items)
+        bangumi_api_cache[provider] = bgm
+        if bangumi_api_cache['cache_time'] + 86400 < time.time():
+            bangumi_api_cache.update({'cache_time': time.time(), 'bangumi': None})
 
 
 class PlayerManager:
@@ -137,32 +174,8 @@ class PlayerManager:
             need_update_eps.append(ep)
         for provider in 'trakt', 'bangumi':
             if configs.raw.get(provider, 'enable_host', fallback=''):
-                threading.Thread(target=self.sync_third_party_for_eps,
+                threading.Thread(target=sync_third_party_for_eps,
                                  kwargs={'eps': need_update_eps, 'provider': provider}, daemon=True).start()
-
-    @staticmethod
-    def sync_third_party_for_eps(eps, provider):
-        if not eps:
-            return
-        if not configs.check_str_match(eps[0]['netloc'], provider, 'enable_host', log=True):
-            return
-        useful_items = []
-        for ep in eps:
-            item_id = ep['item_id']
-            if item_id in sync_third_party_done_ids[provider]:
-                continue
-            if ep['_stop_sec'] / ep['total_sec'] > 0.9:
-                sync_third_party_done_ids[provider].append(item_id)
-                useful_items.append(ep)
-        if not useful_items:
-            return
-        if provider == 'trakt':
-            from utils.trakt_sync import trakt_sync_main
-            trakt_sync_main(emby_items=useful_items)
-
-        if provider == 'bangumi':
-            from utils.bangumi_sync import bangumi_sync_main
-            bangumi_sync_main(eps_data=useful_items)
 
 
 def list_episodes_plex(data: dict):

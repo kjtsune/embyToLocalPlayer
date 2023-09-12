@@ -3,15 +3,15 @@ from utils.configs import configs, MyLogger
 logger = MyLogger()
 
 
-def sync_ep_or_movie_to_trakt(trakt, emby=None, emby_ids=None, emby_items=None):
+def sync_ep_or_movie_to_trakt(trakt, emby=None, emby_ids=None, eps_data=None):
     emby_ids = emby_ids if not emby_ids or isinstance(emby_ids, list) else [emby_ids]
-    emby_items = emby_items if not emby_items or isinstance(emby_items, list) else [emby_items]
-    objs = emby_items or emby_ids
+    eps_data = eps_data if not eps_data or isinstance(eps_data, list) else [eps_data]
+    objs = eps_data or emby_ids
     trakt_ids_list = []
     allow = ['episode', 'movie']
     for obj in objs:
         name = obj.get('basename', obj.get('Name'))
-        item = obj if emby_items else emby.get_item(obj)
+        item = obj if eps_data else emby.get_item(obj)
         if item['Type'].lower() not in allow:
             raise ValueError(f'type not in {allow}')
         provider_ids = item['ProviderIds']
@@ -38,7 +38,7 @@ def sync_ep_or_movie_to_trakt(trakt, emby=None, emby_ids=None, emby_items=None):
         return res
 
 
-def trakt_sync_main(emby_items=None, test=False):
+def trakt_sync_main(trakt=None, eps_data=None, test=False):
     from utils.trakt_api import TraktApi
     user_id = configs.raw.get('trakt', 'user_name', fallback='')
     client_id = configs.raw.get('trakt', 'client_id', fallback='')
@@ -47,7 +47,7 @@ def trakt_sync_main(emby_items=None, test=False):
     oauth_code = oauth_code[1] if len(oauth_code) == 2 else oauth_code[0]
     if not all([user_id, client_id, client_secret]):
         raise ValueError('require user_name, client_id, client_secret')
-    trakt = TraktApi(
+    trakt = trakt or TraktApi(
         user_id=user_id,
         client_id=client_id,
         client_secret=client_secret,
@@ -57,6 +57,6 @@ def trakt_sync_main(emby_items=None, test=False):
         trakt.test()
         return trakt
     else:
-        res = sync_ep_or_movie_to_trakt(trakt=trakt, emby_items=emby_items)
+        res = sync_ep_or_movie_to_trakt(trakt=trakt, eps_data=eps_data)
         res and logger.info('trakt:', res)
-        return res
+    return trakt

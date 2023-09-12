@@ -1,5 +1,6 @@
 import datetime
 import difflib
+import functools
 import os
 import typing
 
@@ -10,16 +11,20 @@ class BangumiApi:
     def __init__(self, username=None, access_token=None, private=True, http_proxy=None):
         self.host = 'https://api.bgm.tv/v0'
         self.username = username
+        self.access_token = access_token
         self.private = private
+        self.http_proxy = http_proxy
         self.req = requests.Session()
         self._req_not_auth = requests.Session()
+        self.init()
 
+    def init(self):
         for r in self.req, self._req_not_auth:
             r.headers.update({'Accept': 'application/json', 'User-Agent': 'kjtsune/embyBangumi'})
-            if access_token:
-                r.headers.update({'Authorization': f'Bearer {access_token}'})
-            if http_proxy:
-                r.proxies = {'http': http_proxy, 'https': http_proxy}
+            if self.access_token:
+                r.headers.update({'Authorization': f'Bearer {self.access_token}'})
+            if self.http_proxy:
+                r.proxies = {'http': self.http_proxy, 'https': self.http_proxy}
         self._req_not_auth.headers = {k: v for k, v in self._req_not_auth.headers.items() if k != 'Authorization'}
 
     def get(self, path, params=None):
@@ -50,6 +55,7 @@ class BangumiApi:
             raise ValueError('BangumiApi: Unauthorized, access_token may wrong')
         return res.json()
 
+    @functools.lru_cache
     def search(self, title, start_date, end_date, limit=5):
         res = self._req_not_auth.post(f'{self.host}/search/subjects',
                                       json={'keyword': title,
@@ -64,14 +70,17 @@ class BangumiApi:
         res = self.req.get(f'{self.host[:-2]}/search/subject/{title}', params={'type': 2})
         return res.json()
 
+    @functools.lru_cache
     def get_subject(self, subject_id):
         res = self.get(f'subjects/{subject_id}')
         return res.json()
 
+    @functools.lru_cache
     def get_related_subjects(self, subject_id):
         res = self.get(f'subjects/{subject_id}/subjects')
         return res.json()
 
+    @functools.lru_cache
     def get_episodes(self, subject_id, _type=0):
         res = self.get('episodes', params={
             'subject_id': subject_id,

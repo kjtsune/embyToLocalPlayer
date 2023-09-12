@@ -84,12 +84,12 @@ def bangumi_sync(emby, bgm, emby_eps: list = None, emby_ids: list = None):
         logger.info(f'bgm: sync {ori_title} S0{season_num}E{ep_num} https://bgm.tv/ep/{bgm_ep_id}')
 
 
-def bangumi_sync_main(eps_data: list = None, test=False, use_ini=False):
+def bangumi_sync_main(bangumi=None, eps_data: list = None, test=False, use_ini=False):
     if not eps_data and not use_ini and not test:
         raise ValueError('not eps_data and not test')
     from utils.bangumi_api import BangumiApiEmbyVer
     from utils.emby_api import EmbyApi
-    bgm = BangumiApiEmbyVer(
+    bgm = bangumi or BangumiApiEmbyVer(
         username=configs.raw.get('bangumi', 'username', fallback=''),
         private=configs.raw.getboolean('bangumi', 'private', fallback=True),
         access_token=configs.raw.get('bangumi', 'access_token', fallback=''),
@@ -105,13 +105,14 @@ def bangumi_sync_main(eps_data: list = None, test=False, use_ini=False):
         server = fist_ep['server']
         if server == 'plex':
             logger.error(f'bangumi_sync_by_eps not support {server=}')
-            return
+            return bgm
         emby = EmbyApi(host=f"{fist_ep['scheme']}://{fist_ep['netloc']}",
                        api_key=fist_ep['api_key'],
                        user_id=fist_ep['user_id'],
                        http_proxy=configs.script_proxy
                        )
     bangumi_sync(emby=emby, bgm=bgm, emby_eps=eps_data)
+    return bgm
 
 
 if __name__ == '__main__':

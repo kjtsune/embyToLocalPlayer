@@ -5,7 +5,8 @@ import threading
 from http.server import BaseHTTPRequestHandler
 
 from utils.downloader import DownloadManager, prefetch_resume_tv
-from utils.players import player_function_dict, PlayerManager, stop_sec_function_dict, list_episodes
+from utils.players import (player_function_dict, PlayerManager, stop_sec_function_dict, list_episodes,
+                           sync_third_party_for_eps)
 from utils.tools import (configs, logger_setup, MyLogger, run_server, open_local_folder, play_media_file,
                          kill_multi_process, activate_window_by_pid, clean_tmp_dir,
                          parse_received_data_emby, parse_received_data_plex, update_server_playback_progress,
@@ -121,7 +122,7 @@ def start_play(data):
         current_ep['_stop_sec'] = stop_sec
         for provider in 'trakt', 'bangumi':
             if configs.raw.get(provider, 'enable_host', fallback=''):
-                threading.Thread(target=PlayerManager.sync_third_party_for_eps,
+                threading.Thread(target=sync_third_party_for_eps,
                                  kwargs={'eps': [current_ep], 'provider': provider}, daemon=True).start()
 
         if configs.gui_is_enable \
