@@ -97,9 +97,12 @@ macOS 可能无法开机自启
 
 > 如何更新
 
-* 将 `_config.ini` 重命名为 `.ini`，其他全删除。再次 GitHub 下载解压当前文件夹。（`.ini` 优先于 `_config.ini`  ）
-* 同时看看 `embyToLocalPlayer_config.ini` 有没有新内容。
-* 油猴脚本也记得要更新。
+* 方法1：将 `_config.ini` 重命名为 `.ini`，其他全删除。再次 GitHub 下载解压当前文件夹。（`.ini` 优先于 `_config.ini`  ）  
+  同时看看 `embyToLocalPlayer_config.ini` 有没有新内容。
+* 方法2：  
+  Windows: `.bat` 按 6  
+  Linux / macOS：在 `.ini` 所在的文件夹打开终端，运行 `python3 utils/update.py`
+* 油猴脚本有时也要更新。
 
 > 如何反馈
 
