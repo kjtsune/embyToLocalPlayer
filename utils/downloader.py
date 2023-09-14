@@ -4,7 +4,8 @@ import time
 import typing
 
 from utils.configs import configs, MyLogger
-from utils.tools import load_json_file, requests_urllib, dump_json_file, scan_cache_dir, safe_deleter
+from utils.net_tools import requests_urllib
+from utils.tools import load_json_file, dump_json_file, scan_cache_dir, safe_deleter
 
 logger = MyLogger()
 

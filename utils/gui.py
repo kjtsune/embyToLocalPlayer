@@ -3,7 +3,8 @@ import tkinter as tk
 import tkinter.font as tk_front
 
 from utils.configs import configs, MyLogger
-from utils.tools import requests_urllib, load_json_file, scan_cache_dir
+from utils.net_tools import requests_urllib
+from utils.tools import load_json_file, scan_cache_dir
 
 logger = MyLogger()
 

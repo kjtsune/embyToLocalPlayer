@@ -5,11 +5,12 @@ import threading
 from http.server import BaseHTTPRequestHandler
 
 from utils.downloader import DownloadManager, prefetch_resume_tv
+from utils.net_tools import update_server_playback_progress, run_server
 from utils.players import (player_function_dict, PlayerManager, stop_sec_function_dict, list_episodes,
                            sync_third_party_for_eps)
-from utils.tools import (configs, logger_setup, MyLogger, run_server, open_local_folder, play_media_file,
+from utils.tools import (configs, logger_setup, MyLogger, open_local_folder, play_media_file,
                          kill_multi_process, activate_window_by_pid, clean_tmp_dir,
-                         parse_received_data_emby, parse_received_data_plex, update_server_playback_progress,
+                         parse_received_data_emby, parse_received_data_plex,
                          get_player_cmd, ThreadWithReturnValue)
 
 

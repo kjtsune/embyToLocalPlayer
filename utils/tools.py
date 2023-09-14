@@ -2,15 +2,10 @@ import json
 import os.path
 import re
 import signal
-import socket
 import subprocess
 import threading
 import time
-import urllib.error
 import urllib.parse
-import urllib.request
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from http.server import HTTPServer
 from typing import Union
 
 from utils.configs import configs, MyLogger
@@ -25,13 +20,6 @@ def logger_setup(data):
     MyLogger.api_key = data['api_key']
     MyLogger.netloc = data['netloc']
     MyLogger.netloc_replace = MyLogger.mix_host_gen(data['netloc'])
-
-
-def run_server(req_handler):
-    server_address = ('127.0.0.1', 58000)
-    httpd = HTTPServer(server_address, req_handler)
-    _logger.info('serving at %s:%d' % server_address)
-    httpd.serve_forever()
 
 
 def safe_deleter(file, ext: Union[str, list, tuple] = ('mkv', 'mp4', 'srt', 'ass')):
@@ -217,204 +205,6 @@ def get_player_cmd(media_path, file_path):
     if not media_path.startswith('http') and not os.path.exists(media_path):
         raise FileNotFoundError(media_path)
     return result
-
-
-def requests_urllib(host, params=None, _json=None, decode=False, timeout=3.0, headers=None, req_only=False,
-                    http_proxy='', get_json=False, save_path='', retry=5, silence=False, res_only=False):
-    _json = json.dumps(_json).encode('utf-8') if _json else None
-    params = urllib.parse.urlencode(params) if params else None
-    host = host + '?' + params if params else host
-    req = urllib.request.Request(host)
-    http_proxy = http_proxy or configs.script_proxy
-    if http_proxy and not host.startswith(('http://127.0.0.1', 'http://localhost')):
-        if 'plex.direct' not in host:
-            req.set_proxy(http_proxy, 'http')
-        if host.startswith('https'):
-            req.set_proxy(http_proxy, 'https')
-    req.add_header('User-Agent', 'embyToLocalPlayer/1.1')
-    headers and [req.add_header(k, v) for k, v in headers.items()]
-    if _json or get_json:
-        req.add_header('Content-Type', 'application/json; charset=utf-8')
-        req.add_header('Accept', 'application/json')
-    if req_only:
-        return req
-
-    response = None
-    for try_times in range(1, retry + 1):
-        try:
-            response = urllib.request.urlopen(req, _json, timeout=timeout)
-            if res_only:
-                return response
-            break
-        except (socket.timeout, urllib.error.URLError):
-            _logger.error(f'urllib {try_times=} {host=}', silence=silence)
-            if try_times == retry:
-                raise TimeoutError(f'{try_times=} {host=}') from None
-    if decode:
-        return response.read().decode()
-    if get_json:
-        return json.loads(response.read().decode())
-    if save_path:
-        folder = os.path.dirname(save_path)
-        if not os.path.exists(folder):
-            os.mkdir(folder)
-        with open(save_path, 'wb') as f:
-            f.write(response.read())
-        return save_path
-
-
-def multi_thread_requests(urls: Union[list, tuple, dict], **kwargs):
-    return_list = False
-
-    def dict_requests(key, url):
-        return {key: requests_urllib(host=url, **kwargs)}
-
-    if not isinstance(urls, dict):
-        return_list = True
-        urls = dict(zip(range(len(urls)), urls))
-
-    result = {}
-    with ThreadPoolExecutor(max_workers=20) as executor:
-        for future in as_completed([executor.submit(dict_requests, key, url) for (key, url) in urls.items()]):
-            result.update(future.result())
-    if return_list:
-        return [i[1] for i in sorted(result.items())]
-    return result
-
-
-def change_emby_play_position(scheme, netloc, item_id, api_key, stop_sec, play_session_id, device_id, **_):
-    if stop_sec > 10 * 60 * 60:
-        _logger.error('stop_sec error, check it')
-        return
-    ticks = stop_sec * 10 ** 7
-    requests_urllib(f'{scheme}://{netloc}/emby/Sessions/Playing',
-                    params={
-                        'X-Emby-Token': api_key,
-                        'X-Emby-Device-Id': device_id,
-                    },
-                    _json={
-                        'ItemId': item_id,
-                        'PlaySessionId': play_session_id,
-                    })
-    requests_urllib(f'{scheme}://{netloc}/emby/Sessions/Playing/Stopped',
-                    params={
-                        'X-Emby-Token': api_key,
-                        'X-Emby-Device-Id': device_id,
-                    },
-                    _json={
-                        'PositionTicks': ticks,
-                        'ItemId': item_id,
-                        'PlaySessionId': play_session_id,
-                        # 'PlaylistIndex': 0,
-                        # 'PlaybackRate': 1,
-                        # 'PlaylistLength': 1,
-                    })
-
-
-def change_jellyfin_play_position(scheme, netloc, item_id, stop_sec, play_session_id, headers, **_):
-    if stop_sec > 10 * 60 * 60:
-        _logger.error('stop_sec error, check it')
-        return
-    ticks = stop_sec * 10 ** 7
-    requests_urllib(f'{scheme}://{netloc}/Sessions/Playing',
-                    headers=headers,
-                    _json={
-                        # 'PositionTicks': ticks,
-                        # 'PlaybackStartTimeTicks': ticks,
-                        'ItemId': item_id,
-                        'PlaySessionId': play_session_id,
-                        # 'MediaSourceId': 'a43d6333192f126508d93240ae5683c5',
-                    })
-    requests_urllib(f'{scheme}://{netloc}/Sessions/Playing/Stopped',
-                    headers=headers,
-                    _json={
-                        'PositionTicks': ticks,
-                        'ItemId': item_id,
-                        'PlaySessionId': play_session_id,
-                        # 'MediaSourceId': 'a43d6333192f126508d93240ae5683c5',
-                    })
-
-
-def change_plex_play_position(scheme, netloc, api_key, stop_sec, rating_key, client_id, duration, **_):
-    if stop_sec > 10 * 60 * 60:
-        _logger.error('stop_sec error, check it')
-        return
-    ticks = stop_sec * 10 ** 3
-    requests_urllib(f'{scheme}://{netloc}/:/timeline',
-                    decode=True,
-                    headers={'Accept': 'application/json'},
-                    params={
-                        'ratingKey': rating_key,
-                        'state': 'stopped',
-                        # 'state': 'playing',
-                        'time': ticks,
-                        'duration': duration,
-                        'X-Plex-Client-Identifier': client_id,
-                        'X-Plex-Token': api_key,
-                    })
-    if stop_sec > 30:
-        return
-    requests_urllib(f'{scheme}://{netloc}/:/unscrobble',
-                    headers={'Accept': 'application/json'},
-                    params={
-                        'key': rating_key,
-                        'X-Plex-Client-Identifier': client_id,
-                        'X-Plex-Token': api_key,
-                        'identifier': 'com.plexapp.plugins.library',
-                    })
-
-
-emby_last_dict = dict(watched=True, stop_sec=0, data={}, normal_file=True)
-
-
-def update_server_playback_progress(stop_sec, data, store=True, check_fist_time=False):
-    if not configs.raw.getboolean('emby', 'update_progress', fallback=True):
-        return
-    if stop_sec is None:
-        _logger.error('stop_sec is None skip update progress')
-        return
-    file_path = data['file_path']
-    ext = os.path.splitext(file_path)[-1].lower()
-    # iso 回传会被标记已观看。
-    normal_file = False if ext.endswith(('.iso', '.m3u8')) else True
-    server = data['server']
-    stop_sec = int(stop_sec)
-    stop_sec = stop_sec - 2 if stop_sec > 5 else stop_sec
-
-    if server == 'emby':
-        start = time.time()
-        times = 0
-        if normal_file:
-            times += 1
-            change_emby_play_position(stop_sec=stop_sec, **data)
-        # 4.7.8 开始：播放 A 到一半后退出，不刷新浏览器，播放 B，会清空 A 播放进度，故重复回传。
-        # 播放完毕记录到字典
-        if store:
-            watched = bool(stop_sec / data['total_sec'] > 0.9)
-            _logger.debug('update emby_last_dict', data['basename'])
-            emby_last_dict.update(dict(
-                watched=watched,
-                stop_sec=stop_sec,
-                data=data,
-                normal_file=normal_file,
-            ))
-            return
-        # 浏览器刷新后重置数据
-        if check_fist_time and data['fist_time']:
-            emby_last_dict.update(dict(watched=True, stop_sec=0, data={}, normal_file=False))
-        # 第二次播放时，回传上个文件被重置的进度。
-        if not data['fist_time'] and emby_last_dict['data'] \
-                and not emby_last_dict['watched'] and emby_last_dict['normal_file']:
-            _logger.info('update again by check_last', emby_last_dict['data']['basename'], emby_last_dict['stop_sec'])
-            change_emby_play_position(stop_sec=emby_last_dict['stop_sec'], **emby_last_dict['data'])
-            times += 1
-        _logger.info(f'send {times * 2} requests, update done, used time: {time.time() - start}')
-    elif not normal_file:
-        pass
-    elif server == 'jellyfin':
-        change_jellyfin_play_position(stop_sec=stop_sec, **data)
-    elif server == 'plex':
-        change_plex_play_position(stop_sec=stop_sec, **data)
 
 
 def version_prefer_emby(sources):

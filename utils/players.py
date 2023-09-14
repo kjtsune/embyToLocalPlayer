@@ -1,7 +1,6 @@
 import base64
 import os.path
 import platform
-import re
 import subprocess
 import threading
 import time
@@ -10,17 +9,14 @@ from html.parser import HTMLParser
 
 from utils.configs import configs, MyLogger
 from utils.downloader import Downloader
+from utils.net_tools import (requests_urllib, update_server_playback_progress, sync_third_party_for_eps, list_episodes,
+                             save_sub_file)
 from utils.python_mpv_jsonipc import MPV
-from utils.tools import (activate_window_by_pid, requests_urllib, update_server_playback_progress,
-                         translate_path_by_ini, multi_thread_requests)
+from utils.tools import activate_window_by_pid
 
 logger = MyLogger()
 prefetch_data = dict(on=True, running=False, stop_sec_dict={}, done_list=[], playlist_data={})
 pipe_port_stack = list(reversed(range(25)))
-sync_third_party_done_ids = {'trakt': [],
-                             'bangumi': []}
-
-bangumi_api_cache = {'cache_time': time.time(), 'bangumi': None}
 
 
 # *_player_start 返回获取播放时间等操作所需参数字典
@@ -33,47 +29,6 @@ def get_pipe_or_port_str(get_pipe=False):
     pipe_port_stack.insert(0, num)
     pipe_port = pipe_port + num if isinstance(pipe_port, int) else pipe_port + chr(65 + num)
     return str(pipe_port)
-
-
-def save_sub_file(url, name='tmp_sub.srt'):
-    srt = os.path.join(configs.cwd, '.tmp', name)
-    requests_urllib(url, save_path=srt)
-    return srt
-
-
-def sync_third_party_for_eps(eps, provider):
-    if not eps:
-        return
-    if not configs.check_str_match(eps[0]['netloc'], provider, 'enable_host', log=True):
-        return
-    useful_items = []
-    for ep in eps:
-        item_id = ep['item_id']
-        if item_id in sync_third_party_done_ids[provider]:
-            continue
-        if ep['_stop_sec'] / ep['total_sec'] > 0.9:
-            sync_third_party_done_ids[provider].append(item_id)
-            useful_items.append(ep)
-    if not useful_items:
-        return
-
-    if provider == 'trakt':
-        from utils.trakt_sync import trakt_sync_main
-        trakt_sync_main(eps_data=useful_items)
-
-    if provider == 'bangumi':
-        from utils.bangumi_sync import bangumi_sync_main
-        bgm = bangumi_api_cache.get(provider)
-        if bgm:
-            bgm.username = configs.raw.get('bangumi', 'username', fallback='')
-            bgm.private = configs.raw.getboolean('bangumi', 'private', fallback=True)
-            bgm.access_token = configs.raw.get('bangumi', 'access_token', fallback='')
-            bgm.http_proxy = configs.script_proxy
-            bgm.init()
-        bgm = bangumi_sync_main(bangumi=bgm, eps_data=useful_items)
-        bangumi_api_cache[provider] = bgm
-        if bangumi_api_cache['cache_time'] + 86400 < time.time():
-            bangumi_api_cache.update({'cache_time': time.time(), 'bangumi': None})
 
 
 class PlayerManager:
@@ -176,172 +131,6 @@ class PlayerManager:
             if configs.raw.get(provider, 'enable_host', fallback=''):
                 threading.Thread(target=sync_third_party_for_eps,
                                  kwargs={'eps': need_update_eps, 'provider': provider}, daemon=True).start()
-
-
-def list_episodes_plex(data: dict):
-    result = data['list_eps']
-    if not data['sub_file'] or data['mount_disk_mode']:
-        return result
-
-    scheme = data['scheme']
-    netloc = data['netloc']
-    api_key = data['api_key']
-
-    key_url_dict = {
-        ep['rating_key']: f'{scheme}://{netloc}/library/metadata/{ep["rating_key"]}?X-Plex-Token={api_key}'
-        for ep in result if not ep['sub_file']}
-    key_sub_dict = multi_thread_requests(key_url_dict, get_json=True)
-    logger.info(f'send {len(key_url_dict)} requests to check subtitles')
-
-    for ep in result:
-        if ep['sub_file']:
-            continue
-        streams = key_sub_dict[ep['rating_key']]['MediaContainer']['Metadata'][0]['Media'][0]['Part'][0]['Stream']
-        sub_path = [s['key'] for s in streams if s.get('key')
-                    and configs.check_str_match(s.get('displayTitle'), 'playlist', 'subtitle_priority', log=False)]
-        sub_file = f'{scheme}://{netloc}{sub_path[0]}?download=1&X-Plex-Token={api_key}' if sub_path else None
-        ep['sub_file'] = sub_file
-    return result
-
-
-def list_episodes(data: dict):
-    if data['server'] == 'plex':
-        return list_episodes_plex(data)
-    scheme = data['scheme']
-    netloc = data['netloc']
-    api_key = data['api_key']
-    user_id = data['user_id']
-    mount_disk_mode = data['mount_disk_mode']
-    extra_str = '/emby' if data['server'] == 'emby' else ''
-    device_id, play_session_id = data['device_id'], data['play_session_id']
-
-    params = {'X-Emby-Token': api_key, }
-    headers = {'accept': 'application/json', }
-    headers.update(data['headers'])
-
-    response = requests_urllib(f'{scheme}://{netloc}{extra_str}/Users/{user_id}/Items/{data["item_id"]}',
-                               params=params, headers=headers, get_json=True)
-    # if video is movie
-    if 'SeasonId' not in response:
-        data['Type'] = response['Type']
-        data['ProviderIds'] = response['ProviderIds']
-        return [data]
-    season_id = response['SeasonId']
-    series_id = response['SeriesId']
-
-    def version_filter(file_path, episodes_data):
-        ver_re = configs.raw.get('playlist', 'version_filter', fallback='').strip().strip('|')
-        if not ver_re:
-            return episodes_data
-        try:
-            ep_num = len(set([i['IndexNumber'] for i in episodes_data]))
-        except KeyError:
-            logger.error('version_filter: KeyError: some ep not IndexNumber')
-            return episodes_data
-
-        if ep_num == len(episodes_data):
-            return episodes_data
-
-        official_rule = file_path.rsplit(' - ', 1)
-        official_rule = official_rule[-1] if len(official_rule) == 2 else None
-        if official_rule:
-            _ep_data = [i for i in episodes_data if official_rule in i['Path']]
-            if len(_ep_data) == ep_num:
-                logger.info(f'version_filter: success with {official_rule=}')
-                return _ep_data
-            else:
-                logger.info(f'version_filter: fail, {official_rule=}, pass {len(_ep_data)}, not equal {ep_num=}')
-
-        ini_re = re.findall(ver_re, file_path, re.I)
-        ver_re = re.compile('|'.join(ini_re))
-        _ep_current = [i for i in episodes_data if i['Path'] == file_path][0]
-        _ep_data = [i for i in episodes_data if len(ver_re.findall(i['Path'])) == len(ini_re)]
-        _ep_data_num = len(_ep_data)
-        if _ep_data_num == ep_num:
-            logger.info(f'version_filter: success with {ini_re=}')
-            return _ep_data
-        elif _ep_data_num > ep_num:
-            logger.info(f'version_filter: fail, {ini_re=}, pass {_ep_data_num}, {ep_num=}, disable playlist')
-            return [_ep_current]
-        else:
-            index = _ep_current['IndexNumber']
-            _ep_success = []
-            for _ep in _ep_data:
-                if _ep['IndexNumber'] == index:
-                    _ep_success.append(_ep)
-                    index += 1
-            _success = True if len(_ep_success) > 1 else False
-            if _success:
-                logger.info(f'version_filter: success with {ini_re=}, pass {len(_ep_success)} ep')
-                return _ep_success
-            else:
-                logger.info(f'version_filter: fail, {ini_re=}, disable playlist')
-                return [_ep_current]
-
-    def parse_item(item):
-        source_info = item['MediaSources'][0]
-        file_path = source_info['Path']
-        fake_name = os.path.splitdrive(file_path)[1].replace('/', '__').replace('\\', '__')
-        item_id = item['Id']
-        container = os.path.splitext(file_path)[-1]
-        stream_url = f'{scheme}://{netloc}{extra_str}/videos/{item_id}/stream{container}' \
-                     f'?DeviceId={device_id}&MediaSourceId={source_info["Id"]}&Static=true' \
-                     f'&PlaySessionId={play_session_id}&api_key={api_key}'
-        media_path = translate_path_by_ini(file_path) if mount_disk_mode else stream_url
-        basename = os.path.basename(file_path)
-        media_basename = os.path.basename(media_path)
-        total_sec = int(source_info['RunTimeTicks']) // 10 ** 7
-        index = item.get('IndexNumber', 0)
-
-        media_streams = source_info['MediaStreams']
-        sub_dict_list = [dict(title=s['DisplayTitle'], index=s['Index'], path=s['Path'])
-                         for s in media_streams
-                         if not mount_disk_mode and s['Type'] == 'Subtitle' and s['IsExternal']]
-        sub_dict_list = [s for s in sub_dict_list
-                         if configs.check_str_match(s['title'], 'playlist', 'subtitle_priority', log=False)]
-        sub_dict = sub_dict_list[0] if sub_dict_list else {}
-        sub_file = f'{scheme}://{netloc}/Videos/{item_id}/{source_info["Id"]}/Subtitles' \
-                   f'/{sub_dict["index"]}/Stream{os.path.splitext(sub_dict["path"])[-1]}' if sub_dict else None
-        sub_file = None if mount_disk_mode else sub_file
-
-        data['Type'] = item['Type']
-        data['ProviderIds'] = item['ProviderIds']
-        data['ParentIndexNumber'] = item['ParentIndexNumber']
-        data['SeriesId'] = item['SeriesId']
-        data['SeasonId'] = season_id
-        result = data.copy()
-        result.update(dict(
-            basename=basename,
-            media_basename=media_basename,
-            item_id=item_id,
-            file_path=file_path,
-            stream_url=stream_url,
-            media_path=media_path,
-            fake_name=fake_name,
-            total_sec=total_sec,
-            sub_file=sub_file,
-            index=index,
-            size=source_info['Size']
-        ))
-        return result
-
-    params.update({'Fields': 'MediaSources,Path,ProviderIds',
-                   'SeasonId': season_id, })
-    url = f'{scheme}://{netloc}{extra_str}/Shows/{series_id}/Episodes'
-    episodes = requests_urllib(url, params=params, headers=headers, get_json=True)
-    # dump_json_file(episodes, 'z_ep_parse.json')
-    episodes = [i for i in episodes['Items'] if 'Path' in i and 'RunTimeTicks' in i]
-    episodes = version_filter(data['file_path'], episodes) if data['server'] == 'emby' else episodes
-    episodes = [parse_item(i) for i in episodes]
-
-    if stream_redirect := configs.ini_str_split('dev', 'stream_redirect'):
-        stream_redirect = zip(stream_redirect[0::2], stream_redirect[1::2])
-        for (_raw, _jump) in stream_redirect:
-            if _raw in episodes[0]['stream_url']:
-                for i in episodes:
-                    i['stream_url'] = i['stream_url'].replace(_raw, _jump)
-                break
-    return episodes
 
 
 def init_player_instance(function, **kwargs):
