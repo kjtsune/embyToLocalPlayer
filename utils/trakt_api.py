@@ -1,6 +1,8 @@
+import functools
 import json
 import os
 import time
+import typing
 
 import requests
 
@@ -88,11 +90,14 @@ class TraktApi:
             json.dump(res, f, indent=2)
         return res
 
-    def id_lookup(self, id_type, _id):
+    @functools.lru_cache
+    def id_lookup(self, provider, _id, _type: typing.Literal['movie', 'show', 'episode'] = ''):
+        if _type:
+            _type = '' if provider == 'imdb' else f'?type={_type}'
         allow = ['tvdb', 'tmdb', 'imdb', 'trakt']
-        if id_type not in allow:
+        if provider not in allow:
             raise ValueError(f'id_type allow: {allow}')
-        res = self.get(f'search/{id_type}/{_id}')
+        res = self.get(f'search/{provider}/{_id}{_type}')
         return res
 
     @staticmethod
