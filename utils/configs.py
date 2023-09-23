@@ -13,6 +13,45 @@ from configparser import ConfigParser
 #     logger.addHandler(ch)
 #     return logger
 
+def mini_conf():
+    cwd = os.path.dirname(os.path.dirname(__file__))
+    path = [os.path.join(cwd, 'embyToLocalPlayer' + ext) for ext in (
+        f'-{platform.system()}.ini', '.ini', '_config.ini')]
+    path = [i for i in path if os.path.exists(i)][0]
+    config = ConfigParser()
+    config.read(path, encoding='utf-8-sig')
+    return config
+
+
+raw_stdout = sys.stdout
+
+
+class Stdout:
+
+    def __init__(self):
+        self.log_file = mini_conf().get('dev', 'log_file', fallback='')
+        if self.log_file:
+            mode = 'a' if os.path.exists(self.log_file) and os.path.getsize(self.log_file) < 10 * 1024000 else 'w'
+            self.log_file = open(self.log_file, mode, encoding='utf-8')
+
+    def write(self, *args, end=''):
+        log = str(*args) + end
+        if MyLogger.need_mix:
+            log = MyLogger.mix_args_str(log)[0]
+        raw_stdout.write(log)
+        if self.log_file:
+            self.log_file.write(log)
+            # self.log_file.flush()
+
+    def flush(self):
+        pass
+
+
+if mini_conf().get('dev', 'log_file', fallback=''):
+    sys.stdout = Stdout()
+    sys.stderr = sys.stdout
+
+
 class MyLogger:
     need_mix = True
     api_key = '_hide_api_key_'
