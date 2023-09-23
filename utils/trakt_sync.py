@@ -1,3 +1,5 @@
+import os.path
+
 from utils.configs import configs, MyLogger
 
 logger = MyLogger()
@@ -70,6 +72,7 @@ def trakt_sync_main(trakt=None, eps_data=None, test=False):
         client_id=client_id,
         client_secret=client_secret,
         oauth_code=oauth_code,
+        token_file=os.path.join(configs.cwd, 'trakt_token.json'),
         http_proxy=configs.script_proxy)
     if test:
         trakt.test()

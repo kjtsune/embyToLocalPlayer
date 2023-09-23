@@ -1,6 +1,6 @@
 # embyToLocalPlayer-Python
 
-* Emby 调用 PotPlayer mpv IINA MPC VLC 播放，并回传播放进度（可关）。适配 Jellyfin Plex。
+* Emby / Jellyfin 调用 PotPlayer mpv IINA MPC VLC 播放，并回传播放进度（可关）。适配 Plex。
 * 本地需要安装 Python
 
 **特性**
@@ -8,11 +8,9 @@
 * 在首页也可以播放。点击原来的播放按钮就可以。播放无需二次确认。
 * 播放列表（连续播放）支持，下一集保持相同版本。可设置版本偏好。
 * trakt.tv bangumi.tv bgm.tv 单向标记已观看支持。
-* 视频文件 可本地 可挂载 可远端。
-* mpv MPC PotPlayer VLC 通过网络播放时也支持外挂字幕。
-* 多网盘重复挂载可设置优先级，优先播放速度快的盘。
+* 本地挂载用户：可跳转到路径对应文件夹。（按钮在网页显示文件路径的上面）
 * 可持久性缓存文件到本地。
-* 其他播放器一般也能用，只是不会回传进度。
+* 未适配的播放器一般也能用，只是不会回传进度。
 
 **以下播放器支持回传进度**
 
@@ -73,7 +71,8 @@ macOS 可能无法开机自启
 1. `apt install python3-tk`（没报错不装也行）
 2. 添加 `emby_script_run.command` 执行权限，并用终端打开。
 3. 正常播放后，加入开机启动项（无窗口运行）：  
-   Debian_Xfce：设置 > 会话和启动 > 应用程序自启动
+   Debian_Xfce：设置 > 会话和启动 > 应用程序自启动。  
+   注意：只能使用用图形界面的自启动功能。利用 systemd 自启弹不出播放器，应该是权限或者环境等问题。
 
 ## FAQ
 
@@ -146,6 +145,12 @@ macOS 可能无法开机自启
     * vlc: 下一集无法添加 http 外挂字幕。
 
 ## 观看记录存储服务相关
+
+> 通用 FAQ
+
+* Clash for Windows 用户：
+    * 日志报错：`SSLEOFError(8, 'EOF occurred in violation of protocol (_ssl.c:1129)'))`
+    * 解决方案：Clash > Settings > System Proxy > Specify Protocol > 启用。
 
 > trakt.tv 单向同步
 

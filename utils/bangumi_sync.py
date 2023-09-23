@@ -38,7 +38,7 @@ def bangumi_sync(emby, bgm, emby_eps: list = None, emby_ids: list = None):
     season_num = item_info['ParentIndexNumber']
     index_key = 'index' if emby_eps else 'IndexNumber'
     ep_nums = [i[index_key] for i in item_infos]
-    if season_num == 0 or 0 in ep_nums:
+    if not season_num or season_num == 0 or 0 in ep_nums:
         logger.error(f'bgm: {season_num=} {ep_nums=} contain zero, skip')
         return
     series_id = item_info['SeriesId']
@@ -52,6 +52,16 @@ def bangumi_sync(emby, bgm, emby_eps: list = None, emby_ids: list = None):
     premiere_date = series_info['PremiereDate']
     emby_title = series_info['Name']
     ori_title = series_info.get('OriginalTitle', '')
+    re_split = re.compile(r'[／/]')
+    if re_split.search(ori_title):
+        ori_title = re_split.split(ori_title)
+        for _t in ori_title:
+            if any((bool(0x3040 <= ord(i) <= 0x30FF)) for i in _t):
+                ori_title = _t
+                break
+        else:
+            ori_title = ori_title[0]
+
     bgm_data = bgm.emby_search(title=emby_title, ori_title=ori_title, premiere_date=premiere_date)
     if not bgm_data:
         logger.error('bgm: bgm_data not found, skip')

@@ -8,7 +8,7 @@ import requests
 
 
 class TraktApi:
-    def __init__(self, user_id, client_id, client_secret, oauth_code=None, http_proxy=None):
+    def __init__(self, user_id, client_id, client_secret, token_file=None, oauth_code=None, http_proxy=None):
         self.base_url = 'https://api.trakt.tv'
         self.user_id = user_id
         self.client_id = client_id
@@ -21,7 +21,7 @@ class TraktApi:
             self.req.proxies = {'http': http_proxy, 'https': http_proxy}
         self.oauth_code = oauth_code
         self.access_token = {}
-        self.token_file = 'trakt_token.json'
+        self.token_file = token_file or 'trakt_token.json'
         self.init_token_workflow()
 
     def get(self, path, params=None):

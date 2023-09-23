@@ -6,7 +6,7 @@ from configparser import ConfigParser
 
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 from utils.configs import configs
-from utils.tools import requests_urllib
+from utils.net_tools import requests_urllib
 
 
 def check_ini_diff(old_path, new_path, diff_path):
@@ -17,6 +17,7 @@ def check_ini_diff(old_path, new_path, diff_path):
     new_conf.read(new_path, encoding='utf-8-sig')
     diff_conf = ConfigParser(allow_no_value=True)
 
+    have_diff = False
     for new_sect in new_conf.sections():
         new_se_d = new_conf[new_sect]
         if not old_conf.has_section(new_sect):
@@ -27,10 +28,12 @@ def check_ini_diff(old_path, new_path, diff_path):
         diff_se_d = {k: v for k, v in new_se_d.items() if k not in old_se_d or v != old_se_d.get(k)}
         if diff_se_d:
             diff_conf[new_sect] = diff_se_d
+            have_diff = True
 
-    print(f'diff {diff_path}')
-    with open(diff_path, 'w', encoding='utf-8-sig') as f:
-        diff_conf.write(f)
+    if have_diff:
+        print(f'diff {diff_path}')
+        with open(diff_path, 'w', encoding='utf-8-sig') as f:
+            diff_conf.write(f)
 
 
 def main():

@@ -353,7 +353,7 @@ def list_episodes(data: dict):
 
         data['Type'] = item['Type']
         data['ProviderIds'] = item['ProviderIds']
-        data['ParentIndexNumber'] = item['ParentIndexNumber']
+        data['ParentIndexNumber'] = item.get('ParentIndexNumber')
         data['SeriesId'] = item['SeriesId']
         data['SeasonId'] = season_id
         result = data.copy()

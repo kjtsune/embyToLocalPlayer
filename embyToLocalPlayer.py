@@ -1,5 +1,6 @@
 import json
 import multiprocessing
+import os
 import subprocess
 import threading
 from http.server import BaseHTTPRequestHandler
@@ -119,7 +120,7 @@ def start_play(data):
         update_server_playback_progress(stop_sec=stop_sec, data=data)
 
         eps_data = eps_data_thread.join()
-        current_ep = [i for i in eps_data if i['item_id'] == data['item_id']][0]
+        current_ep = [i for i in eps_data if i['file_path'] == data['file_path']][0]
         current_ep['_stop_sec'] = stop_sec
         for provider in 'trakt', 'bangumi':
             if configs.raw.get(provider, 'enable_host', fallback=''):
@@ -139,6 +140,7 @@ def start_play(data):
 
 
 if __name__ == '__main__':
+    os.chdir(configs.cwd)
     player_is_running = False
     dl_manager = DownloadManager(configs.cache_path, speed_limit=configs.speed_limit)
     if configs.raw.getboolean('dev', 'kill_process_at_start', fallback=True):
