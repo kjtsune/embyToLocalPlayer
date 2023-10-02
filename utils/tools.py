@@ -282,7 +282,8 @@ def parse_received_data_emby(received_data):
         sub_jellyfin_str = '' if is_emby \
             else f'{item_id[:8]}-{item_id[8:12]}-{item_id[12:16]}-{item_id[16:20]}-{item_id[20:]}/'
         sub_emby_str = f'/{media_source_id}' if is_emby else ''
-        sub_data = media_source_info['MediaStreams'][sub_index]
+        # sub_data = media_source_info['MediaStreams'][sub_index]
+        sub_data = [i for i in media_source_info['MediaStreams'] if i['Index'] == sub_index][0]
         fallback_sub = f'{extra_str}/videos/{sub_jellyfin_str}{item_id}{sub_emby_str}/Subtitles' \
                        f'/{sub_index}/0/Stream.{sub_data["Codec"]}?api_key={api_key}'
         sub_delivery_url = sub_data.get('DeliveryUrl') or fallback_sub
