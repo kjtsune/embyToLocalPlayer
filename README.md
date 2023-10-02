@@ -1,6 +1,6 @@
 # embyToLocalPlayer-Python
 
-* Emby / Jellyfin 调用 PotPlayer mpv IINA MPC VLC 播放，并回传播放进度（可关）。适配 Plex。
+* Emby/Jellyfin 调用 PotPlayer mpv IINA MPC VLC 播放，并回传播放进度（可关）。适配 Plex。
 * 本地需要安装 Python
 
 **特性**
@@ -25,7 +25,7 @@
 * VLC [发布页](https://www.videolan.org/vlc/)
 * IINA（macOS）[发布页](https://iina.io/) 若使用 http 播放不支持外挂字幕文件（mpv 支持）
 
-## 使用说明
+### 使用说明
 
 > 基础配置
 
@@ -74,7 +74,10 @@ macOS 可能无法开机自启
    Debian_Xfce：设置 > 会话和启动 > 应用程序自启动。  
    注意：只能使用用图形界面的自启动功能。利用 systemd 自启弹不出播放器，应该是权限或者环境等问题。
 
-## FAQ
+### FAQ
+
+<details>
+<summary>FAQ</summary>
 
 > 通用说明
 
@@ -96,11 +99,12 @@ macOS 可能无法开机自启
 
 > 如何更新
 
-* 方法1：将 `_config.ini` 重命名为 `.ini`，其他全删除。再次 GitHub 下载解压当前文件夹。（`.ini` 优先于 `_config.ini`  ）  
-  同时看看 `embyToLocalPlayer_config.ini` 有没有新内容。
-* 方法2：  
+* 方法1：  
   Windows: `.bat` 按 6  
-  Linux / macOS：在 `.ini` 所在的文件夹打开终端，运行 `python3 utils/update.py`
+  Linux / macOS：在 `.ini` 所在的文件夹打开终端，运行 `python3 utils/update.py`  
+  查看新旧配置的差异字段。`embyToLocalPlayer_diff.ini`
+* 方法2：将 `_config.ini` 重命名为 `.ini`，其他全删除。再次 GitHub 下载解压当前文件夹。（`.ini` 优先于 `_config.ini`  ）  
+  同时看看 `embyToLocalPlayer_config.ini` 有没有新内容。
 * 油猴脚本有时也要更新。
 
 > 如何反馈
@@ -111,6 +115,7 @@ macOS 可能无法开机自启
 2. 换播放器及换视频文件测试是否复现。
 3. 截图或复制 `.bat` 窗口中的日志（选中后回车即复制）。
 4. 碰到什么问题及怎么复现。
+5. [可选] 开启日志文件会隐藏报错里的用户名 `.ini` > `[dev]` > `log_file`
 
 > 字幕相关
 
@@ -144,7 +149,12 @@ macOS 可能无法开机自启
     * mpv:
     * vlc: 下一集无法添加 http 外挂字幕。
 
-## 观看记录存储服务相关
+</details>
+
+### 观看记录存储服务相关
+
+<details>
+<summary>观看记录存储服务相关</summary>
 
 > 通用 FAQ
 
@@ -152,29 +162,7 @@ macOS 可能无法开机自启
     * 日志报错：`SSLEOFError(8, 'EOF occurred in violation of protocol (_ssl.c:1129)'))`
     * 解决方案：Clash > Settings > System Proxy > Specify Protocol > 启用。
 
-> trakt.tv 单向同步
-
-* 缺点：
-    1. 媒体服务器一般本身就有 Trakt 插件。
-    2. 只能往 Trakt 单向同步。
-    3. 只在播放器正常关闭后，同步播放器已播放的（网页点击已播放不触发）。
-    4. 配置和使用都麻烦。
-* 使用说明：
-    1. 安装依赖：命令行终端运行，安装失败尝试在启用或禁用代理的环境来安装：  
-       `python -m pip install requests`  
-       或者：  
-       `python -m pip install requests -i https://mirrors.aliyun.com/pypi/simple/ --trusted-host=mirrors.aliyun.com`
-    2. [点击访问：Trakt app 管理页面](https://trakt.tv/oauth/applications)：   
-       创建 app，名字任意，Redirect uri 填写: `http://localhost/trakt` ，然后保存。
-    3. ini 配置文件`[trakt]` 填写 `enable_host` `user_name` `client_id` `client_secret` 这四项。
-    4. 点击 app 详情页面的 `Authorize` 按钮，二次同意后，复制网址并填到配置文件 `oauth_code` 里。
-    5. 启动脚本，播放一个视频，拖到最后，关闭播放器。看日志是否同步成功。
-* 常见问题：
-    1. 若同步失败。电影看是否缺失IMDb，剧集看单集下方是否有 IMDb 或 TheTVDB。
-    2. 目录下`trakt_token.json`可以复制给新电脑用。然后删除原来的，并填写新的 `oauth_code` 来重新生成。   
-       如果只是复制到新电脑，重复使用 token 的话，有效期只有三个月。
-
-> bangumi.tv（bgm.tv） 单向同步
+> bangumi.tv（bgm.tv） 单向同步（点格子）
 
 * 缺点：
     1. 只能往 Bangumi 单向同步。
@@ -200,11 +188,44 @@ macOS 可能无法开机自启
        的上映时间相差是否超过15天，来保证准确性。  
        如果还有其他特殊情况，可以反馈。
 
-## 播放器相关:
+> trakt.tv 单向同步
+
+* 缺点：
+    1. 媒体服务器一般本身就有 Trakt 插件。
+    2. 只能往 Trakt 单向同步。
+    3. 只在播放器正常关闭后，同步播放器已播放的（网页点击已播放不触发）。
+    4. 配置和使用都麻烦。
+* 使用说明：
+    1. 安装依赖：命令行终端运行，安装失败尝试在启用或禁用代理的环境来安装：  
+       `python -m pip install requests`  
+       或者：  
+       `python -m pip install requests -i https://mirrors.aliyun.com/pypi/simple/ --trusted-host=mirrors.aliyun.com`
+    2. [点击访问：Trakt app 管理页面](https://trakt.tv/oauth/applications)：   
+       创建 app，名字任意，Redirect uri 填写: `http://localhost/trakt` ，然后保存。
+    3. ini 配置文件`[trakt]` 填写 `enable_host` `user_name` `client_id` `client_secret` 这四项。
+    4. 点击 app 详情页面的 `Authorize` 按钮，二次同意后，复制网址并填到配置文件 `oauth_code` 里。
+    5. 启动脚本，播放一个视频，拖到最后，关闭播放器。看日志是否同步成功。
+* 常见问题：
+    1. 若同步失败。电影看是否缺失IMDb，剧集看单集下方是否有 IMDb 或 TheTVDB。
+    2. 目录下`trakt_token.json`可以复制给新电脑用。然后删除原来的，并填写新的 `oauth_code` 来重新生成。   
+       如果只是复制到新电脑，重复使用 token 的话，有效期只有三个月。
+
+</details>
+
+### 播放器相关:
+
+<details>
+<summary>播放器相关</summary>
+
+> mpv
+
+* 日志正常调用却无法播放：  
+  可能是解码方面的问题，换视频或者软解看看，检查 mpv 日志。  
+  `mpv.conf` > `log-file = <save path>`
 
 > mpv.net
 
-* 设置播放完自动关闭。不加载下个文件。（触发回传进度）  
+* 设置播放完自动关闭。不加载下个文件。（方便触发回传进度，`.ini`配置有播放列表选项）  
   右击 > Settings > Playback > idle:no, auto-load-folder:no （大概是这样
 
 > PotPlayer
@@ -213,6 +234,8 @@ macOS 可能无法开机自启
   网络用户或没有特殊需求的话，mpv 系的播放器综合体验较好。
 * 选项 > 播放 > 播放窗口尺寸：全屏
 * 配置/语言/其他 > 收尾处理 > 播放完当前后退出（触发回传进度）
+* `.bat` 日志提示`KeyError: ''`。  
+  初始化 pot 和 `.ini` 删除播放列表部分试试看。
 * Pot 自身问题：`.bat` 日志可能提示`KeyError: 'stream.mkv'`。  
   解决方案：三选一（若前两个方法失败换版本估计也不行）。1. 本地用户使用读盘模式；2. 把 `.ini` 文件里`多集回传` 部分删除。3. 换
   pot版本；  
@@ -237,10 +260,15 @@ macOS 可能无法开机自启
 
 > IINA
 
-* 退出播放器才会回传进度。
+* 完全退出播放器才会回传进度。
 * 非读盘模式不支持外挂字幕文件（mpv 支持）
 
-## 其他:
+</details>
+
+### 其他:
+
+<details>
+<summary>其他</summary>
 
 > Jellyfin 相关
 
@@ -292,3 +320,5 @@ macOS 可能无法开机自启
 > 感谢
 
 * [iwalton3/python-mpv-jsonipc](https://github.com/iwalton3/python-mpv-jsonipc)
+
+</details>

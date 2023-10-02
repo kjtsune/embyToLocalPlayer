@@ -100,7 +100,7 @@ class PlayerManager:
                 else:
                     null_file = 'NUL' if os.name == 'nt' else '/dev/null'
                     dl = Downloader(ep['stream_url'], ep['basename'], save_path=null_file)
-                    threading.Thread(target=dl.percent_download, args=(0, 0.02), daemon=True).start()
+                    threading.Thread(target=dl.percent_download, args=(0, 0.05), daemon=True).start()
                     threading.Thread(target=dl.percent_download, args=(0.98, 1), daemon=True).start()
                 done_list.append(key)
             time.sleep(5)
@@ -116,14 +116,12 @@ class PlayerManager:
         if not self.playlist_data:
             logger.error(f'playlist_data not found skip update progress')
             return
-        is_fist = True
         for key, _stop_sec in self.playlist_time.items():
             ep = self.playlist_data[key]
             if not _stop_sec:
                 continue
             logger.info(f'update {ep["basename"]} {_stop_sec=}')
-            update_server_playback_progress(stop_sec=_stop_sec, data=ep, store=is_fist)
-            is_fist = False
+            update_server_playback_progress(stop_sec=_stop_sec, data=ep)
 
             ep['_stop_sec'] = _stop_sec
             need_update_eps.append(ep)

@@ -32,6 +32,8 @@ class Stdout:
         self.log_file = mini_conf().get('dev', 'log_file', fallback='')
         if self.log_file:
             mode = 'a' if os.path.exists(self.log_file) and os.path.getsize(self.log_file) < 10 * 1024000 else 'w'
+            if not os.path.exists(self.log_file):
+                os.makedirs(os.path.dirname(self.log_file), exist_ok=True)
             self.log_file = open(self.log_file, mode, encoding='utf-8')
 
     def write(self, *args, end=''):

@@ -32,9 +32,6 @@ class _RequestHandler(BaseHTTPRequestHandler):
             data = parse_received_data_emby(data) if self.path.startswith('/emby') else parse_received_data_plex(data)
             logger_setup(data=data)
             logger.info(f'server={data["server"]} mount_disk_mode={data["mount_disk_mode"]}')
-            threading.Thread(target=update_server_playback_progress, kwargs=dict(
-                stop_sec=data['start_sec'], data=data, store=False, check_fist_time=True
-            ), daemon=True).start()
             if configs.check_str_match(_str=data['netloc'], section='gui', option='except_host'):
                 threading.Thread(target=start_play, args=(data,), daemon=True).start()
                 return True

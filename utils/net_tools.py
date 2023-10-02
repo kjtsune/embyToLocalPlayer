@@ -2,6 +2,7 @@ import json
 import os.path
 import re
 import socket
+import ssl
 import time
 import urllib.error
 import urllib.parse
@@ -13,6 +14,7 @@ from typing import Union
 from utils.configs import configs, MyLogger
 from utils.tools import translate_path_by_ini
 
+ssl_context = ssl.SSLContext() if configs.raw.getboolean('dev', 'skip_certificate_verify', fallback=False) else None
 bangumi_api_cache = {'cache_time': time.time(), 'bangumi': None}
 sync_third_party_done_ids = {'trakt': [],
                              'bangumi': []}
@@ -27,7 +29,7 @@ def run_server(req_handler):
     httpd.serve_forever()
 
 
-def requests_urllib(host, params=None, _json=None, decode=False, timeout=3.0, headers=None, req_only=False,
+def requests_urllib(host, params=None, _json=None, decode=False, timeout=5.0, headers=None, req_only=False,
                     http_proxy='', get_json=False, save_path='', retry=5, silence=False, res_only=False):
     _json = json.dumps(_json).encode('utf-8') if _json else None
     params = urllib.parse.urlencode(params) if params else None
@@ -50,14 +52,14 @@ def requests_urllib(host, params=None, _json=None, decode=False, timeout=3.0, he
     response = None
     for try_times in range(1, retry + 1):
         try:
-            response = urllib.request.urlopen(req, _json, timeout=timeout)
+            response = urllib.request.urlopen(req, _json, timeout=timeout, context=ssl_context)
             if res_only:
                 return response
             break
-        except (socket.timeout, urllib.error.URLError):
+        except (socket.timeout, urllib.error.URLError) as e:
             logger.error(f'urllib {try_times=} {host=}', silence=silence)
             if try_times == retry:
-                raise TimeoutError(f'{try_times=} {host=}') from None
+                raise TimeoutError(f'{try_times=} {host=} \n{str(e)[:100]}') from None
     if decode:
         return response.read().decode()
     if get_json:
@@ -175,7 +177,7 @@ def change_plex_play_position(scheme, netloc, api_key, stop_sec, rating_key, cli
 emby_last_dict = dict(watched=True, stop_sec=0, data={}, normal_file=True)
 
 
-def update_server_playback_progress(stop_sec, data, store=True, check_fist_time=False):
+def update_server_playback_progress(stop_sec, data):
     if not configs.raw.getboolean('emby', 'update_progress', fallback=True):
         return
     if stop_sec is None:
@@ -189,36 +191,10 @@ def update_server_playback_progress(stop_sec, data, store=True, check_fist_time=
     stop_sec = int(stop_sec)
     stop_sec = stop_sec - 2 if stop_sec > 5 else stop_sec
 
+    if not normal_file:
+        return
     if server == 'emby':
-        start = time.time()
-        times = 0
-        if normal_file:
-            times += 1
-            change_emby_play_position(stop_sec=stop_sec, **data)
-        # 4.7.8 开始：播放 A 到一半后退出，不刷新浏览器，播放 B，会清空 A 播放进度，故重复回传。
-        # 播放完毕记录到字典
-        if store:
-            watched = bool(stop_sec / data['total_sec'] > 0.9)
-            logger.debug('update emby_last_dict', data['basename'])
-            emby_last_dict.update(dict(
-                watched=watched,
-                stop_sec=stop_sec,
-                data=data,
-                normal_file=normal_file,
-            ))
-            return
-        # 浏览器刷新后重置数据
-        if check_fist_time and data['fist_time']:
-            emby_last_dict.update(dict(watched=True, stop_sec=0, data={}, normal_file=False))
-        # 第二次播放时，回传上个文件被重置的进度。
-        if not data['fist_time'] and emby_last_dict['data'] \
-                and not emby_last_dict['watched'] and emby_last_dict['normal_file']:
-            logger.info('update again by check_last', emby_last_dict['data']['basename'], emby_last_dict['stop_sec'])
-            change_emby_play_position(stop_sec=emby_last_dict['stop_sec'], **emby_last_dict['data'])
-            times += 1
-        logger.info(f'send {times * 2} requests, update done, used time: {time.time() - start}')
-    elif not normal_file:
-        pass
+        change_emby_play_position(stop_sec=stop_sec, **data)
     elif server == 'jellyfin':
         change_jellyfin_play_position(stop_sec=stop_sec, **data)
     elif server == 'plex':
@@ -387,6 +363,8 @@ def list_episodes(data: dict):
             if _raw in episodes[0]['stream_url']:
                 for i in episodes:
                     i['stream_url'] = i['stream_url'].replace(_raw, _jump)
+                    if not mount_disk_mode:
+                        i['media_path'] = i['stream_url']
                 break
     return episodes
 

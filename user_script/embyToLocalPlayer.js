@@ -3,7 +3,7 @@
 // @name:zh-CN   embyToLocalPlayer
 // @name:en      embyToLocalPlayer
 // @namespace    https://github.com/kjtsune/embyToLocalPlayer
-// @version      1.1.9.1
+// @version      1.1.9.2
 // @description  需要 Python。Emby 调用外部本地播放器，并回传播放记录。适配 Jellyfin Plex。
 // @description:zh-CN 需要 Python。Emby 调用外部本地播放器，并回传播放记录。适配 Jellyfin Plex。
 // @description:en  Require Python. Play in an external player. Update watch history to emby server. Support Jellyfin Plex.
@@ -224,6 +224,8 @@ unsafeWindow.fetch = async (url, request) => {
             addOpenFolderElement();
             addFileNameElement(url, request);
         }
+    } else if (url.indexOf('/Playing/Stopped') != -1 && localStorage.getItem('webPlayerEnable') != 'true') {
+        return
     }
     return originFetch(url, request);
 }
