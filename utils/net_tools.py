@@ -56,10 +56,14 @@ def requests_urllib(host, params=None, _json=None, decode=False, timeout=5.0, he
             if res_only:
                 return response
             break
-        except (socket.timeout, urllib.error.URLError) as e:
+        except socket.timeout:
             logger.error(f'urllib {try_times=} {host=}', silence=silence)
             if try_times == retry:
-                raise TimeoutError(f'{try_times=} {host=} \n{str(e)[:100]}') from None
+                raise TimeoutError(f'{try_times=} {host=}') from None
+        except urllib.error.URLError as e:
+            logger.error(f'urllib {try_times=} {host=}\n{str(e)[:100]}', silence=silence)
+            if try_times == retry:
+                raise ConnectionError(f'{try_times=} {host=} \n{str(e)[:100]}') from None
     if decode:
         return response.read().decode()
     if get_json:

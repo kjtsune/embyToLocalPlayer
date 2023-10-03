@@ -38,6 +38,7 @@
 
 * 网页闪一下是自动关闭兼容流提示。
 * 播放器要退出触发回传进度。
+* 碰到问题先参考下方相关 FAQ。
 
 > Windows
 
@@ -77,7 +78,7 @@ macOS 可能无法开机自启
 ### FAQ
 
 <details>
-<summary>FAQ</summary>
+<summary>通用 FAQ</summary>
 
 > 通用说明
 

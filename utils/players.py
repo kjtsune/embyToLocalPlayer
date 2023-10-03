@@ -75,8 +75,11 @@ class PlayerManager:
         prefetch_tuple = configs.raw.get('playlist', 'prefetch_path', fallback='').replace('，', ',')
         prefetch_tuple = tuple(p.strip() for p in prefetch_tuple.split(',') if p.strip())
         while prefetch_data['on']:
-            for key, stop_sec in stop_sec_dict.items():
+            for key, stop_sec in stop_sec_dict.copy().items():
                 ep = playlist_data.get(key)
+                if not ep:
+                    # logger.error(f'skip prefetch_data: {key=} {stop_sec=} not in playlist_data')
+                    continue
                 if not key or not stop_sec or key in done_list:
                     continue
                 if prefetch_tuple and not ep['file_path'].startswith(prefetch_tuple):
@@ -117,10 +120,13 @@ class PlayerManager:
             logger.error(f'playlist_data not found skip update progress')
             return
         for key, _stop_sec in self.playlist_time.items():
-            ep = self.playlist_data[key]
+            ep = self.playlist_data.get(key)
+            if not ep:
+                logger.error(f'skip update progress: {key=} {_stop_sec=} not in playlist_data')
+                continue
             if not _stop_sec:
                 continue
-            logger.info(f'update {ep["basename"]} {_stop_sec=}')
+            logger.info(f'update progress: {ep["basename"]} {_stop_sec=}')
             update_server_playback_progress(stop_sec=_stop_sec, data=ep)
 
             ep['_stop_sec'] = _stop_sec
@@ -396,7 +402,7 @@ def mpc_player_start(cmd, start_sec=None, sub_file=None, media_title=None, get_s
     if not get_stop_sec:
         return
 
-    mpc = init_player_instance(MPCHttpApi, port=port)
+    mpc = init_player_instance(MPCHttpApi, port=port, pid=player.pid)
     return dict(mpc=mpc, mpc_path=cmd[0])
 
 
@@ -416,15 +422,32 @@ class MPCHTMLParser(HTMLParser):
 
 
 class MPCHttpApi:
-    def __init__(self, port):
+    def __init__(self, port, pid=None):
+        from utils.windows_tool import process_is_running_by_pid
         self.url = f'http://localhost:{port}/variables.html'
         self.parser = MPCHTMLParser()
+        self.pid = pid
+        self.is_running = lambda: process_is_running_by_pid(pid)
         _test = self.get('version')
 
-    def get(self, key, timeout=0.5, return_list=False):
+    def get(self, key, timeout=0.5, return_list=False, retry=3):
         # key: str -> value
         # key: iterable object -> value dict
-        context = requests_urllib(self.url, decode=True, timeout=timeout)
+        if self.pid:
+            for _ in range(15):
+                try:
+                    context = requests_urllib(self.url, decode=True, timeout=1, retry=1, silence=True)
+                    break
+                except Exception:
+                    if not self.is_running():
+                        raise ConnectionAbortedError('mpc is not running') from None
+                    print('.', end='')
+                    pass
+                time.sleep(1)
+            else:
+                raise TimeoutError('MPCHttpApi Connection timeout')
+        else:
+            context = requests_urllib(self.url, decode=True, timeout=timeout, retry=retry)
         self.parser.feed(context)
         data = self.parser.id_value_dict
         if isinstance(key, str):
@@ -517,7 +540,8 @@ def pot_player_start(cmd: list, start_sec=None, sub_file=None, media_title=None,
     return dict(pot_pid=player.pid, pot_path=cmd[0])
 
 
-def playlist_add_pot(pot_path, data, eps_data=None, limit=5, **_):
+def playlist_add_pot(pot_pid, pot_path, data, eps_data=None, limit=5, **_):
+    from utils.windows_tool import process_is_running_by_pid
     playlist_data = {}
     if not pot_path:
         logger.error('pot_path not found skip playlist_add_mpv')
@@ -525,6 +549,14 @@ def playlist_add_pot(pot_path, data, eps_data=None, limit=5, **_):
     episodes = eps_data or list_episodes(data)
     append = False
     mount_disk_mode = data['mount_disk_mode']
+    if not mount_disk_mode:
+        while True:
+            if stop_sec_pot(pot_pid=pot_pid, check_only=True):
+                logger.info('play started, ready to add playlist')
+                break
+            if not process_is_running_by_pid(pot_pid):
+                break
+            time.sleep(1)
     for ep in episodes:
         basename = ep['basename']
         playlist_data[basename] = ep
@@ -536,14 +568,16 @@ def playlist_add_pot(pot_path, data, eps_data=None, limit=5, **_):
         limit -= 1
         # f'/sub={ep["sub_file"]}' pot 下一集会丢失字幕
         # /add /title 不能复用，会丢失 /title
-        time.sleep(1)
+        if not process_is_running_by_pid(pot_pid):
+            return {}
         subprocess.run([pot_path, '/add', ep['media_path'], f'/title={basename}', ])
+        time.sleep(5)
     return playlist_data
 
 
-def stop_sec_pot(pot_pid, stop_sec_only=True, **_):
+def stop_sec_pot(pot_pid, stop_sec_only=True, check_only=False, **_):
     if not pot_pid:
-        logger.error('pot pid not found skip stop_sec_mpc')
+        logger.error('pot pid not found skip stop_sec_pot')
         return None if stop_sec_only else {}
     import ctypes
     from utils.windows_tool import user32, EnumWindowsProc, process_is_running_by_pid
@@ -556,6 +590,9 @@ def stop_sec_pot(pot_pid, stop_sec_only=True, **_):
             if _pid == target_pid.value:
                 message = user32.SendMessageW(hwnd, 0x400, 0x5004, 1)
                 if message:
+                    if check_only:
+                        stop_sec = 'check_only'
+                        return
                     stop_sec = message // 1000
 
                     length = user32.GetWindowTextLengthW(hwnd)
@@ -578,9 +615,13 @@ def stop_sec_pot(pot_pid, stop_sec_only=True, **_):
         if not process_is_running_by_pid(pot_pid):
             logger.debug('pot not running')
             break
+        if check_only and stop_sec == 'check_only':
+            return True
         potplayer_time_title_updater(pot_pid)
         logger.debug(f'pot {stop_sec=}')
         time.sleep(0.3)
+    if check_only:
+        return False
     return stop_sec if stop_sec_only else name_stop_sec_dict
 
 
