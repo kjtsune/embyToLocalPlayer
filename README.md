@@ -60,11 +60,17 @@ macOS 可能无法开机自启
 1. 刚才保存的文件夹 > 右击 > 新建位于文件夹的终端窗口 `chmod +x *.command` 回车。
 2. 双击 `emby_script_run.command`, 若无报错，可播放测试。
 3. 开机自启（无窗口运行）：
-    1. 启动台 > 自动操作 > 文件 > 新建 > 应用程序 > 运行 Shell 脚本 >   
-       把 `emby_script_run.command` 文件拖入 > 点击运行后测试播放 > 文件 > 存储 > 取名并保存到应用程序。
-    2. 启动台 > 刚才的应用 > 双击后台运行后再次播放测试。
-    3. 系统偏好设置 > 用户与群组 > 登录项 > 添加刚才的应用。
-    4. 如果 Monterey 12.6.6 状态栏有齿轮，把文件拖入的操作替换成写以下内容，注意更改cd目录为你保存的目录。  
+    1. 使用Homebrew安装screen。  
+       `brew install screen`  
+       如果你没有安装 Homebrew，请先安装 Homebrew。  
+       ```
+       /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install.sh)"
+       ``` 
+    2. 启动台 > 自动操作 > 文件 > 新建 > 应用程序 > 运行 Shell 脚本 >   
+       把 `emby_script_run_background.command` 文件拖入 > 点击运行后测试播放 > 文件 > 存储 > 取名并保存到应用程序。
+    3. 启动台 > 刚才的应用 > 双击后台运行后再次播放测试。
+    4. 系统偏好设置 > 用户与群组 > 登录项 > 添加刚才的应用。
+    5. 如果 Monterey 12.6.6 状态栏有齿轮，把文件拖入的操作替换成写以下内容，注意更改cd目录为你保存的目录。  
        `cd ~/App/embyToLocalPlayer && nohup ./emby_script_run.command > run.log 2&>1 &`
 
 > Linux
