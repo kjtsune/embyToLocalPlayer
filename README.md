@@ -63,7 +63,9 @@ macOS 可能无法开机自启
     1. 使用Homebrew安装screen。  
        `brew install screen`  
        如果你没有安装 Homebrew，请先安装 Homebrew。  
-       `/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install.sh)"`  
+       ```
+       /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install.sh)"
+       ``` 
     2. 启动台 > 自动操作 > 文件 > 新建 > 应用程序 > 运行 Shell 脚本 >   
        把 `emby_script_run_background.command` 文件拖入 > 点击运行后测试播放 > 文件 > 存储 > 取名并保存到应用程序。
     3. 启动台 > 刚才的应用 > 双击后台运行后再次播放测试。
