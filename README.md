@@ -38,7 +38,7 @@
 
 * 网页闪一下是自动关闭兼容流提示。
 * 播放器要退出触发回传进度。
-* 碰到问题先参考下方相关 FAQ。
+* **碰到问题先参考下方相关 FAQ**。
 
 > Windows
 
@@ -55,19 +55,20 @@
 
 > macOS
 
-macOS 可能无法开机自启
-
 1. 刚才保存的文件夹 > 右击 > 新建位于文件夹的终端窗口 `chmod +x *.command` 回车。
 2. 双击 `emby_script_run.command`, 若无报错，可播放测试。
 3. 开机自启（无窗口运行）：
-    1. 使用Homebrew安装screen。  
-       `brew install screen`  
-       如果你没有安装 Homebrew，请先安装 Homebrew。  
-       ```
-       /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install.sh)"
-       ``` 
+    1.
+        * 方案一：直接进入下一步，但估计只适用于 Monterey 12 及之前的老版本系统。
+        * 方案二：使用 Homebrew 安装 screen。  
+          `brew install screen`  
+          如果你没有安装 Homebrew，请先安装 Homebrew。
+          ```
+          /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install.sh)"
+          ``` 
     2. 启动台 > 自动操作 > 文件 > 新建 > 应用程序 > 运行 Shell 脚本 >   
-       把 `emby_script_run_background.command` 文件拖入 > 点击运行后测试播放 > 文件 > 存储 > 取名并保存到应用程序。
+       把 `emby_script_run.command`（方案一）| `emby_script_run_via_screen.command`（方案二） 文件拖入 >
+       点击运行后测试播放 > 文件 > 存储 > 取名并保存到应用程序。
     3. 启动台 > 刚才的应用 > 双击后台运行后再次播放测试。
     4. 系统偏好设置 > 用户与群组 > 登录项 > 添加刚才的应用。
     5. 如果 Monterey 12.6.6 状态栏有齿轮，把文件拖入的操作替换成写以下内容，注意更改cd目录为你保存的目录。  
@@ -82,6 +83,9 @@ macOS 可能无法开机自启
    注意：只能使用用图形界面的自启动功能。利用 systemd 自启弹不出播放器，应该是权限或者环境等问题。
 
 ### FAQ
+
+**如果排版有问题，请到 GitHub 查看。**  
+https://github.com/kjtsune/embyToLocalPlayer#faq
 
 <details>
 <summary>通用 FAQ</summary>
@@ -143,25 +147,25 @@ macOS 可能无法开机自启
     * vlc:
     * mpc: be: 播放列表条目超过10个可能会卡住，hc 没这问题。
     * pot: 若日志显示`KeyError: 'stream.mkv'`，看下方 FAQ。  
-      pot: 下一集无法添加 http 外挂字幕。
+      pot: 采用连播模式解决：播放列表下一集无法添加 http 外挂字幕。
 
 * macOS
 
     * mpv:
     * iina: 仅读盘模式支持并可回传
-    * vlc: 下一集无法添加 http 外挂字幕。
+    * vlc: 采用连播模式解决：播放列表下一集无法添加 http 外挂字幕。
 
 * Linux
 
     * mpv:
-    * vlc: 下一集无法添加 http 外挂字幕。
+    * vlc: 采用连播模式解决：播放列表下一集无法添加 http 外挂字幕。
 
 </details>
 
-### 观看记录存储服务相关
-
 <details>
 <summary>观看记录存储服务相关</summary>
+
+### 观看记录存储服务相关
 
 > 通用 FAQ
 
@@ -219,10 +223,10 @@ macOS 可能无法开机自启
 
 </details>
 
-### 播放器相关:
-
 <details>
 <summary>播放器相关</summary>
+
+### 播放器相关:
 
 > mpv
 
@@ -272,10 +276,10 @@ macOS 可能无法开机自启
 
 </details>
 
-### 其他:
-
 <details>
 <summary>其他</summary>
+
+### 其他:
 
 > Jellyfin 相关
 

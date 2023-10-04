@@ -14,12 +14,12 @@ echo run in "$script_folder"
 cd "$script_folder" || (echo cd faild && exit)
 
 #后台运行
-screenName="jellyfin"
+screen_name="etlp"
 
-if [ $(screen -ls | grep -c $screenName) -ne 0 ]; then 
-	screen -S $screenName -X quit
+if [ $(screen -ls | grep -c $screen_name) -ne 0 ]; then 
+	screen -S $screen_name -X quit
 fi
 
-screen -dmS $screenName
-screen -x $screenName -p 0 -X stuff "python3 embyToLocalPlayer.py"
-screen -x $screenName -p 0 -X stuff $'\n'
+screen -dmS $screen_name
+screen -x $screen_name -p 0 -X stuff "python3 embyToLocalPlayer.py"
+screen -x $screen_name -p 0 -X stuff $'\n'
