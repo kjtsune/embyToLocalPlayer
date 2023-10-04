@@ -69,7 +69,7 @@ class Downloader:
 
     def percent_download(self, start, end, speed=0, update=True):
         self.file_is_busy = True
-        logger.info(self._id, '_start', start, '_end', end)
+        logger.info(f'download: {self._id} _start {start} _end {end}')
         _start = int(float(self.size * start))
         _end = int(float(self.size * end))
         end_with = self.range_download(_start, _end, speed=speed, update=update)
@@ -273,7 +273,7 @@ def prefetch_resume_tv():
     while True:
         try:
             items = requests_urllib(f'{host}/Users/{user_id}/Items/Resume',
-                                    params=params, headers=headers, get_json=True)
+                                    params=params, headers=headers, get_json=True, timeout=10)
         except Exception:
             time.sleep(600)
             continue
@@ -282,16 +282,29 @@ def prefetch_resume_tv():
         items = [i for i in items if i.get('SeriesName') and i.get('PremiereDate')
                  and time.mktime(time.strptime(i['PremiereDate'][:10], '%Y-%m-%d')) > time.time() - 86400 * 7]
         for ep in items:
+            item_id = ep['Id']
             source_info = ep['MediaSources'][0] if 'MediaSources' in ep else ep
             file_path = source_info['Path']
-            if file_path in done_list or not file_path.startswith(tuple(startswith)) \
+            if item_id in done_list or not file_path.startswith(tuple(startswith)) \
                     or ep['UserData'].get('LastPlayedDate'):
                 continue
-            container = os.path.splitext(file_path)[-1]
-            stream_url = f'{host}/videos/{ep["Id"]}/stream{container}' \
-                         f'?MediaSourceId={source_info["Id"]}&Static=true&api_key={api_key}'
-            dl = Downloader(url=stream_url, _id=os.path.basename(file_path), save_path=null_file)
-            threading.Thread(target=dl.percent_download, args=(0, 0.02), daemon=True).start()
-            threading.Thread(target=dl.percent_download, args=(0.98, 1), daemon=True).start()
-            done_list.append(file_path)
+
+            playback_info = requests_urllib(f'{host}/Items/{item_id}/PlaybackInfo',
+                                            params=params, headers=headers, get_json=True)
+            play_session_id = playback_info['PlaySessionId']
+
+            for source_info in playback_info['MediaSources']:
+                file_path = source_info['Path']
+                container = os.path.splitext(file_path)[-1]
+                # stream_url = f'{host}/videos/{ep["Id"]}/stream{container}' \
+                #              f'?MediaSourceId={source_info["Id"]}&Static=true&api_key={api_key}'
+                stream_url = f'{host}/emby/videos/{item_id}/stream{container}' \
+                             f'?DeviceId=embyToLocalPlayer&MediaSourceId={source_info["Id"]}&Static=true' \
+                             f'&PlaySessionId={play_session_id}&api_key={api_key}'
+
+                logger.info(f'prefetch {ep["SeriesName"]} {file_path} \n{stream_url}')
+                dl = Downloader(url=stream_url, _id=os.path.basename(file_path), save_path=null_file)
+                threading.Thread(target=dl.percent_download, args=(0, 0.05), daemon=True).start()
+                threading.Thread(target=dl.percent_download, args=(0.98, 1), daemon=True).start()
+            done_list.append(item_id)
         time.sleep(600)

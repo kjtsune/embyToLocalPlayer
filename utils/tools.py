@@ -201,9 +201,9 @@ def get_player_cmd(media_path, file_path):
     if player_by_path := select_player_by_path(file_path):
         exe = config['exe'][player_by_path]
     result = [exe, media_path]
-    _logger.info(result, 'cmd')
+    _logger.info('command line:', result)
     if not media_path.startswith('http') and not os.path.exists(media_path):
-        raise FileNotFoundError(media_path)
+        raise FileNotFoundError(f'{media_path}\nmay need to disable read disk mode. see detail in FAQ')
     return result
 
 
@@ -430,3 +430,31 @@ def parse_received_data_plex(received_data):
     result = res_list[0]
     result['list_eps'] = res_list
     return result
+
+
+def show_confirm_button(message, width, height, result, fallback, timeout=3):
+    import tkinter as tk
+    res = fallback
+
+    def _main():
+        root = tk.Tk()
+        root.title('Confirm Button')
+        root.attributes('-topmost', True)
+        root.bind('<Motion>', lambda i: root.attributes('-topmost', False))
+        screenwidth = root.winfo_screenwidth()
+        screenheight = root.winfo_screenheight()
+        align_str = '%dx%d+%d+%d' % (width, height, (screenwidth - width) / 2, (screenheight - height) / 2)
+        root.geometry(align_str)
+        root.resizable(width=False, height=False)
+
+        def click():
+            nonlocal res
+            res = result
+            root.destroy()
+
+        tk.Button(root, height=height - 5, width=width - 5, text=message, command=click).pack()
+        root.after(timeout * 1000, root.destroy)
+        root.mainloop()
+
+    _main()
+    return res

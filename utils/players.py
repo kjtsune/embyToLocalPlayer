@@ -32,19 +32,19 @@ def get_pipe_or_port_str(get_pipe=False):
 
 
 class PlayerManager:
-    def __init__(self, data=None, player_name=None, player_path=None):
+    def __init__(self, data, player_name=None, player_path=None):
         self.data = data
         self.player_name = player_name
         self.player_path = player_path
         self.player_kwargs = {}
         self.playlist_data = {}
         self.playlist_time = {}
+        self.is_http_sub = bool(data.get('sub_file'))
 
     def start_player(self, **kwargs):
-        self.player_kwargs = player_function_dict[self.player_name](**kwargs)
+        self.player_kwargs = player_start_func_dict[self.player_name](**kwargs)
 
-    def playlist_add(self, data=None, eps_data=None):
-        data = data or self.data
+    def playlist_add(self, eps_data=None):
         playlist_fun = dict(mpv=playlist_add_mpv,
                             iina=playlist_add_mpv,
                             vlc=playlist_add_vlc,
@@ -54,7 +54,7 @@ class PlayerManager:
         limit = configs.raw.getint('playlist', 'item_limit', fallback=-1)
         if limit > 0:
             self.player_kwargs['limit'] = limit
-        self.playlist_data = playlist_fun[self.player_name](data=data, eps_data=eps_data, **self.player_kwargs)
+        self.playlist_data = playlist_fun[self.player_name](data=self.data, eps_data=eps_data, **self.player_kwargs)
 
         prefetch_data['playlist_data'] = self.playlist_data
         threading.Thread(target=self.prefetch_loop, daemon=True).start()
@@ -109,8 +109,41 @@ class PlayerManager:
             time.sleep(5)
         prefetch_data['running'] = False
 
+    def http_sub_auto_next_ep_time_loop(self, key_field):
+        playlist_data = tuple(self.playlist_data.items())
+        fist_ep = True
+        for index, (key, ep) in enumerate(playlist_data):
+            if fist_ep and key != self.data[key_field]:
+                continue
+            next_title, next_ep = playlist_data[index + 1] if index < len(playlist_data) - 1 else (None, None)
+            stop_sec = stop_sec_function_dict[self.player_name](stop_sec_only=True, **self.player_kwargs)
+            self.playlist_time[key] = stop_sec
+            fist_ep = False
+            if not next_ep or not stop_sec:
+                break
+            next_basename = next_ep['basename']
+            if stop_sec / ep['total_sec'] < 0.9:
+                logger.info(f'skip play {next_basename}, because watch progress < 0.9')
+                break
+            # if show_confirm_button('Click To Stop Play Next EP', 200, 40, result=True, fallback=False, timeout=2):
+            #     logger.info('Stop Play Next EP by button')
+            #     break
+            self.player_kwargs = player_start_func_dict[self.player_name](
+                cmd=[self.player_path, next_ep['media_path']], sub_file=next_ep.get('sub_file'),
+                # media_title 参数可能用于判断是否为读盘模式，不过 http_sub 不受影响。
+                media_title=next_basename)
+            activate_window_by_pid(self.player_kwargs['pid'])
+            logger.info(f'auto play: {next_basename}')
+
     def update_playlist_time_loop(self):
-        self.playlist_time = stop_sec_function_dict[self.player_name](stop_sec_only=False, **self.player_kwargs)
+        if configs.raw.getboolean('dev', 'http_sub_auto_next_ep', fallback=True) and (
+                (self.is_http_sub and self.player_name == 'potplayer')
+                or (self.is_http_sub and self.player_name == 'vlc' and os.name != 'nt')):
+            key_field_map = {'potplayer': 'basename', 'vlc': 'media_basename'}
+            logger.info('auto next ep mode enabled')
+            self.http_sub_auto_next_ep_time_loop(key_field=key_field_map[self.player_name])
+        else:
+            self.playlist_time = stop_sec_function_dict[self.player_name](stop_sec_only=False, **self.player_kwargs)
         prefetch_data['on'] = False
         prefetch_data['stop_sec_dict'].clear()
 
@@ -228,7 +261,7 @@ def playlist_add_mpv(mpv: MPV, data, eps_data=None, limit=10):
     return playlist_data
 
 
-def stop_sec_mpv(*_, mpv, stop_sec_only=True):
+def stop_sec_mpv(mpv, stop_sec_only=True, **_):
     if not mpv:
         logger.error('mpv not found, skip stop_sec_mpv')
         return None if stop_sec_only else {}
@@ -288,7 +321,7 @@ def vlc_player_start(cmd: list, start_sec=None, sub_file=None, media_title=None,
         return
 
     vlc = init_player_instance(VLCHttpApi, port=port, passwd='embyToLocalPlayer', exe=cmd[0])
-    return dict(vlc=vlc)
+    return dict(vlc=vlc, pid=player.pid)
 
 
 class VLCHttpApi:
@@ -316,7 +349,7 @@ class VLCHttpApi:
         return self.command('in_enqueue', input=path)
 
 
-def playlist_add_vlc(vlc: VLCHttpApi, data, eps_data=None, limit=5):
+def playlist_add_vlc(vlc: VLCHttpApi, data, eps_data=None, limit=5, **_):
     playlist_data = {}
     if not vlc:
         logger.error('vlc not found skip playlist_add')
@@ -345,8 +378,9 @@ def playlist_add_vlc(vlc: VLCHttpApi, data, eps_data=None, limit=5):
         else:
             if os.name != 'nt':
                 # 非 nt 的 vlc 经常不支持 '--one-instance', '--playlist-enqueue'
-                add_path = urllib.parse.quote(media_path)
-                vlc.playlist_add(path=add_path)
+                # add_path = urllib.parse.quote(media_path)
+                # vlc.playlist_add(path=add_path)
+                # 目前采用自动连播方案，故含 http_sub 时，禁用播放列表。
                 continue
             sub_ext = sub_file.rsplit('.', 1)[-1]
             sub_file = save_sub_file(sub_file, f'{os.path.splitext(ep["basename"])[0]}.{sub_ext}')
@@ -358,7 +392,7 @@ def playlist_add_vlc(vlc: VLCHttpApi, data, eps_data=None, limit=5):
     return playlist_data
 
 
-def stop_sec_vlc(*_, vlc: VLCHttpApi, stop_sec_only=True):
+def stop_sec_vlc(vlc: VLCHttpApi, stop_sec_only=True, **_):
     if not vlc:
         logger.error('vlc not found skip stop_sec_vlc')
         return None if stop_sec_only else {}
@@ -537,24 +571,24 @@ def pot_player_start(cmd: list, start_sec=None, sub_file=None, media_title=None,
     if not get_stop_sec:
         return
 
-    return dict(pot_pid=player.pid, pot_path=cmd[0])
+    return dict(pid=player.pid, player_path=cmd[0])
 
 
-def playlist_add_pot(pot_pid, pot_path, data, eps_data=None, limit=5, **_):
+def playlist_add_pot(pid, player_path, data, eps_data=None, limit=5, **_):
     from utils.windows_tool import process_is_running_by_pid
     playlist_data = {}
-    if not pot_path:
-        logger.error('pot_path not found skip playlist_add_mpv')
+    if not player_path:
+        logger.error('player_path not found skip playlist_add_pot')
         return {}
     episodes = eps_data or list_episodes(data)
     append = False
     mount_disk_mode = data['mount_disk_mode']
+    is_http_sub = bool(data.get('sub_file'))
     if not mount_disk_mode:
         while True:
-            if stop_sec_pot(pot_pid=pot_pid, check_only=True):
-                logger.info('play started, ready to add playlist')
+            if stop_sec_pot(pid=pid, check_only=True):
                 break
-            if not process_is_running_by_pid(pot_pid):
+            if not process_is_running_by_pid(pid):
                 break
             time.sleep(1)
     for ep in episodes:
@@ -568,15 +602,17 @@ def playlist_add_pot(pot_pid, pot_path, data, eps_data=None, limit=5, **_):
         limit -= 1
         # f'/sub={ep["sub_file"]}' pot 下一集会丢失字幕
         # /add /title 不能复用，会丢失 /title
-        if not process_is_running_by_pid(pot_pid):
+        if not process_is_running_by_pid(pid):
             return {}
-        subprocess.run([pot_path, '/add', ep['media_path'], f'/title={basename}', ])
+        if is_http_sub:
+            continue
+        subprocess.run([player_path, '/add', ep['media_path'], f'/title={basename}', ])
         time.sleep(5)
     return playlist_data
 
 
-def stop_sec_pot(pot_pid, stop_sec_only=True, check_only=False, **_):
-    if not pot_pid:
+def stop_sec_pot(pid, stop_sec_only=True, check_only=False, **_):
+    if not pid:
         logger.error('pot pid not found skip stop_sec_pot')
         return None if stop_sec_only else {}
     import ctypes
@@ -612,12 +648,12 @@ def stop_sec_pot(pot_pid, stop_sec_only=True, check_only=False, **_):
     stop_sec = None
     name_stop_sec_dict = {}
     while True:
-        if not process_is_running_by_pid(pot_pid):
+        if not process_is_running_by_pid(pid):
             logger.debug('pot not running')
             break
         if check_only and stop_sec == 'check_only':
             return True
-        potplayer_time_title_updater(pot_pid)
+        potplayer_time_title_updater(pid)
         logger.debug(f'pot {stop_sec=}')
         time.sleep(0.3)
     if check_only:
@@ -717,12 +753,12 @@ def stop_sec_dandan(*_, start_sec=None, is_http=None, stop_sec_only=True):
     return stop_sec if stop_sec_only else size_stop_sec_dict
 
 
-player_function_dict = dict(mpv=mpv_player_start,
-                            iina=mpv_player_start,
-                            mpc=mpc_player_start,
-                            vlc=vlc_player_start,
-                            potplayer=pot_player_start,
-                            dandanplay=dandan_player_start)
+player_start_func_dict = dict(mpv=mpv_player_start,
+                              iina=mpv_player_start,
+                              mpc=mpc_player_start,
+                              vlc=vlc_player_start,
+                              potplayer=pot_player_start,
+                              dandanplay=dandan_player_start)
 stop_sec_function_dict = dict(mpv=stop_sec_mpv,
                               iina=stop_sec_mpv,
                               mpc=stop_sec_mpc,

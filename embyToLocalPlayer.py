@@ -7,7 +7,7 @@ from http.server import BaseHTTPRequestHandler
 
 from utils.downloader import DownloadManager, prefetch_resume_tv
 from utils.net_tools import update_server_playback_progress, run_server
-from utils.players import (player_function_dict, PlayerManager, stop_sec_function_dict, list_episodes,
+from utils.players import (player_start_func_dict, PlayerManager, stop_sec_function_dict, list_episodes,
                            sync_third_party_for_eps)
 from utils.tools import (configs, logger_setup, MyLogger, open_local_folder, play_media_file,
                          kill_multi_process, activate_window_by_pid, clean_tmp_dir,
@@ -89,7 +89,7 @@ def start_play(data):
     player_path_lower = player_path.lower()
     # 播放器特殊处理
     player_is_running = True if configs.raw.getboolean('dev', 'one_instance_mode', fallback=False) else False
-    player_name = [i for i in player_function_dict if i in player_path_lower]
+    player_name = [i for i in player_start_func_dict if i in player_path_lower]
     if player_name:
         player_name = player_name[0]
         if configs.check_str_match(_str=data['netloc'], section='playlist', option='enable_host') \
@@ -107,7 +107,7 @@ def start_play(data):
             player_is_running = False
             return
 
-        player_function = player_function_dict[player_name]
+        player_function = player_start_func_dict[player_name]
         stop_sec_kwargs = player_function(cmd=cmd, start_sec=start_sec, sub_file=sub_file, media_title=media_title)
         stop_sec = stop_sec_function_dict[player_name](**stop_sec_kwargs)
         logger.info('stop_sec', stop_sec)
