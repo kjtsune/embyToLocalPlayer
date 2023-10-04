@@ -19,7 +19,7 @@ screenName="jellyfin"
 if [ $(screen -ls | grep -c $screenName) -ne 0 ]; then 
 	screen -S $screenName -X quit
 fi
- 
+
 screen -dmS $screenName
 screen -x $screenName -p 0 -X stuff "python3 embyToLocalPlayer.py"
 screen -x $screenName -p 0 -X stuff $'\n'
