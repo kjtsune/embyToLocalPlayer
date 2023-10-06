@@ -58,14 +58,11 @@
 1. 刚才保存的文件夹 > 右击 > 新建位于文件夹的终端窗口 `chmod +x *.command` 回车。
 2. 双击 `emby_script_run.command`, 若无报错，可播放测试。
 3. 开机自启（无窗口运行）：
-    1.
-        * 方案一：直接进入下一步，但估计只适用于 Monterey 12 及之前的老版本系统。
-        * 方案二：使用 Homebrew 安装 screen。  
-          `brew install screen`  
-          如果你没有安装 Homebrew，请先安装 Homebrew。
-          ```
-          /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install.sh)"
-          ``` 
+    1. 方案一：直接进入下一步，但估计只适用于 Monterey 12 及之前的老版本系统。  
+       方案二：在终端使用 Homebrew 安装 screen。  
+       `brew install screen`  
+       如果你没有安装 Homebrew，请先安装 Homebrew。  
+       `/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install.sh)"`
     2. 启动台 > 自动操作 > 文件 > 新建 > 应用程序 > 运行 Shell 脚本 >   
        把 `emby_script_run.command`（方案一）| `emby_script_run_via_screen.command`（方案二） 文件拖入 >
        点击运行后测试播放 > 文件 > 存储 > 取名并保存到应用程序。
@@ -137,8 +134,8 @@ https://github.com/kjtsune/embyToLocalPlayer#faq
 
 > 播放列表（连续播放|多集回传）相关
 
-* 在配置文件里 `[playlist]` 中启用。（局域网用户已默认启用）
-* 播放列表添加完成前最好不退出
+* 在配置文件里 `[playlist]` 中配置。
+* 播放列表添加完成前最好不退出（大部分没事）
 
 * Windows:
 
@@ -331,5 +328,57 @@ https://github.com/kjtsune/embyToLocalPlayer#faq
 > 感谢
 
 * [iwalton3/python-mpv-jsonipc](https://github.com/iwalton3/python-mpv-jsonipc)
+
+</details>
+
+<details>
+<summary>隐藏功能（一般用不到 / 配置麻烦 / 无支持）</summary>
+
+### 隐藏功能（无支持）:
+
+> 播放列表预读取下一集
+
+* 需要配合 nginx 反代管理缓存，比较麻烦。(在本机或者 nas 运行一个 nginx，缓存并切片视频流)
+* 浏览器访问局域网的反代站，或配合后续的 模拟 302 重定向视频流。才能起到缓存效果。
+* 填写位置：`.ini` > playlist
+    ```
+    # 播放进度超过 50% 时触发预读取，预读取下一集。
+    prefetch_percent = 50
+    
+    # 服务端路径包含以下前缀才预读取，逗号隔开，全部启用就留空或删除。
+    prefetch_path = /disk/od/TV, /disk/gd
+    
+    # 预读取时采用的策略：null | sequence | first_last
+    # null：读取并丢弃 首8% 尾2% 的数据，适合 nginx 配置缓存的。按理 rclone 也可以，但实测效果不佳。
+    # 不推荐：sequence：gui[顺序下载]，first_last：gui[优先首尾]，gui（边下边播）详见 FAQ。
+    prefetch_type = null
+    ```
+* 网盘和本地硬盘混合使用的话。[可选] 配置本地文件用读盘模式：`.ini` > dev > force_disk_mode_path
+* 用自签证书反代 https 的站，可以仅反代视频流，并配置跳过证书验证。`.ini` > dev > skip_certificate_verify  
+  不过部分播放器也会校检证书，这个需要自行解决。
+
+> 模拟 302 重定向视频流。
+
+* 若使用预读取下一集，nginx 可以只反代视频流。浏览器访问源站，重定向视频流交给本机。降低 nginx 配置难度。减少 bug。
+* 亦可用于采用播放分离的公益服，视频流线路本地重定向。加速访问。
+* 填写位置：`.ini` > dev
+  ```
+  # 网址之间逗号隔开，成对填写。源站, 反代站。
+  stream_redirect = http://src.src.com, http://reverse.proxy.com, https://src.abc.org, https://reverse.efg.xyz
+  ```
+
+> 预读取继续观看
+
+* 类似预读取下一集。仅处理最近上映的集，适合追更。
+* [可选] 在不关机的机器里配置并运行更合适一点。
+* 填写位置：`.ini` > dev
+  ```
+  # 配置格式：网址，user_id，api_key，一个或者多个服务端路径前缀;
+  # 服务端路径包含路径前缀才预读取，全部就写 /
+  # 各项之间逗号隔开，最后分号结尾。复数服务器需要配置就分号后面继续写。
+  # user_id：设置 > 用户 > [用户名] > 看浏览器网址。api_key：设置 > API 密钥。
+  prefetch_conf = http://emby.abc.org:8096, user_id, api_key, /, /od/另一个路径前缀;
+  ```
+* 网址填反代站。若填源站，需要配置上方的重定向视频流到反代站。才能让 nginx 缓存。
 
 </details>

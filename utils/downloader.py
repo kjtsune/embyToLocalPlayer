@@ -253,12 +253,20 @@ class DownloadManager:
 
 
 def prefetch_resume_tv():
-    null_file = 'NUL' if os.name == 'nt' else '/dev/null'
     conf = configs.raw.get('dev', 'prefetch_conf', fallback='')
     if not conf:
         return
-    conf = conf.replace(' ', '').replace('，', ',')
-    host, user_id, api_key, *startswith = conf.split(',')
+    confs = conf.replace('，', ',').replace('；', ';').split(';')
+    confs = [i.strip() for i in confs if i.strip()]
+    for conf in confs:
+        host, user_id, api_key, *startswith = [i.strip() for i in conf.split(',') if i.strip()]
+        logger.info(f'prefetch conf: {host=} {user_id=} {api_key=} {startswith=}')
+        threading.Thread(target=_prefetch_resume_tv, args=(host, user_id, api_key, startswith), daemon=True).start()
+
+
+def _prefetch_resume_tv(host, user_id, api_key, startswith):
+    startswith = tuple(startswith)
+    null_file = 'NUL' if os.name == 'nt' else '/dev/null'
     headers = {
         'accept': 'application/json',
         'X-MediaBrowser-Token': api_key,
@@ -285,7 +293,7 @@ def prefetch_resume_tv():
             item_id = ep['Id']
             source_info = ep['MediaSources'][0] if 'MediaSources' in ep else ep
             file_path = source_info['Path']
-            if item_id in done_list or not file_path.startswith(tuple(startswith)) \
+            if item_id in done_list or (not file_path.startswith(startswith) and '/' not in startswith) \
                     or ep['UserData'].get('LastPlayedDate'):
                 continue
 
@@ -301,6 +309,12 @@ def prefetch_resume_tv():
                 stream_url = f'{host}/emby/videos/{item_id}/stream{container}' \
                              f'?DeviceId=embyToLocalPlayer&MediaSourceId={source_info["Id"]}&Static=true' \
                              f'&PlaySessionId={play_session_id}&api_key={api_key}'
+                if stream_redirect := configs.ini_str_split('dev', 'stream_redirect'):
+                    stream_redirect = zip(stream_redirect[0::2], stream_redirect[1::2])
+                    for (_raw, _jump) in stream_redirect:
+                        if _raw in stream_url:
+                            stream_url = stream_url.replace(_raw, _jump)
+                            break
 
                 logger.info(f'prefetch {ep["SeriesName"]} {file_path} \n{stream_url}')
                 dl = Downloader(url=stream_url, _id=os.path.basename(file_path), save_path=null_file)

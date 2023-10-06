@@ -57,10 +57,10 @@ class PlayerManager:
         self.playlist_data = playlist_fun[self.player_name](data=self.data, eps_data=eps_data, **self.player_kwargs)
 
         prefetch_data['playlist_data'] = self.playlist_data
-        threading.Thread(target=self.prefetch_loop, daemon=True).start()
+        threading.Thread(target=self.prefetch_next_ep_loop, daemon=True).start()
 
     @staticmethod
-    def prefetch_loop():
+    def prefetch_next_ep_loop():
         prefetch_percent = configs.raw.getfloat('playlist', 'prefetch_percent', fallback=100)
         prefetch_type = configs.raw.get('playlist', 'prefetch_type', fallback='null')
         if prefetch_data['running'] or prefetch_percent == 100:
