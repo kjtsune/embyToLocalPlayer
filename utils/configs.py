@@ -43,7 +43,7 @@ class Stdout:
         raw_stdout.write(log)
         if self.log_file:
             self.log_file.write(log)
-            # self.log_file.flush()
+            self.log_file.flush()
 
     def flush(self):
         pass
@@ -127,7 +127,7 @@ class Configs:
 
     def ini_str_split(self, section, option, fallback=''):
         ini = self.raw.get(section, option, fallback=fallback).replace('，', ',')
-        ini = [i.strip() for i in ini.split(',') if i]
+        ini = [i.strip() for i in ini.split(',') if i.strip()]
         return ini
 
     def _get_cache_db(self):
