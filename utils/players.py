@@ -332,10 +332,10 @@ class VLCHttpApi:
         self.headers = dict(Authorization=f'Basic {base64.b64encode(passwd.encode("ascii")).decode()}', )
         _test = self.get_status()['version']
 
-    def get(self, path='', params=None):
+    def get(self, path='', params=None, silence=False):
         params = '?' + '&'.join(f'{k}={v}' for k, v in params.items()) if params else ''
         host = f'{self.url}{path}.json' + params
-        return requests_urllib(host=host, headers=self.headers, get_json=True, timeout=0.5)
+        return requests_urllib(host=host, headers=self.headers, get_json=True, timeout=0.5, silence=silence)
 
     def get_status(self):
         return self.get('status')
@@ -402,7 +402,7 @@ def stop_sec_vlc(vlc: VLCHttpApi, stop_sec_only=True, **_):
     # 而 http api 的话，又不能设置标题
     while True:
         try:
-            stat = vlc.get_status()
+            stat = vlc.get('status', silence=True)
             tmp_sec = stat['time']
             file_name = stat['information']['category']['meta']['filename']
             if tmp_sec:
