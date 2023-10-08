@@ -64,7 +64,7 @@ def bangumi_sync(emby, bgm, emby_eps: list = None, emby_ids: list = None):
 
     bgm_data = bgm.emby_search(title=emby_title, ori_title=ori_title, premiere_date=premiere_date)
     if not bgm_data:
-        logger.error('bgm: bgm_data not found, skip')
+        logger.error(f'bgm: bgm_data not found, skip\nbgm: {emby_title=} {ori_title=} {premiere_date=}')
         return
 
     bgm_data = bgm_data[0]

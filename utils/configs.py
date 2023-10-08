@@ -82,7 +82,7 @@ class MyLogger:
     def log(*args, end=None, silence=False):
         if silence:
             return
-        t = time.strftime('%D %H:%M:%S', time.localtime())
+        t = f"[{time.strftime('%D %H:%M:%S', time.localtime())}]"
         print(t, *args, end=end)
 
     def info(self, *args, end=None, silence=False):

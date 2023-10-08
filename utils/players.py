@@ -103,7 +103,7 @@ class PlayerManager:
                 else:
                     null_file = 'NUL' if os.name == 'nt' else '/dev/null'
                     dl = Downloader(ep['stream_url'], ep['basename'], save_path=null_file)
-                    threading.Thread(target=dl.percent_download, args=(0, 0.05), daemon=True).start()
+                    threading.Thread(target=dl.percent_download, args=(0, 0.08), daemon=True).start()
                     threading.Thread(target=dl.percent_download, args=(0.98, 1), daemon=True).start()
                 done_list.append(key)
             time.sleep(5)
@@ -150,7 +150,7 @@ class PlayerManager:
     def update_playback_for_eps(self):
         need_update_eps = []
         if not self.playlist_data:
-            logger.error(f'playlist_data not found skip update progress')
+            logger.error(f'skip update progress: playlist_data not found')
             return
         for key, _stop_sec in self.playlist_time.items():
             ep = self.playlist_data.get(key)
@@ -591,23 +591,28 @@ def playlist_add_pot(pid, player_path, data, eps_data=None, limit=5, **_):
             if not process_is_running_by_pid(pid):
                 break
             time.sleep(1)
+    pot_cmds = []
     for ep in episodes:
         basename = ep['basename']
         playlist_data[basename] = ep
         if basename == data['basename']:
             append = True
             continue
-        if not append or mount_disk_mode or limit <= 0:
+        if not append or mount_disk_mode or limit <= 0 or is_http_sub:
             continue
         limit -= 1
         # f'/sub={ep["sub_file"]}' pot 下一集会丢失字幕
         # /add /title 不能复用，会丢失 /title
-        if not process_is_running_by_pid(pid):
-            return {}
-        if is_http_sub:
-            continue
-        subprocess.run([player_path, '/add', ep['media_path'], f'/title={basename}', ])
-        time.sleep(5)
+        pot_cmds.append([player_path, '/add', ep['media_path'], f'/title={basename}'])
+    if pot_cmds:
+        def add_thread():
+            for cmd in pot_cmds:
+                if not process_is_running_by_pid(pid):
+                    break
+                subprocess.run(cmd)
+                time.sleep(5)
+
+        threading.Thread(target=add_thread, daemon=True).start()
     return playlist_data
 
 
