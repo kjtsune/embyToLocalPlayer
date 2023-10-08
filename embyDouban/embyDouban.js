@@ -3,7 +3,7 @@
 // @name:zh-CN   embyDouban
 // @name:en      embyDouban
 // @namespace    https://github.com/kjtsune/embyToLocalPlayer/tree/main/embyDouban
-// @version      0.1.10
+// @version      0.1.11
 // @description  emby 里展示: 豆瓣 Bangumi bgm.tv 评分 链接 (豆瓣评论可关)
 // @description:zh-CN emby 里展示: 豆瓣 Bangumi bgm.tv 评分 链接 (豆瓣评论可关)
 // @description:en  show douban Bangumi ratings in emby
@@ -322,7 +322,7 @@ async function insertBangumiMain(infoTable, linkZone) {
 
     let tmdbButton = linkZone.querySelector('a[href^="https://www.themovie"]');
     if (!tmdbButton) return;
-    let tmdbId = tmdbButton.href.match(/tt\d+/);
+    let tmdbId = tmdbButton.href.match(/...\d+/);
 
     let tmdbExpireKey = tmdbId + 'expire'
     let year = infoTable.querySelector('div[class="mediaInfoItem"]').textContent.match(/^\d{4}/);
