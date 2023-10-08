@@ -3,7 +3,7 @@
 // @name:zh-CN   embyDouban
 // @name:en      embyDouban
 // @namespace    https://github.com/kjtsune/embyToLocalPlayer/tree/main/embyDouban
-// @version      0.1.9
+// @version      0.1.10
 // @description  emby 里展示: 豆瓣 Bangumi bgm.tv 评分 链接 (豆瓣评论可关)
 // @description:zh-CN emby 里展示: 豆瓣 Bangumi bgm.tv 评分 链接 (豆瓣评论可关)
 // @description:en  show douban Bangumi ratings in emby
@@ -274,11 +274,11 @@ function insertBangumiScore(bgmObj, infoTable, linkZone) {
         yearDiv.insertAdjacentHTML('beforebegin', `<div class="starRatingContainer mediaInfoItem">${bgmIco} <a id="bgmScore">${bgmObj.score}</a></div>`);
         console.log('%c%s', 'color: orange;', 'insert bgmScore ', bgmObj.score);
     }
-    let imdbButton = linkZone.querySelector('a[href^="https://www.imdb"]');
+    let tmdbButton = linkZone.querySelector('a[href^="https://www.themovie"]');
     let bgmButton = linkZone.querySelector('a[href^="https://bgm.tv"]');
     if (bgmButton) return;
     let bgmString = `<a is="emby-linkbutton" class="raised item-tag-button nobackdropfilter emby-button" href="https://bgm.tv/subject/${bgmObj.id}" target="_blank"><i class="md-icon button-icon button-icon-left">link</i>Bangumi</a>`;
-    imdbButton.insertAdjacentHTML('beforebegin', bgmString);
+    tmdbButton.insertAdjacentHTML('beforebegin', bgmString);
 }
 
 function textSimilarity(text1, text2) {
@@ -320,34 +320,34 @@ async function insertBangumiMain(infoTable, linkZone) {
     let bgmRate = infoTable.querySelector('a#bgmScore');
     if (bgmRate) return;
 
-    let imdbButton = linkZone.querySelector('a[href^="https://www.imdb"]');
-    if (!imdbButton) return;
-    let imdbId = imdbButton.href.match(/tt\d+/);
+    let tmdbButton = linkZone.querySelector('a[href^="https://www.themovie"]');
+    if (!tmdbButton) return;
+    let tmdbId = tmdbButton.href.match(/tt\d+/);
 
-    let imdbExpireKey = imdbId + 'expire'
+    let tmdbExpireKey = tmdbId + 'expire'
     let year = infoTable.querySelector('div[class="mediaInfoItem"]').textContent.match(/^\d{4}/);
     let expireDay = (Number(year) < new Date().getFullYear() && new Date().getMonth() + 1 != 1) ? 30 : 3
     let needUpdate = false;
-    if (imdbExpireKey in localStorage) {
-        if (checkIsExpire(imdbExpireKey, expireDay)) {
+    if (tmdbExpireKey in localStorage) {
+        if (checkIsExpire(tmdbExpireKey, expireDay)) {
             needUpdate = true;
-            localStorage.setItem(imdbExpireKey, JSON.stringify(Date.now()));
+            localStorage.setItem(tmdbExpireKey, JSON.stringify(Date.now()));
         }
     } else {
-        localStorage.setItem(imdbExpireKey, JSON.stringify(Date.now()));
+        localStorage.setItem(tmdbExpireKey, JSON.stringify(Date.now()));
     }
 
 
-    let imdbBgmKey = imdbId + 'bgm';
-    let bgmObj = localStorage.getItem(imdbBgmKey);
+    let tmdbBgmKey = tmdbId + 'bgm';
+    let bgmObj = localStorage.getItem(tmdbBgmKey);
     if (bgmObj && !needUpdate) {
         bgmObj = JSON.parse(bgmObj)
         insertBangumiScore(bgmObj, infoTable, linkZone);
         return;
     }
 
-    let imdbNotBgmKey = imdbId + 'NotBgm';
-    if (!checkIsExpire(imdbNotBgmKey)) {
+    let tmdbNotBgmKey = tmdbId + 'NotBgm';
+    if (!checkIsExpire(tmdbNotBgmKey)) {
         return;
     }
     let userId = ApiClient._serverInfo.UserId;
@@ -399,7 +399,7 @@ async function insertBangumiMain(infoTable, linkZone) {
     logger.info('bgmInfo', bgmInfo['data'])
     bgmInfo = (bgmInfo['data']) ? bgmInfo['data'][0] : null;
     if (!bgmInfo) {
-        localStorage.setItem(imdbNotBgmKey, JSON.stringify(Date.now()));
+        localStorage.setItem(tmdbNotBgmKey, JSON.stringify(Date.now()));
         logger.error('getJSON_GM not bgmInfo return');
         return;
     };
@@ -407,7 +407,7 @@ async function insertBangumiMain(infoTable, linkZone) {
     let trust = false;
     if (textSimilarity(originalTitle, bgmInfo['name']) < 0.4 && (textSimilarity(title, bgmInfo['name_cn'])) < 0.4
         && (textSimilarity(title, bgmInfo['name'])) < 0.4) {
-        localStorage.setItem(imdbNotBgmKey, JSON.stringify(Date.now()));
+        localStorage.setItem(tmdbNotBgmKey, JSON.stringify(Date.now()));
         logger.error('not bgmObj and title not Similarity, skip');
     } else {
         trust = true
@@ -420,7 +420,7 @@ async function insertBangumiMain(infoTable, linkZone) {
         name_cn: bgmInfo['name_cn'],
         trust: trust,
     }
-    localStorage.setItem(imdbBgmKey, JSON.stringify(bgmObj));
+    localStorage.setItem(tmdbBgmKey, JSON.stringify(bgmObj));
     insertBangumiScore(bgmObj, infoTable, linkZone);
 }
 
@@ -451,7 +451,7 @@ function cleanDoubanError() {
 var runLimit = 50;
 
 async function main() {
-    let linkZone = getVisibleElement(document.querySelectorAll('div[class="verticalSection linksSection verticalSection-extrabottompadding"]'));
+    let linkZone = getVisibleElement(document.querySelectorAll('div[class*="linksSection verticalSection-extrabottompadding"]'));
     let infoTable = getVisibleElement(document.querySelectorAll('div[class="flex-grow detailTextContainer details-largefont"]'));
     if (infoTable && linkZone) {
         if (!infoTable.querySelector('h3.itemName-secondary')) { // not eps page
