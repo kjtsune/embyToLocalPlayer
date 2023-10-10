@@ -5,25 +5,68 @@ from utils.configs import configs, MyLogger
 logger = MyLogger()
 
 
-def sync_ep_or_movie_to_trakt(trakt, emby=None, emby_ids=None, eps_data=None):
-    emby_ids = emby_ids if not emby_ids or isinstance(emby_ids, list) else [emby_ids]
-    eps_data = eps_data if not eps_data or isinstance(eps_data, list) else [eps_data]
-    objs = eps_data or emby_ids
+def fill_trakt_ep_ids_by_series(trakt, eps_data):
+    from utils.trakt_api import TraktApi
+    trakt: TraktApi
+    eps_data = eps_data if isinstance(eps_data, list) else [eps_data]
+    fist_ep = eps_data[0]
+    _type = fist_ep['Type'].lower()
+    if _type == 'movie' or fist_ep['server'] == 'plex':
+        return eps_data
+    providers = ['imdb', 'tvdb']
+    all_pvd_ids = [{k.lower(): v for k, v in ep['ProviderIds'].items() if k.lower() in providers}
+                   for ep in eps_data]
+    all_pvd_ids = [i for i in all_pvd_ids if i]
+    if len(all_pvd_ids) == len(eps_data):
+        return eps_data
+
+    from utils.emby_api import EmbyApi
+    emby = EmbyApi(host=f"{fist_ep['scheme']}://{fist_ep['netloc']}",
+                   api_key=fist_ep['api_key'],
+                   user_id=fist_ep['user_id'],
+                   http_proxy=configs.script_proxy
+                   )
+    series_info = emby.get_item(fist_ep['SeriesId'])
+    season_num = fist_ep['ParentIndexNumber']
+    series_pvd_ids = {k.lower(): v for k, v in series_info['ProviderIds'].items() if k.lower() in providers}
+    if not series_pvd_ids:
+        logger.info(f'trakt: not {providers} id in series_info')
+        return eps_data
+    if s_imdb_id := series_pvd_ids.get('imdb'):
+        tk_eps_ids = trakt.get_single_season(_id=s_imdb_id, season_num=season_num)
+    else:
+        tk_sr_id = trakt.id_lookup(provider='tvdb', _id=series_pvd_ids['tvdb'], _type='show')
+        if tk_sr_id and tk_sr_id[0]['show']['ids']['tvdb'] == int(series_pvd_ids['tvdb']):
+            tk_sr_id = tk_sr_id[0]['show']['ids']['trakt']
+            tk_eps_ids = trakt.get_single_season(_id=tk_sr_id, season_num=season_num)
+        else:
+            logger.info(f'trakt: trakt series id not found via tvdb id')
+            return eps_data
+    tk_eps_ids = {i['number']: (i['ids'], i['title']) for i in tk_eps_ids} if tk_eps_ids else {}
+    for ep in eps_data:
+        ep['trakt_ids'], ep['trakt_title'] = tk_eps_ids[ep['index']]
+    return eps_data
+
+
+def sync_ep_or_movie_to_trakt(trakt, eps_data):
+    eps_data = eps_data if isinstance(eps_data, list) else [eps_data]
     trakt_ids_list = []
     allow = ['episode', 'movie']
-    for obj in objs:
-        name = obj.get('basename', obj.get('Name'))
-        item = obj if eps_data else emby.get_item(obj)
-        _type = item['Type'].lower()
+    eps_data = fill_trakt_ep_ids_by_series(trakt=trakt, eps_data=eps_data)
+    for ep in eps_data:
+        trakt_ids_via_series = ep.get('trakt_ids')
+        name = ep.get('basename', ep.get('Name'))
+        _type = ep['Type'].lower()
         if _type not in allow:
             raise ValueError(f'type not in {allow}')
         providers = ['imdb', 'tvdb']
-        provider_ids = {k.lower(): v for k, v in item['ProviderIds'].items() if k.lower() in providers}
-        if not provider_ids:
-            logger.info(f'trakt: not {providers} id, skip | {name}')
+        provider_ids = {k.lower(): v for k, v in ep['ProviderIds'].items() if k.lower() in providers}
+        if not provider_ids and not trakt_ids_via_series:
+            logger.info(f'trakt: not any {providers} id, skip | {name}')
             continue
 
         trakt_ids = None
+        tk_type = 'movie' if _type == 'movie' else 'show'
         for provider in providers:
             if provider not in provider_ids:
                 continue
@@ -39,14 +82,18 @@ def sync_ep_or_movie_to_trakt(trakt, emby=None, emby_ids=None, eps_data=None):
                 logger.info(f'trakt: id lookup not match {provider} {provider_id} | {name}')
                 continue
             trakt_ids = _trakt_ids
-            tk_type = 'movie' if _type == 'movie' else 'show'
             trakt_url = f"https://trakt.tv/{tk_type}s/{trakt_ids[tk_type]['ids']['slug']}"
             logger.info(f'trakt: match success {name} {trakt_url}')
             break
 
+        if not trakt_ids and trakt_ids_via_series:
+            trakt_ids = trakt_ids_via_series
+            logger.info(f'trakt: match by trakt_ids_via_series, {ep["trakt_title"]=}')
+
         if not trakt_ids:
             logger.info(f'trakt: not trakt_ids, skip | {name}')
             break
+
         watched = trakt.get_watch_history(trakt_ids)
         if watched:
             logger.info(f'trakt: watch history exists, skip | {name}')

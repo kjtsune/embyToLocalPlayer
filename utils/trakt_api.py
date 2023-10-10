@@ -40,6 +40,64 @@ class TraktApi:
         except Exception:
             raise PermissionError(f'error found, {res.status_code=} {url=}') from None
 
+    @functools.lru_cache
+    def get_single_season(self, _id, season_num, translations=''):
+        """
+        _id: Trakt ID, Trakt slug, or IMDB ID
+        translations: specific 2 digit country language code
+        return: [{.., ids:ep_ids}, ..] not standard ids_item, not type field
+        """
+        trans = f'?translations={translations}' if translations else ''
+        res = self.get(f'shows/{_id}/seasons/{season_num}{trans}')
+        return res
+
+    @functools.lru_cache
+    def id_lookup(self, provider, _id, _type: typing.Literal['movie', 'show', 'episode'] = ''):
+        if _type:
+            _type = '' if provider == 'imdb' else f'?type={_type}'
+        allow = ['tvdb', 'tmdb', 'imdb', 'trakt']
+        if provider not in allow:
+            raise ValueError(f'id_type allow: {allow}')
+        res = self.get(f'search/{provider}/{_id}{_type}')
+        return res
+
+    @staticmethod
+    def ids_items_to_ids(ids_items):
+        is_list = isinstance(ids_items, list)
+        ids_items = ids_items if is_list else [ids_items]
+        res = [i[i['type']]['ids'] for i in ids_items]
+        return res if is_list else res[0]
+
+    def get_watch_history(self, ids_item):
+        # id_lookup -> ids_item
+        # get_single_season > ep_ids :not type field
+        _type = ids_item.get('type')
+        path_type = f'{_type}s' if _type else ''
+        # 若没指定类型，返回的记录可能有误
+        path_type = path_type or 'episodes'
+        trakt_id = ids_item[_type]['ids']['trakt'] if _type else ids_item['trakt']
+        res = self.get(f'users/{self.user_id}/history/{path_type}/{trakt_id}')
+        return res
+
+    def add_ep_or_movie_to_history(self, ids_items, watched_at=''):
+        # id_lookup -> ids_item
+        # get_single_season > ep_ids :not type field
+        ids_items = ids_items if isinstance(ids_items, list) else [ids_items]
+        _json = {
+            'movies': [],
+            'episodes': []
+        }
+        for item in ids_items:
+            _type = item.get('type')
+            ids = item[_type]['ids'] if _type else item
+            _type = _type or 'episode'
+            obj = {'ids': ids}
+            if watched_at:
+                obj['watched_at'] = watched_at
+            _json[f'{_type}s'].append(obj)
+        res = self.post('sync/history', _json=_json)
+        return res
+
     def test(self):
         self.get(f'calendars/my/dvd/2000-01-01/1')
 
@@ -88,46 +146,6 @@ class TraktApi:
         self.req.headers.update({'Authorization': f'Bearer {self.access_token["access_token"]}'})
         with open(self.token_file, 'w', encoding='utf-8') as f:
             json.dump(res, f, indent=2)
-        return res
-
-    @functools.lru_cache
-    def id_lookup(self, provider, _id, _type: typing.Literal['movie', 'show', 'episode'] = ''):
-        if _type:
-            _type = '' if provider == 'imdb' else f'?type={_type}'
-        allow = ['tvdb', 'tmdb', 'imdb', 'trakt']
-        if provider not in allow:
-            raise ValueError(f'id_type allow: {allow}')
-        res = self.get(f'search/{provider}/{_id}{_type}')
-        return res
-
-    @staticmethod
-    def ids_items_to_ids(ids_items):
-        is_list = isinstance(ids_items, list)
-        ids_items = ids_items if is_list else [ids_items]
-        res = [i[i['type']]['ids'] for i in ids_items]
-        return res if is_list else res[0]
-
-    def get_watch_history(self, ids_item):
-        # id_lookup -> ids_item
-        _type = ids_item['type']
-        trakt_id = ids_item[_type]['ids']['trakt']
-        res = self.get(f'users/{self.user_id}/history/{_type}s/{trakt_id}')
-        return res
-
-    def add_ep_or_movie_to_history(self, ids_items, watched_at=''):
-        ids_items = ids_items if isinstance(ids_items, list) else [ids_items]
-        _json = {
-            'movies': [],
-            'episodes': []
-        }
-        for item in ids_items:
-            _type = item['type']
-            ids = item[_type]['ids']
-            obj = {'ids': ids}
-            if watched_at:
-                obj['watched_at'] = watched_at
-            _json[f'{_type}s'].append(obj)
-        res = self.post('sync/history', _json=_json)
         return res
 
     def is_token_saved(self):

@@ -246,15 +246,15 @@ def list_episodes(data: dict):
     headers = {'accept': 'application/json', }
     headers.update(data['headers'])
 
-    response = requests_urllib(f'{scheme}://{netloc}{extra_str}/Users/{user_id}/Items/{data["item_id"]}',
-                               params=params, headers=headers, get_json=True)
+    main_ep_info = requests_urllib(f'{scheme}://{netloc}{extra_str}/Users/{user_id}/Items/{data["item_id"]}',
+                                     params=params, headers=headers, get_json=True)
     # if video is movie
-    if 'SeasonId' not in response:
-        data['Type'] = response['Type']
-        data['ProviderIds'] = response['ProviderIds']
+    if 'SeasonId' not in main_ep_info:
+        data['Type'] = main_ep_info['Type']
+        data['ProviderIds'] = main_ep_info['ProviderIds']
         return [data]
-    season_id = response['SeasonId']
-    series_id = response['SeriesId']
+    season_id = main_ep_info['SeasonId']
+    series_id = main_ep_info['SeriesId']
 
     def version_filter(file_path, episodes_data):
         ver_re = configs.raw.get('playlist', 'version_filter', fallback='').strip().strip('|')
