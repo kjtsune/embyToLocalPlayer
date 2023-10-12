@@ -66,9 +66,13 @@ class BangumiApi:
                                       params={'limit': limit}, )
         return res.json()
 
+    @functools.lru_cache
     def search_old(self, title):
         res = self.req.get(f'{self.host[:-2]}/search/subject/{title}', params={'type': 2})
-        return res.json()
+        try:
+            return res.json()
+        except Exception:
+            return {'results': 0, 'list': []}
 
     @functools.lru_cache
     def get_subject(self, subject_id):
@@ -200,21 +204,33 @@ class BangumiApiEmbyVer(BangumiApi):
             return d
 
     def emby_search(self, title, ori_title, premiere_date: str, is_movie=False):
+        # 旧 api 没有 ['date', 'rank', 'score']
+        # 只有 ['id', 'name', 'name_cn'] 键
+        use_old_api = False
         air_date = datetime.datetime.fromisoformat(premiere_date[:10])
         start_date = air_date - datetime.timedelta(days=2)
         end_date = air_date + datetime.timedelta(days=2)
         bgm_data = None
         if ori_title:
             bgm_data = self.search(title=ori_title, start_date=start_date, end_date=end_date)
-        if not bgm_data:
+        bgm_data = bgm_data or self.search(title=title, start_date=start_date, end_date=end_date)
+        if not bgm_data and is_movie:
+            title = ori_title or title
+            end_date = air_date + datetime.timedelta(days=200)
             bgm_data = self.search(title=title, start_date=start_date, end_date=end_date)
-            if not bgm_data and is_movie:
-                title = ori_title or title
-                end_date = air_date + datetime.timedelta(days=200)
-                bgm_data = self.search(title=title, start_date=start_date, end_date=end_date)
+        if not bgm_data or (bgm_data and self.title_diff_ratio(
+                title=title, ori_title=ori_title, bgm_data=bgm_data['data'][0]) < 0.5):
+            use_old_api = True
+            for t in ori_title, title:
+                bgm_data = self.search_old(title=t)['list']
+                if self.title_diff_ratio(title, ori_title, bgm_data=bgm_data[0]) > 0.5:
+                    break
+            else:
+                bgm_data = None
         if not bgm_data:
             return
-        return self._emby_filter(bgm_data['data'])
+        bgm_data = bgm_data if use_old_api else bgm_data['data']
+        return self._emby_filter(bgm_data=bgm_data)
 
     @staticmethod
     def title_diff_ratio(title, ori_title, bgm_data):

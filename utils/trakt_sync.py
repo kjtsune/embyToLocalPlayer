@@ -42,7 +42,7 @@ def fill_trakt_ep_ids_by_series(trakt, eps_data):
         else:
             logger.info(f'trakt: trakt series id not found via tvdb id')
             return eps_data
-    tk_eps_ids = {i['number']: (i['ids'], i['title']) for i in tk_eps_ids} if tk_eps_ids else {}
+    tk_eps_ids = {i['number']: (i['ids'], i['title']) for i in tk_eps_ids}
     for ep in eps_data:
         ep['trakt_ids'], ep['trakt_title'] = tk_eps_ids[ep['index']]
     return eps_data

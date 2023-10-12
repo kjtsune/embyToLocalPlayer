@@ -254,10 +254,11 @@ def playlist_add_mpv(mpv: MPV, data, eps_data=None, limit=10):
             continue
         limit -= 1
         sub_file = ep['sub_file'] or ''
+        sub_file_cmd = f',sub-file={sub_file}' if sub_file else ''
         mpv.command(
             'loadfile', ep['media_path'], 'append',
             f'title="{basename}",force-media-title="{basename}",osd-playing-msg="{basename}"'
-            f',start=0,sub-file={sub_file}')
+            f',start=0{sub_file_cmd}')
     return playlist_data
 
 

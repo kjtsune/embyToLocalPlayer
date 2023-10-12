@@ -63,14 +63,12 @@ def bangumi_sync(emby, bgm, emby_eps: list = None, emby_ids: list = None):
             ori_title = ori_title[0]
 
     bgm_data = bgm.emby_search(title=emby_title, ori_title=ori_title, premiere_date=premiere_date)
+    # 旧 api 可能返回第二季的数据，下面有 season_date_check，偷懒暂不处理
     if not bgm_data:
-        logger.error(f'bgm: bgm_data not found, skip\nbgm: {emby_title=} {ori_title=} {premiere_date=}')
+        logger.error(f'bgm: skip, bgm_data not found or not match\nbgm: {emby_title=} {ori_title=} {premiere_date=}')
         return
 
     bgm_data = bgm_data[0]
-    if bgm.title_diff_ratio(title=emby_title, ori_title=ori_title, bgm_data=bgm_data) < 0.5:
-        logger.error('bgm: bgm_data not match, skip')
-        return
     emby_se_info_t = ThreadWithReturnValue(target=emby.get_item, args=(item_info['SeasonId'],))
     emby_se_info_t.start()
 
@@ -81,7 +79,7 @@ def bangumi_sync(emby, bgm, emby_eps: list = None, emby_ids: list = None):
         logger.info(f'bgm: {subject_id=} {season_num=} {ep_nums=}, not exists or too big, skip')
         return
 
-    if max(ep_nums) < 12:
+    if max(ep_nums) < 12 or not bgm_data.get('rank'):
         emby_se_info = emby_se_info_t.join()
         bgm_se_info = bgm.get_subject(bgm_se_id)
         if not emby_bgm_season_date_check(emby_se_info, bgm_se_info):

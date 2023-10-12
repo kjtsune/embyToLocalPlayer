@@ -82,8 +82,9 @@ class MyLogger:
     def log(*args, end=None, silence=False):
         if silence:
             return
-        t = f"[{time.strftime('%D %H:%M:%S', time.localtime())}]"
-        print(t, *args, end=end)
+        t = f"[{time.strftime('%D %H:%M:%S', time.localtime())}] "
+        args = ' '.join(str(i) for i in args)
+        print(t + args, end=end)
 
     def info(self, *args, end=None, silence=False):
         if not silence and MyLogger.need_mix:
