@@ -5,7 +5,7 @@ from utils.configs import configs, MyLogger
 logger = MyLogger()
 
 
-def fill_trakt_ep_ids_by_series(trakt, eps_data):
+def fill_trakt_ep_ids_by_series(trakt, eps_data, force=False):
     from utils.trakt_api import TraktApi
     trakt: TraktApi
     eps_data = eps_data if isinstance(eps_data, list) else [eps_data]
@@ -17,7 +17,7 @@ def fill_trakt_ep_ids_by_series(trakt, eps_data):
     all_pvd_ids = [{k.lower(): v for k, v in ep['ProviderIds'].items() if k.lower() in providers}
                    for ep in eps_data]
     all_pvd_ids = [i for i in all_pvd_ids if i]
-    if len(all_pvd_ids) == len(eps_data):
+    if len(all_pvd_ids) == len(eps_data) and not force:
         return eps_data
 
     from utils.emby_api import EmbyApi
@@ -85,6 +85,13 @@ def sync_ep_or_movie_to_trakt(trakt, eps_data):
             trakt_url = f"https://trakt.tv/{tk_type}s/{trakt_ids[tk_type]['ids']['slug']}"
             logger.info(f'trakt: match success {name} {trakt_url}')
             break
+
+        if provider_ids and not trakt_ids and not trakt_ids_via_series:
+            # 刚上映的剧集，trakt ep 的 tvdb id 可能缺失
+            eps_data = fill_trakt_ep_ids_by_series(trakt=trakt, eps_data=eps_data, force=True)
+            ep = [i for i in eps_data if ep['basename'] == i['basename']][0]
+            trakt_ids_via_series = ep.get('trakt_ids')
+            logger.info('trakt: force fill_trakt_ep_ids_by_series')
 
         if not trakt_ids and trakt_ids_via_series:
             trakt_ids = trakt_ids_via_series
