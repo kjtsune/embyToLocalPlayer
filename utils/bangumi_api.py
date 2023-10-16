@@ -56,7 +56,7 @@ class BangumiApi:
         return res.json()
 
     @functools.lru_cache
-    def search(self, title, start_date, end_date, limit=5):
+    def search(self, title, start_date, end_date, limit=5, list_only=True):
         res = self._req_not_auth.post(f'{self.host}/search/subjects',
                                       json={'keyword': title,
                                             'filter': {'type': [2],
@@ -64,15 +64,17 @@ class BangumiApi:
                                                                     f'<{end_date}'],
                                                        'nsfw': True}},
                                       params={'limit': limit}, )
-        return res.json()
+        res = res.json()
+        return res['data'] if list_only else res
 
     @functools.lru_cache
-    def search_old(self, title):
+    def search_old(self, title, list_only=True):
         res = self.req.get(f'{self.host[:-2]}/search/subject/{title}', params={'type': 2})
         try:
-            return res.json()
+            res = res.json()
         except Exception:
-            return {'results': 0, 'list': []}
+            res = {'results': 0, 'list': []}
+        return res['list'] if list_only else res
 
     @functools.lru_cache
     def get_subject(self, subject_id):
@@ -206,7 +208,6 @@ class BangumiApiEmbyVer(BangumiApi):
     def emby_search(self, title, ori_title, premiere_date: str, is_movie=False):
         # 旧 api 没有 ['date', 'rank', 'score']
         # 只有 ['id', 'name', 'name_cn'] 键
-        use_old_api = False
         air_date = datetime.datetime.fromisoformat(premiere_date[:10])
         start_date = air_date - datetime.timedelta(days=2)
         end_date = air_date + datetime.timedelta(days=2)
@@ -219,17 +220,16 @@ class BangumiApiEmbyVer(BangumiApi):
             end_date = air_date + datetime.timedelta(days=200)
             bgm_data = self.search(title=title, start_date=start_date, end_date=end_date)
         if not bgm_data or (bgm_data and self.title_diff_ratio(
-                title=title, ori_title=ori_title, bgm_data=bgm_data['data'][0]) < 0.5):
-            use_old_api = True
+                title=title, ori_title=ori_title, bgm_data=bgm_data[0]) < 0.5):
+            # use_old_api = True
             for t in ori_title, title:
-                bgm_data = self.search_old(title=t)['list']
-                if self.title_diff_ratio(title, ori_title, bgm_data=bgm_data[0]) > 0.5:
+                bgm_data = self.search_old(title=t)
+                if bgm_data and self.title_diff_ratio(title, ori_title, bgm_data=bgm_data[0]) > 0.5:
                     break
             else:
                 bgm_data = None
         if not bgm_data:
             return
-        bgm_data = bgm_data if use_old_api else bgm_data['data']
         return self._emby_filter(bgm_data=bgm_data)
 
     @staticmethod
