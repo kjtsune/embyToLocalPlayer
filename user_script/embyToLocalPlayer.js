@@ -3,13 +3,14 @@
 // @name:zh-CN   embyToLocalPlayer
 // @name:en      embyToLocalPlayer
 // @namespace    https://github.com/kjtsune/embyToLocalPlayer
-// @version      1.1.10
+// @version      1.1.10.1
 // @description  需要 Python。Emby/Jellyfin 调用外部本地播放器，并回传播放记录。适配 Plex。
 // @description:zh-CN 需要 Python。Emby/Jellyfin 调用外部本地播放器，并回传播放记录。适配 Plex。
 // @description:en  Require Python. Play in an external player. Update watch history to Emby/Jellyfin server. Support Plex.
 // @author       Kjtsune
 // @match        *://*/web/index.html*
 // @match        *://*/*/web/index.html*
+// @include      /:\/\/[\w.]*\/web\/$/
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=emby.media
 // @grant        unsafeWindow
 // @grant        GM_xmlhttpRequest
@@ -173,7 +174,7 @@ async function addOpenFolderElement() {
         if (mediaSources) break;
     }
     if (!mediaSources) return;
-    let pathDiv = mediaSources.querySelector('div[class="sectionTitle sectionTitle-cards"] > div');
+    let pathDiv = mediaSources.querySelector('div[class^="sectionTitle sectionTitle-cards"] > div');
     if (!pathDiv || pathDiv.className == 'mediaInfoItems' || pathDiv.id == 'addFileNameElement') return;
     let full_path = pathDiv.textContent;
     if (!full_path.match(/[/:]/)) return;
@@ -197,7 +198,7 @@ async function addFileNameElement(url, request) {
         if (mediaSources) break;
     }
     if (!mediaSources) return;
-    let pathDivs = mediaSources.querySelectorAll('div[class="sectionTitle sectionTitle-cards"] > div');
+    let pathDivs = mediaSources.querySelectorAll('div[class^="sectionTitle sectionTitle-cards"] > div');
     if (!pathDivs) return;
     pathDivs = Array.from(pathDivs);
     let _pathDiv = pathDivs[0];
