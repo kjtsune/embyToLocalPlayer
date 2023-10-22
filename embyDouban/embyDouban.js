@@ -3,7 +3,7 @@
 // @name:zh-CN   embyDouban
 // @name:en      embyDouban
 // @namespace    https://github.com/kjtsune/embyToLocalPlayer/tree/main/embyDouban
-// @version      0.1.11
+// @version      0.1.12
 // @description  emby 里展示: 豆瓣 Bangumi bgm.tv 评分 链接 (豆瓣评论可关)
 // @description:zh-CN emby 里展示: 豆瓣 Bangumi bgm.tv 评分 链接 (豆瓣评论可关)
 // @description:en  show douban Bangumi ratings in emby
@@ -249,7 +249,8 @@ async function insertDoubanMain(linkZone) {
         localStorage.setItem(imdbId, '');
         return;
     }
-    let doubanString = `<a is="emby-linkbutton" class="raised item-tag-button nobackdropfilter emby-button" href="https://movie.douban.com/subject/${doubanId}/" target="_blank"><i class="md-icon button-icon button-icon-left">link</i>Douban</a>`;
+    let buttonClass = imdbButton.className;
+    let doubanString = `<a is="emby-linkbutton" class="${buttonClass}" href="https://movie.douban.com/subject/${doubanId}/" target="_blank"><i class="md-icon button-icon button-icon-left">link</i>Douban</a>`;
     imdbButton.insertAdjacentHTML('beforebegin', doubanString);
     insertDoubanScore(doubanId);
     insertDoubanComment(doubanId);
@@ -277,7 +278,8 @@ function insertBangumiScore(bgmObj, infoTable, linkZone) {
     let tmdbButton = linkZone.querySelector('a[href^="https://www.themovie"]');
     let bgmButton = linkZone.querySelector('a[href^="https://bgm.tv"]');
     if (bgmButton) return;
-    let bgmString = `<a is="emby-linkbutton" class="raised item-tag-button nobackdropfilter emby-button" href="https://bgm.tv/subject/${bgmObj.id}" target="_blank"><i class="md-icon button-icon button-icon-left">link</i>Bangumi</a>`;
+    let buttonClass = tmdbButton.className;
+    let bgmString = `<a is="emby-linkbutton" class="${buttonClass}" href="https://bgm.tv/subject/${bgmObj.id}" target="_blank"><i class="md-icon button-icon button-icon-left">link</i>Bangumi</a>`;
     tmdbButton.insertAdjacentHTML('beforebegin', bgmString);
 }
 
@@ -315,7 +317,16 @@ async function insertBangumiMain(infoTable, linkZone) {
     mediaInfoItems.forEach(tagItem => {
         if (tagItem.textContent && tagItem.textContent.search(/动画|Anim/) != -1) { isAnime++ }
     });
-    if (isAnime == 0) return;
+    if (isAnime == 0) {
+        if (mediaInfoItems.length > 2) return;
+        let itemGenres = getVisibleElement(document.querySelectorAll('div[class*="itemGenres"]'));
+        if (!itemGenres) return;
+        itemGenres = itemGenres.querySelectorAll('a')
+        itemGenres.forEach(tagItem => {
+            if (tagItem.textContent && tagItem.textContent.search(/动画|Anim/) != -1) { isAnime++ }
+        });
+        if (isAnime == 0) return;
+    };
 
     let bgmRate = infoTable.querySelector('a#bgmScore');
     if (bgmRate) return;
@@ -451,7 +462,7 @@ function cleanDoubanError() {
 var runLimit = 50;
 
 async function main() {
-    let linkZone = getVisibleElement(document.querySelectorAll('div[class*="linksSection verticalSection-extrabottompadding"]'));
+    let linkZone = getVisibleElement(document.querySelectorAll('div[class*="linksSection"]'));
     let infoTable = getVisibleElement(document.querySelectorAll('div[class="flex-grow detailTextContainer details-largefont"]'));
     if (infoTable && linkZone) {
         if (!infoTable.querySelector('h3.itemName-secondary')) { // not eps page

@@ -107,12 +107,10 @@ https://github.com/kjtsune/embyToLocalPlayer#faq
 
 > 如何更新
 
-* 方法1：  
-  Windows: `.bat` 按 6  
-  Linux / macOS：在 `.ini` 所在的文件夹打开终端，运行 `python3 utils/update.py`  
-  查看新旧配置的差异字段。`embyToLocalPlayer_diff.ini`
-* 方法2：将 `_config.ini` 重命名为 `.ini`，其他全删除。再次 GitHub 下载解压当前文件夹。（`.ini` 优先于 `_config.ini`  ）  
-  同时看看 `embyToLocalPlayer_config.ini` 有没有新内容。
+1. Windows: `.bat` 按 6  
+   Linux / macOS：在 `.ini` 所在的文件夹打开终端，运行 `python3 utils/update.py`
+2. 查看新旧配置的差异字段。`embyToLocalPlayer_diff.ini`
+
 * 油猴脚本有时也要更新。
 
 > 如何反馈
