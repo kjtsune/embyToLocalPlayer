@@ -155,7 +155,7 @@ def use_dandan_exe_by_path(file_path):
     _logger.error(f'dandanplay {enable_path=} \n{path_match=}')
 
 
-def translate_path_by_ini(file_path):
+def translate_path_by_ini(file_path, debug=False):
     config = configs.raw
     path_check = config.getboolean('dev', 'path_check', fallback=False)
     if 'src' in config and 'dst' in config and not file_path.startswith('http'):
@@ -174,7 +174,9 @@ def translate_path_by_ini(file_path):
                 file_path = os.path.abspath(tmp_path)
                 break
             else:
-                _logger.debug(tmp_path, 'not found')
+                # path_check = True and debug = True and exists = False
+                _log = _logger.info if debug else _logger.debug
+                _log('debug: dev > path_check: fail >', tmp_path)
     return file_path
 
 
@@ -203,7 +205,8 @@ def get_player_cmd(media_path, file_path):
     result = [exe, media_path]
     _logger.info('command line:', result)
     if not media_path.startswith('http') and not os.path.exists(media_path):
-        raise FileNotFoundError(f'{media_path}\nmay need to disable read disk mode. see detail in FAQ')
+        raise FileNotFoundError(f'{media_path}\nmay need to disable read disk mode, '
+                                f'or enable path_check, see detail in FAQ')
     return result
 
 
@@ -291,7 +294,7 @@ def parse_received_data_emby(received_data):
         sub_delivery_url = None
     sub_file = f'{scheme}://{netloc}{sub_delivery_url}' if sub_delivery_url else None
     mount_disk_mode = True if force_disk_mode_by_path(file_path) else mount_disk_mode
-    media_path = translate_path_by_ini(file_path) if mount_disk_mode else stream_url
+    media_path = translate_path_by_ini(file_path, debug=True) if mount_disk_mode else stream_url
     basename = os.path.basename(file_path)
     media_basename = os.path.basename(media_path)
     if file_path.endswith('.m3u8'):
