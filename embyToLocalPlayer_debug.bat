@@ -1,5 +1,5 @@
 @echo OFF
-
+chcp 65001
 :BEGIN
 cls
 

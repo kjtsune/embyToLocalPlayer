@@ -2,7 +2,6 @@
 
 import ctypes
 import json
-import locale
 import re
 import subprocess
 
@@ -15,12 +14,10 @@ EnumWindowsProc = ctypes.WINFUNCTYPE(ctypes.c_int, ctypes.POINTER(ctypes.c_int),
 
 
 def list_pid_and_cmd(name_re='.') -> list:
-    default_encoding = locale.getpreferredencoding()
-    # encoding = 'gbk' if default_encoding == 'cp936' else 'utf-8'
     cmd = 'Get-WmiObject Win32_Process | Select ProcessId,CommandLine | ConvertTo-Json'
     try:
-        proc = subprocess.run(['powershell', '-Command', cmd], capture_output=True,
-                              encoding=default_encoding)
+        proc = subprocess.run(['chcp', '65001', '>NUL', '&', 'powershell', cmd],
+                              capture_output=True, encoding='utf-8', shell=True)
     except FileNotFoundError:
         raise FileNotFoundError('powershell not found in cmd, check sys and user environment path') from None
     if proc.returncode != 0:
