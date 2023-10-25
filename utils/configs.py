@@ -31,6 +31,9 @@ class Stdout:
     def __init__(self):
         self.log_file = mini_conf().get('dev', 'log_file', fallback='')
         if self.log_file:
+            if self.log_file.startswith('./'):
+                cwd = os.path.dirname(os.path.dirname(__file__))
+                self.log_file = os.path.join(cwd, self.log_file.split('./', 1)[1])
             mode = 'a' if os.path.exists(self.log_file) and os.path.getsize(self.log_file) < 10 * 1024000 else 'w'
             if not os.path.exists(self.log_file):
                 os.makedirs(os.path.dirname(self.log_file), exist_ok=True)
