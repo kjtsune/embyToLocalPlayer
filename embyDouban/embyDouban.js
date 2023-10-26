@@ -164,6 +164,9 @@ async function getDoubanInfo(id) {
     //     return { url, rating: data.rating };
     // }
     // Fallback to search.
+    if(!id){
+        return;
+    }
     const search = await getJSON_GM(`https://movie.douban.com/j/subject_suggest?q=${id}`);
     if (search && search.length > 0 && search[0].id) {
         const abstract = await getJSON_GM(`https://movie.douban.com/j/subject_abstract?subject_id=${search[0].id}`);
@@ -223,6 +226,9 @@ async function insertDoubanMain(linkZone) {
     let imdbButton = linkZone.querySelector('a[href^="https://www.imdb"]');
     if (doubanButton || !imdbButton) { return; }
     let imdbId = imdbButton.href.match(/tt\d+/);
+    if(!imdbId){
+        return;
+    }
     if (imdbId in localStorage) {
         var doubanId = localStorage.getItem(imdbId);
     } else {
