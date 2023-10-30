@@ -29,6 +29,38 @@ def run_server(req_handler):
     httpd.serve_forever()
 
 
+def tg_notify(msg, silence=False):
+    base_url = configs.raw.get('tg_notify', 'base_url', fallback='https://api.telegram.org')
+    bot_token = configs.raw.get('tg_notify', 'bot_token', fallback='')
+    chat_id = configs.raw.get('tg_notify', 'chat_id', fallback='')
+    silence_time = configs.ini_str_split('tg_notify', 'silence_time', fallback='')
+    if not bot_token:
+        return
+    if not chat_id and msg == '_get_chat_id':
+        res = requests_urllib(f'{base_url}/bot{bot_token}/getUpdates', get_json=True, timeout=8)
+        print(res, f'\n_get_chat_id')
+        if result := res['result']:
+            from_id = result[0]['message']['from']['id']
+            chat_id = result[0]['message']['chat']['id']
+            if from_id == chat_id:
+                msg = f'`chat_id = {chat_id}`'
+    if not chat_id:
+        return
+    if msg == '_get_chat_id':
+        msg = f'message test success\n`chat_id = {chat_id}`\nneed to set `get_chat_id \= no`'
+    if silence_time:
+        silence_time = [range(int(start), int(end)) for (start, end) in
+                        [time_range.split('-') for time_range in silence_time]]
+        silence_time = [str(hour) for hours in silence_time for hour in hours]
+        silence = True if time.strftime('%H') in silence_time else False
+
+    if not msg:
+        return
+    requests_urllib(f'{base_url}/bot{bot_token}/sendMessage',
+                    params={'chat_id': chat_id, 'text': msg, 'disable_notification': silence,
+                            'parse_mode': 'MarkdownV2'}, decode=True, timeout=8)
+
+
 def requests_urllib(host, params=None, _json=None, decode=False, timeout=5.0, headers=None, req_only=False,
                     http_proxy='', get_json=False, save_path='', retry=5, silence=False, res_only=False):
     _json = json.dumps(_json).encode('utf-8') if _json else None
@@ -247,7 +279,7 @@ def list_episodes(data: dict):
     headers.update(data['headers'])
 
     main_ep_info = requests_urllib(f'{scheme}://{netloc}{extra_str}/Users/{user_id}/Items/{data["item_id"]}',
-                                     params=params, headers=headers, get_json=True)
+                                   params=params, headers=headers, get_json=True)
     # if video is movie
     if 'SeasonId' not in main_ep_info:
         data['Type'] = main_ep_info['Type']

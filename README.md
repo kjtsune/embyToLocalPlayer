@@ -337,7 +337,8 @@ https://github.com/kjtsune/embyToLocalPlayer#faq
 
 > 播放列表预读取下一集
 
-* 需要配合 nginx 反代管理缓存，比较麻烦。(在本机或者 nas 运行一个 nginx，缓存并切片视频流)
+* 需要配合 nginx 反代管理缓存，比较麻烦。(在本机或者 nas 运行一个 nginx，缓存并切片视频流)  
+  读取并丢弃 首8% 尾2% 的数据。按理 rclone 配置缓存也可以，但实测效果不佳。
 * 浏览器访问局域网的反代站，或配合后续的 模拟 302 重定向视频流。才能起到缓存效果。
 * 填写位置：`.ini` > playlist
     ```
@@ -346,11 +347,6 @@ https://github.com/kjtsune/embyToLocalPlayer#faq
     
     # 服务端路径包含以下前缀才预读取，逗号隔开，全部启用就留空或删除。
     prefetch_path = /disk/od/TV, /disk/gd
-    
-    # 预读取时采用的策略：null | sequence | first_last
-    # null：读取并丢弃 首8% 尾2% 的数据，适合 nginx 配置缓存的。按理 rclone 也可以，但实测效果不佳。
-    # 不推荐：sequence：gui[顺序下载]，first_last：gui[优先首尾]，gui（边下边播）详见 FAQ。
-    prefetch_type = null
     ```
 * 网盘和本地硬盘混合使用的话。[可选] 配置本地文件用读盘模式：`.ini` > dev > force_disk_mode_path
 * 用自签证书反代 https 的站，可以仅反代视频流，并配置跳过证书验证。`.ini` > dev > skip_certificate_verify  
@@ -368,7 +364,7 @@ https://github.com/kjtsune/embyToLocalPlayer#faq
 
 > 预读取继续观看
 
-* 类似预读取下一集。仅处理最近上映的集，适合追更。
+* 类似预读取下一集。仅处理最近上映的集（7天内），适合追更。
 * [可选] 在不关机的机器里配置并运行更合适一点。
 * 填写位置：`.ini` > dev
   ```
@@ -378,6 +374,36 @@ https://github.com/kjtsune/embyToLocalPlayer#faq
   # user_id：设置 > 用户 > [用户名] > 看浏览器网址。api_key：设置 > API 密钥。
   prefetch_conf = http://emby.abc.org:8096, user_id, api_key, /, /od/另一个路径前缀;
   ```
-* 网址填反代站。若填源站，需要配置上方的重定向视频流到反代站。才能让 nginx 缓存。
+* 若需要 nginx 缓存：网址填反代站。如果填源站，需要配置上方的重定向视频流到反代站。
+
+> 追更 TG 通知
+
+* 继续观看更新时，通过 Telegram 机器人发送通知。（每10分钟检测一次）
+* 前置依赖：启用 预读取继续观看。
+* 填写位置：`.ini` 顶部或底部（单独的配置区域即可，不要填到别的配置里）
+    ```
+    ##################################################################
+    ### v v # # # # # # # # 追更 TG 通知 # # # # # # # # # # # v v ###
+    
+    [tg_notify]
+  
+    # 找 @BotFather 创建一个机器人。复制并填写 token。
+    bot_token = 
+  
+    # 点击你创建的机器人，然后点击开始或随便发送信息给你的机器人，最后启动本脚本。机器人会告诉你 chat_id。
+    chat_id = 
+  
+    # chat_id 填写后，重启脚本，会自动测试，提示测试成功的话，本项可以关闭。 
+    get_chat_id = yes
+  
+    # 如果不需要预读取服务，仅通知。就启用本项。
+    disable_prefetch = no
+  
+    # 静音通知时间段，范围间逗号隔开。例如：0-9 0点后9点前。类似针式时钟的时间范围。
+    silence_time = 0-9, 12-14
+  
+    # [可选] 可指定 api, 自行搜索 "TG Bot API 反代", 解决网络连接问题。
+    base_url = https://api.telegram.org
+    ```
 
 </details>

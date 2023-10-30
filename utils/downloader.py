@@ -4,7 +4,7 @@ import time
 import typing
 
 from utils.configs import configs, MyLogger
-from utils.net_tools import requests_urllib
+from utils.net_tools import requests_urllib, tg_notify
 from utils.tools import load_json_file, dump_json_file, scan_cache_dir, safe_deleter
 
 logger = MyLogger()
@@ -277,6 +277,10 @@ def _prefetch_resume_tv(host, user_id, api_key, startswith):
         'Limit': '12',
         'X-Emby-Token': api_key,
     }
+
+    if configs.raw.getboolean('tg_notify', 'get_chat_id', fallback=False):
+        tg_notify('_get_chat_id')
+
     done_list = []
     while True:
         try:
@@ -293,32 +297,46 @@ def _prefetch_resume_tv(host, user_id, api_key, startswith):
             item_id = ep['Id']
             source_info = ep['MediaSources'][0] if 'MediaSources' in ep else ep
             file_path = source_info['Path']
-            if item_id in done_list or (not file_path.startswith(startswith) and '/' not in startswith) \
-                    or ep['UserData'].get('LastPlayedDate'):
+            if item_id in done_list or (not file_path.startswith(startswith) and '/' not in startswith):
                 continue
+            # if ep['UserData'].get('LastPlayedDate'):
+            #     continue
+            try:
+                playback_info = requests_urllib(f'{host}/Items/{item_id}/PlaybackInfo',
+                                                params=params, headers=headers, get_json=True)
+                play_session_id = playback_info['PlaySessionId']
 
-            playback_info = requests_urllib(f'{host}/Items/{item_id}/PlaybackInfo',
-                                            params=params, headers=headers, get_json=True)
-            play_session_id = playback_info['PlaySessionId']
+                image = f'[ ]({host}/emby/Items/{item_id}/Images/Primary?maxHeight=282&maxWidth=500)'
+                notify_msg = f"{image}{ep['SeriesName']} \| `{time.ctime()}`"
 
-            for source_info in playback_info['MediaSources']:
-                file_path = source_info['Path']
-                container = os.path.splitext(file_path)[-1]
-                # stream_url = f'{host}/videos/{ep["Id"]}/stream{container}' \
-                #              f'?MediaSourceId={source_info["Id"]}&Static=true&api_key={api_key}'
-                stream_url = f'{host}/emby/videos/{item_id}/stream{container}' \
-                             f'?DeviceId=embyToLocalPlayer&MediaSourceId={source_info["Id"]}&Static=true' \
-                             f'&PlaySessionId={play_session_id}&api_key={api_key}'
-                if stream_redirect := configs.ini_str_split('dev', 'stream_redirect'):
-                    stream_redirect = zip(stream_redirect[0::2], stream_redirect[1::2])
-                    for (_raw, _jump) in stream_redirect:
-                        if _raw in stream_url:
-                            stream_url = stream_url.replace(_raw, _jump)
-                            break
-
-                logger.info(f'prefetch {ep["SeriesName"]} {file_path} \n{stream_url}')
-                dl = Downloader(url=stream_url, _id=os.path.basename(file_path), save_path=null_file)
-                threading.Thread(target=dl.percent_download, args=(0, 0.05), daemon=True).start()
-                threading.Thread(target=dl.percent_download, args=(0.98, 1), daemon=True).start()
+                for source_info in playback_info['MediaSources']:
+                    file_path = source_info['Path']
+                    container = os.path.splitext(file_path)[-1]
+                    # stream_url = f'{host}/videos/{ep["Id"]}/stream{container}' \
+                    #              f'?MediaSourceId={source_info["Id"]}&Static=true&api_key={api_key}'
+                    stream_url = f'{host}/emby/videos/{item_id}/stream{container}' \
+                                 f'?DeviceId=embyToLocalPlayer&MediaSourceId={source_info["Id"]}&Static=true' \
+                                 f'&PlaySessionId={play_session_id}&api_key={api_key}'
+                    if stream_redirect := configs.ini_str_split('dev', 'stream_redirect'):
+                        stream_redirect = zip(stream_redirect[0::2], stream_redirect[1::2])
+                        for (_raw, _jump) in stream_redirect:
+                            if _raw in stream_url:
+                                stream_url = stream_url.replace(_raw, _jump)
+                                break
+                    root_dir = os.path.dirname(os.path.dirname((os.path.dirname(file_path))))
+                    relative_path = file_path.replace(root_dir, '')[1:]
+                    notify_msg += f'\n`{relative_path}`'
+                    if configs.raw.getboolean('tg_notify', 'disable_prefetch', fallback=False):
+                        logger.info(f'tg_notify, {relative_path}')
+                        continue
+                    logger.info(f'prefetch {relative_path} \n{stream_url[:100]}')
+                    dl = Downloader(url=stream_url, _id=os.path.basename(file_path), save_path=null_file)
+                    dl.percent_download(0, 0.05)
+                    dl.percent_download(0.98, 1)
+                    print()
+                tg_notify(notify_msg)
+            except Exception as e:
+                logger.error(f'_prefetch_resume_tv error found {str(e)[:100]}')
+                break
             done_list.append(item_id)
         time.sleep(600)
