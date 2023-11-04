@@ -261,7 +261,7 @@ def playlist_add_mpv(mpv: MPV, data, eps_data=None, limit=10):
                 f'title="{basename}",force-media-title="{basename}",osd-playing-msg="{basename}"'
                 f',start=0{sub_file_cmd}')
         except OSError:
-            logger.error('mpv exit: by playlist_add_mpv')
+            logger.error('mpv exit: by playlist_add_mpv: except OSError')
             return {}
     return playlist_data
 

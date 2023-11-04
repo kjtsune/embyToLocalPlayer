@@ -307,7 +307,8 @@ def _prefetch_resume_tv(host, user_id, api_key, startswith):
                 play_session_id = playback_info['PlaySessionId']
 
                 image = f'[ ]({host}/emby/Items/{item_id}/Images/Primary?maxHeight=282&maxWidth=500)'
-                notify_msg = f"{image}{ep['SeriesName']} \| `{time.ctime()}`"
+                item_url = f"[emby]({host}/web/index.html#!/item?id={item_id}&serverId={ep['ServerId']})"
+                notify_msg = f"{image}{ep['SeriesName']} \| `{time.ctime()}` \| {item_url}"
 
                 for source_info in playback_info['MediaSources']:
                     file_path = source_info['Path']
