@@ -96,10 +96,7 @@ def start_play(data):
                 and player_name in ('mpv', 'vlc', 'mpc', 'potplayer', 'iina') \
                 or (player_name == 'dandanplay' and not media_title):
             player_manager = PlayerManager(data=data, player_name=player_name, player_path=player_path)
-            try:
-                player_manager.start_player(cmd=cmd, start_sec=start_sec, sub_file=sub_file, media_title=media_title)
-            except FileNotFoundError:
-                raise FileNotFoundError(f'player not exists, check ini config, {cmd[0]}') from None
+            player_manager.start_player(cmd=cmd, start_sec=start_sec, sub_file=sub_file, media_title=media_title)
             eps_data = eps_data_thread.join()
             player_manager.playlist_add(eps_data=eps_data)
             player_manager.update_playlist_time_loop()

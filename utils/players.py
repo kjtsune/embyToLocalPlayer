@@ -42,7 +42,10 @@ class PlayerManager:
         self.is_http_sub = bool(data.get('sub_file'))
 
     def start_player(self, **kwargs):
-        self.player_kwargs = player_start_func_dict[self.player_name](**kwargs)
+        try:
+            self.player_kwargs = player_start_func_dict[self.player_name](**kwargs)
+        except FileNotFoundError:
+            raise FileNotFoundError(f'player not exists, check config ini file, {kwargs["cmd"][0]}') from None
 
     def playlist_add(self, eps_data=None):
         playlist_fun = dict(mpv=playlist_add_mpv,

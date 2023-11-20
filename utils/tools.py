@@ -198,7 +198,10 @@ def select_player_by_path(file_path):
 def get_player_cmd(media_path, file_path):
     config = configs.raw
     player = config['emby']['player']
-    exe = config['exe'][player]
+    try:
+        exe = config['exe'][player]
+    except KeyError:
+        raise ValueError(f'{player=}, {player} not found, check config ini file') from None
     exe = config['dandan']['exe'] if use_dandan_exe_by_path(file_path) else exe
     if player_by_path := select_player_by_path(file_path):
         exe = config['exe'][player_by_path]

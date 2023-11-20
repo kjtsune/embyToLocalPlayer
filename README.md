@@ -45,7 +45,7 @@
 * 若无报错，按 1（窗口运行），可网页播放测试。（点击原来的播放按钮就可以）
 * 按 2 则创建开机启动项并后台运行。
 * 问题排查：
-    * 若提示找不到 Python，轮流尝试安装以下三种 Python 安装程序：  
+    * 若双击 `.bat` 就提示找不到 Python，轮流尝试安装以下三种 Python 安装程序：  
       通用流程：卸载 Python > 重启 > 安装 Python (勾选 add to path) > 重启 >  双击 `.bat`
         * 1：[官网](https://www.python.org/downloads/)
         * 2：[Miniconda](https://docs.conda.io/en/latest/miniconda.html)
