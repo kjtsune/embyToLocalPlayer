@@ -264,12 +264,13 @@ def parse_received_data_emby(received_data):
             if len(media_sources) > 1 and is_emby else media_sources[0]
         media_source_id = media_source_info['Id']
     file_path = media_source_info['Path']
-    # stream_url = f'{scheme}://{netloc}{media_source_info["DirectStreamUrl"]}'
     container = os.path.splitext(file_path)[-1]
     extra_str = '/emby' if is_emby else ''
-    stream_url = f'{scheme}://{netloc}{extra_str}/videos/{item_id}/stream{container}' \
-                 f'?DeviceId={device_id}&MediaSourceId={media_source_id}&Static=true' \
-                 f'&PlaySessionId={play_session_id}&api_key={api_key}'
+    direct_stream_url = media_source_info.get('DirectStreamUrl') or \
+                        f'/videos/{item_id}/stream{container}' \
+                        f'?DeviceId={device_id}&MediaSourceId={media_source_id}' \
+                        f'&PlaySessionId={play_session_id}&api_key={api_key}'
+    stream_url = f'{scheme}://{netloc}{extra_str}{direct_stream_url}&Static=true'
 
     if stream_redirect := configs.ini_str_split('dev', 'stream_redirect'):
         stream_redirect = zip(stream_redirect[0::2], stream_redirect[1::2])

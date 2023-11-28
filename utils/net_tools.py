@@ -288,6 +288,8 @@ def list_episodes(data: dict):
     season_id = main_ep_info['SeasonId']
     series_id = main_ep_info['SeriesId']
 
+    stream_name = data['stream_url'].split('?',maxsplit=1)[0].rsplit('/', maxsplit=1)[-1].split('.')[0]
+
     def version_filter(file_path, episodes_data):
         ver_re = configs.raw.get('playlist', 'version_filter', fallback='').strip().strip('|')
         if not ver_re:
@@ -343,9 +345,9 @@ def list_episodes(data: dict):
         fake_name = os.path.splitdrive(file_path)[1].replace('/', '__').replace('\\', '__')
         item_id = item['Id']
         container = os.path.splitext(file_path)[-1]
-        stream_url = f'{scheme}://{netloc}{extra_str}/videos/{item_id}/stream{container}' \
-                     f'?DeviceId={device_id}&MediaSourceId={source_info["Id"]}&Static=true' \
-                     f'&PlaySessionId={play_session_id}&api_key={api_key}'
+        stream_url = f'{scheme}://{netloc}{extra_str}/videos/{item_id}/{stream_name}{container}' \
+                     f'?DeviceId={device_id}&MediaSourceId={source_info["Id"]}' \
+                     f'&PlaySessionId={play_session_id}&api_key={api_key}&Static=true'
         media_path = translate_path_by_ini(file_path) if mount_disk_mode else stream_url
         basename = os.path.basename(file_path)
         media_basename = os.path.basename(media_path)

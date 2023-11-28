@@ -24,7 +24,8 @@ def fill_trakt_ep_ids_by_series(trakt, eps_data, force=False):
     emby = EmbyApi(host=f"{fist_ep['scheme']}://{fist_ep['netloc']}",
                    api_key=fist_ep['api_key'],
                    user_id=fist_ep['user_id'],
-                   http_proxy=configs.script_proxy
+                   http_proxy=configs.script_proxy,
+                   cert_verify=(not configs.raw.getboolean('dev', 'skip_certificate_verify', fallback=False))
                    )
     series_info = emby.get_item(fist_ep['SeriesId'])
     season_num = fist_ep['ParentIndexNumber']

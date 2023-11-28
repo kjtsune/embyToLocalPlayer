@@ -117,7 +117,8 @@ def bangumi_sync_main(bangumi=None, eps_data: list = None, test=False, use_ini=F
         emby = EmbyApi(host=f"{fist_ep['scheme']}://{fist_ep['netloc']}",
                        api_key=fist_ep['api_key'],
                        user_id=fist_ep['user_id'],
-                       http_proxy=configs.script_proxy
+                       http_proxy=configs.script_proxy,
+                       cert_verify=(not configs.raw.getboolean('dev', 'skip_certificate_verify', fallback=False))
                        )
     bangumi_sync(emby=emby, bgm=bgm, emby_eps=eps_data)
     return bgm

@@ -5,11 +5,15 @@ import requests
 
 class EmbyApi:
     def __init__(self, host, api_key, user_id, *,
-                 http_proxy=None, socks_proxy=None):
+                 http_proxy=None, socks_proxy=None, cert_verify=True):
         self.host = host.rstrip('/')
         self.api_key = api_key
         self.user_id = user_id
         self.req = requests.Session()
+        if not cert_verify:
+            self.req.verify = False
+            from requests.packages import urllib3
+            urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
         self.req.headers.update({'Accept': 'application/json'})
         self.req.headers.update({'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
                                                '(KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36',
