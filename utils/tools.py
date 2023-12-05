@@ -264,13 +264,15 @@ def parse_received_data_emby(received_data):
             if len(media_sources) > 1 and is_emby else media_sources[0]
         media_source_id = media_source_info['Id']
     file_path = media_source_info['Path']
+    # stream_url = f'{scheme}://{netloc}{media_source_info["DirectStreamUrl"]}' # 可能为转码后的链接
     container = os.path.splitext(file_path)[-1]
     extra_str = '/emby' if is_emby else ''
-    direct_stream_url = media_source_info.get('DirectStreamUrl') or \
-                        f'/videos/{item_id}/stream{container}' \
-                        f'?DeviceId={device_id}&MediaSourceId={media_source_id}' \
-                        f'&PlaySessionId={play_session_id}&api_key={api_key}'
-    stream_url = f'{scheme}://{netloc}{extra_str}{direct_stream_url}&Static=true'
+    server_version = api_client['_serverVersion']
+    *_is_bata, _bata_ver = server_version.split('4.8.0.')
+    stream_name = 'original' if _is_bata and int(_bata_ver) > 50 else 'stream'
+    stream_url = f'{scheme}://{netloc}{extra_str}/videos/{item_id}/{stream_name}{container}' \
+                 f'?DeviceId={device_id}&MediaSourceId={media_source_id}' \
+                 f'&PlaySessionId={play_session_id}&api_key={api_key}&Static=true'
 
     if stream_redirect := configs.ini_str_split('dev', 'stream_redirect'):
         stream_redirect = zip(stream_redirect[0::2], stream_redirect[1::2])
@@ -301,7 +303,7 @@ def parse_received_data_emby(received_data):
     media_path = translate_path_by_ini(file_path, debug=True) if mount_disk_mode else stream_url
     basename = os.path.basename(file_path)
     media_basename = os.path.basename(media_path)
-    if file_path.endswith('.m3u8'):
+    if '.m3u8' in file_path:
         media_path = stream_url = file_path
 
     media_title = basename if not mount_disk_mode else None  # 播放http时覆盖标题
