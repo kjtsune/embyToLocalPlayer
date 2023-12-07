@@ -3,14 +3,13 @@
 // @name:zh-CN   embyToLocalPlayer
 // @name:en      embyToLocalPlayer
 // @namespace    https://github.com/kjtsune/embyToLocalPlayer
-// @version      1.1.10.1
+// @version      1.1.11
 // @description  需要 Python。Emby/Jellyfin 调用外部本地播放器，并回传播放记录。适配 Plex。
 // @description:zh-CN 需要 Python。Emby/Jellyfin 调用外部本地播放器，并回传播放记录。适配 Plex。
 // @description:en  Require Python. Play in an external player. Update watch history to Emby/Jellyfin server. Support Plex.
 // @author       Kjtsune
 // @match        *://*/web/index.html*
 // @match        *://*/*/web/index.html*
-// @include      /:\/\/[\w.]*\/web\/$/
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=emby.media
 // @grant        unsafeWindow
 // @grant        GM_xmlhttpRequest
@@ -22,6 +21,19 @@
 // ==/UserScript==
 'use strict';
 /*
+2023-12-07:
+1. mpv 播放列表避免与官方 autoload.lua 冲突。
+2. pot 修复读盘模式播放列表漏播第零季选集。（详见 FAQ 隐藏功能）
+* 版本间累积更新：
+  * 追更 TG 通知。（详见 FAQ 隐藏功能）
+  * 适配 Emby beta 版本 api 变动。
+  * bgm.tv: 适配上游搜索结果变动。
+  * bgm.tv: 增加旧版搜索 api 备选。
+  * trakt: 适配上游新剧缺失单集 imdb/tvdb。
+  * .bat 强制使用 utf-8 编码。
+  * 默认启用日志文件。
+  * pot 播放列表 未加载完成时可退出。
+  * 网络流：外挂 sup 支持（限 Emby v4.8.0.55 | mpv)。升级 Emby 记得备份，无法回退。
 2023-10-04:
 1. pot 和 vlc(Linux/macOS) 网络外挂字幕时，使用连播代替播放列表。`.ini` > playlist
 2. 高版本 macOS 自启方案。@Eatsolx
@@ -36,12 +48,6 @@
   * 减少回传次数。**油猴脚本也需要更新**
   * 播放网络流时：pot 播放列表：降低添加条目速度，减少异常。
   * 播放网络流时：mpc 切换进度时 api 无响应，导致提前回传。
-2023-09-04:
-1. Trakt 播放记录单向同步。（详见 FAQ）
-2. 剧集多版本：下一集匹配失败则禁用播放列表。
-* 版本间累积更新：
-  * 自动选择视频版本（限emby，配置文件有新增条目 [dev]）
-  * 油猴：非管理员可显示文件名。
 */
 
 let config = {

@@ -80,7 +80,7 @@
 
 ### FAQ
 
-**如果排版有问题，请到 GitHub 查看。**  
+**FAQ 建议到 GitHub 查看。**  
 https://github.com/kjtsune/embyToLocalPlayer#faq
 
 <details>
@@ -495,6 +495,20 @@ https://github.com/kjtsune/embyToLocalPlayer#faq
     1. 每次播放需要选择弹幕。（已把文件名发送给播放器匹配）
     2. 启动时无法及时跳转到 Emby 开始时间，需要播放开始后等待15秒。（每次看完一集则不影响）
     3. 无法加载外挂字幕。
+
+</details>
+
+<details>
+<summary>Pot 漏播第零季选集</summary>
+
+* 修复情景：Pot 读盘模式播放动漫第一季，会漏播 Emby 穿插的 S0 集数。
+* 前提条件：Pot 选项 > 基本 > 相似文件打开策略 > 仅打开选定的文件。（由脚本添加播放列表）
+* 填写位置：`.ini` > playlist
+  ```
+  # 解决 Pot 读盘模式漏播第零季选集，播放列表加载会变慢，每秒1集。
+  mix_s0 = yes
+  ```
+* 播放的第一个文件是 S0 的话，会连续播 S0。（通用 Bug，换 mpv 也会这样）
 
 </details>
 

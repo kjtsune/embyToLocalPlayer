@@ -217,6 +217,7 @@ def mpv_player_start(cmd, start_sec=None, sub_file=None, media_title=None, get_s
     if is_darwin:
         cmd.append('--focus-on-open')
     cmd.append(fr'--input-ipc-server={cmd_pipe}')
+    cmd.append('--script-opts=autoload-disabled=yes')
     if configs.fullscreen:
         cmd.append('--fullscreen=yes')
     if configs.disable_audio:
@@ -583,6 +584,7 @@ def pot_player_start(cmd: list, start_sec=None, sub_file=None, media_title=None,
 
 
 def playlist_add_pot(pid, player_path, data, eps_data=None, limit=5, **_):
+    mix_s0 = configs.raw.getboolean('playlist', 'mix_s0', fallback=False)
     from utils.windows_tool import process_is_running_by_pid
     playlist_data = {}
     if not player_path:
@@ -591,6 +593,7 @@ def playlist_add_pot(pid, player_path, data, eps_data=None, limit=5, **_):
     episodes = eps_data or list_episodes(data)
     append = False
     mount_disk_mode = data['mount_disk_mode']
+    limit = 12 if limit == 5 and mount_disk_mode and mix_s0 else limit
     is_http_sub = bool(data.get('sub_file'))
     if not mount_disk_mode:
         while True:
@@ -606,7 +609,7 @@ def playlist_add_pot(pid, player_path, data, eps_data=None, limit=5, **_):
         if basename == data['basename']:
             append = True
             continue
-        if not append or mount_disk_mode or limit <= 0 or is_http_sub:
+        if not append or (mount_disk_mode and not mix_s0) or limit <= 0 or is_http_sub:
             continue
         limit -= 1
         # f'/sub={ep["sub_file"]}' pot 下一集会丢失字幕
@@ -614,11 +617,12 @@ def playlist_add_pot(pid, player_path, data, eps_data=None, limit=5, **_):
         pot_cmds.append([player_path, '/add', ep['media_path'], f'/title={basename}'])
     if pot_cmds:
         def add_thread():
+            sleep_sec = 1 if mount_disk_mode else 5
             for cmd in pot_cmds:
                 if not process_is_running_by_pid(pid):
                     break
                 subprocess.run(cmd)
-                time.sleep(5)
+                time.sleep(sleep_sec)
 
         threading.Thread(target=add_thread, daemon=True).start()
     return playlist_data
