@@ -233,7 +233,28 @@ def version_prefer_emby(sources):
     return sources[0]
 
 
+def main_ep_to_title(main_ep_info):
+    # movie
+    if 'SeasonId' not in main_ep_info:
+        if 'ProductionYear' not in main_ep_info:
+            return f"{main_ep_info['Name']}"
+        return f"{main_ep_info['Name']} ({main_ep_info['ProductionYear']})"
+    # episode
+    if 'ParentIndexNumber' not in main_ep_info or 'IndexNumber' not in main_ep_info:
+        return f"{main_ep_info['SeriesName']} - {main_ep_info['Name']}"
+    if 'IndexNumberEnd' not in main_ep_info:
+        return f"{main_ep_info['SeriesName']} S{main_ep_info['ParentIndexNumber']}" \
+               f":E{main_ep_info['IndexNumber']} - {main_ep_info['Name']}"
+    return f"{main_ep_info['SeriesName']} S{main_ep_info['ParentIndexNumber']}" \
+           f":E{main_ep_info['IndexNumber']}-{main_ep_info['IndexNumberEnd']} - {main_ep_info['Name']}"
+
+
 def parse_received_data_emby(received_data):
+    extra_data = received_data['extraData']
+    main_ep_info = extra_data['mainEpInfo']
+    episodes_info = extra_data['episodesInfo']
+    playlist_info = extra_data['playlistInfo']
+    emby_title = main_ep_to_title(main_ep_info)
     api_client = received_data['ApiClient']
     mount_disk_mode = True if received_data['mountDiskEnable'] == 'true' else False
     url = urllib.parse.urlparse(received_data['playbackUrl'])
@@ -306,7 +327,7 @@ def parse_received_data_emby(received_data):
     if '.m3u8' in file_path:
         media_path = stream_url = file_path
 
-    media_title = basename if not mount_disk_mode else None  # 播放http时覆盖标题
+    media_title = f'{emby_title}  |  {basename}' if emby_title else basename
 
     seek = query['StartTimeTicks']
     start_sec = int(seek) // (10 ** 7) if seek else 0
@@ -339,7 +360,9 @@ def parse_received_data_emby(received_data):
         user_id=user_id,
         basename=basename,
         media_basename=media_basename,
-        fist_time=received_data['fistTime'],
+        main_ep_info=main_ep_info,
+        episodes_info=episodes_info,
+        playlist_info=playlist_info,
     )
     return result
 

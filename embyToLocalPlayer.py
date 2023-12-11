@@ -81,6 +81,7 @@ def start_play(data):
     start_sec = data['start_sec']
     sub_file = data['sub_file']
     media_title = data['media_title']
+    mount_disk_mode = data['mount_disk_mode']
     eps_data_thread = ThreadWithReturnValue(target=list_episodes, args=(data,))
     eps_data_thread.start()
 
@@ -94,9 +95,10 @@ def start_play(data):
         player_name = player_name[0]
         if configs.check_str_match(_str=data['netloc'], section='playlist', option='enable_host') \
                 and player_name in ('mpv', 'vlc', 'mpc', 'potplayer', 'iina') \
-                or (player_name == 'dandanplay' and not media_title):
+                or (player_name == 'dandanplay' and mount_disk_mode):
             player_manager = PlayerManager(data=data, player_name=player_name, player_path=player_path)
-            player_manager.start_player(cmd=cmd, start_sec=start_sec, sub_file=sub_file, media_title=media_title)
+            player_manager.start_player(cmd=cmd, start_sec=start_sec, sub_file=sub_file, media_title=media_title,
+                                        mount_disk_mode=mount_disk_mode)
             eps_data = eps_data_thread.join()
             player_manager.playlist_add(eps_data=eps_data)
             player_manager.update_playlist_time_loop()
@@ -105,7 +107,8 @@ def start_play(data):
             return
 
         player_function = player_start_func_dict[player_name]
-        stop_sec_kwargs = player_function(cmd=cmd, start_sec=start_sec, sub_file=sub_file, media_title=media_title)
+        stop_sec_kwargs = player_function(cmd=cmd, start_sec=start_sec, sub_file=sub_file, media_title=media_title,
+                                          mount_disk_mode=mount_disk_mode)
         stop_sec = stop_sec_function_dict[player_name](**stop_sec_kwargs)
         logger.info('stop_sec', stop_sec)
         if stop_sec is None:

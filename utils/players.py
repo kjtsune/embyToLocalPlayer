@@ -21,7 +21,6 @@ pipe_port_stack = list(reversed(range(25)))
 
 # *_player_start 返回获取播放时间等操作所需参数字典
 # stop_sec_* 接收字典参数
-# media_title is None 可以用来判断是不是 mount_disk_mode
 
 def get_pipe_or_port_str(get_pipe=False):
     pipe_port = 'pipe_name' if get_pipe else 58423
@@ -124,26 +123,25 @@ class PlayerManager:
             fist_ep = False
             if not next_ep or not stop_sec:
                 break
-            next_basename = next_ep['basename']
+            next_media_title = next_ep['media_title']
             if stop_sec / ep['total_sec'] < 0.9:
-                logger.info(f'skip play {next_basename}, because watch progress < 0.9')
+                logger.info(f'skip play {next_media_title}, because watch progress < 0.9')
                 break
             # if show_confirm_button('Click To Stop Play Next EP', 200, 40, result=True, fallback=False, timeout=2):
             #     logger.info('Stop Play Next EP by button')
             #     break
             self.player_kwargs = player_start_func_dict[self.player_name](
                 cmd=[self.player_path, next_ep['media_path']], sub_file=next_ep.get('sub_file'),
-                # media_title 参数可能用于判断是否为读盘模式，不过 http_sub 不受影响。
-                media_title=next_basename)
+                media_title=next_media_title,mount_disk_mode=False)
             activate_window_by_pid(self.player_kwargs['pid'])
-            logger.info(f'auto play: {next_basename}')
+            logger.info(f'auto play: {next_media_title}')
 
     def update_playlist_time_loop(self):
         if configs.raw.getboolean('dev', 'http_sub_auto_next_ep', fallback=True) and (
                 (self.is_http_sub and self.player_name == 'potplayer')
                 or (self.is_http_sub and self.player_name == 'vlc' and os.name != 'nt')):
-            key_field_map = {'potplayer': 'basename', 'vlc': 'media_basename'}
-            logger.info('auto next ep mode enabled')
+            key_field_map = {'potplayer': 'media_title', 'vlc': 'media_basename'}
+            logger.info('disable playlist cuz http sub, auto next ep mode enabled')
             self.http_sub_auto_next_ep_time_loop(key_field=key_field_map[self.player_name])
         else:
             self.playlist_time = stop_sec_function_dict[self.player_name](stop_sec_only=False, **self.player_kwargs)
@@ -187,29 +185,30 @@ def init_player_instance(function, **kwargs):
     return player
 
 
-def mpv_player_start(cmd, start_sec=None, sub_file=None, media_title=None, get_stop_sec=True):
+def mpv_player_start(cmd, start_sec=None, sub_file=None, media_title=None, get_stop_sec=True, mount_disk_mode=None):
     is_darwin = True if platform.system() == 'Darwin' else False
     is_iina = True if 'iina-cli' in cmd[0] else False
     pipe_name = get_pipe_or_port_str(get_pipe=True)
     cmd_pipe = fr'\\.\pipe\{pipe_name}' if os.name == 'nt' else f'/tmp/{pipe_name}.pipe'
     pipe_name = pipe_name if os.name == 'nt' else cmd_pipe
+    osd_title = '${path}' if mount_disk_mode else media_title
     # if sub_file:
     #     if is_iina:
     #         # https://github.com/iina/iina/issues/1991
     #         pass
     #     # 全局 sub_file 会影响播放列表下一集
     #     # cmd.append(f'--sub-file={sub_file}')
-    if media_title:
+    if mount_disk_mode and is_iina:
+        # iina 读盘模式下 media-title 会影响下一集
+        pass
+    else:
+        cmd.append(f'--force-media-title={media_title}')
+        cmd.append(f'--osd-playing-msg={osd_title}')
+    if not mount_disk_mode:
         if proxy := configs.player_proxy:
             cmd.append(f'--http-proxy=http://{proxy}')
-        cmd.append(f'--force-media-title={media_title}')
-        cmd.append(f'--osd-playing-msg={media_title}')
-    elif not is_iina:
-        # iina 读盘模式下 media-title 会影响下一集
-        cmd.append(f'--force-media-title={os.path.basename(cmd[1])}')
-        cmd.append('--osd-playing-msg=${path}')
     if start_sec is not None:
-        if is_iina and not media_title:
+        if is_iina and mount_disk_mode:
             # iina 读盘模式下 start_sec 会影响下一集
             pass
         else:
@@ -249,7 +248,8 @@ def playlist_add_mpv(mpv: MPV, data, eps_data=None, limit=10):
     append = False
     for ep in episodes:
         basename = ep['basename']
-        playlist_data[basename] = ep
+        media_title = ep['media_title']
+        playlist_data[media_title] = ep
         if basename == data['basename']:
             append = True
             continue
@@ -262,7 +262,7 @@ def playlist_add_mpv(mpv: MPV, data, eps_data=None, limit=10):
         try:
             mpv.command(
                 'loadfile', ep['media_path'], 'append',
-                f'title="{basename}",force-media-title="{basename}",osd-playing-msg="{basename}"'
+                f'title="{media_title}",force-media-title="{media_title}",osd-playing-msg="{media_title}"'
                 f',start=0{sub_file_cmd}')
         except OSError:
             logger.error('mpv exit: by playlist_add_mpv: except OSError')
@@ -293,11 +293,11 @@ def stop_sec_mpv(mpv, stop_sec_only=True, **_):
             return stop_sec if stop_sec_only else name_stop_sec_dict
 
 
-def vlc_player_start(cmd: list, start_sec=None, sub_file=None, media_title=None, get_stop_sec=True):
+def vlc_player_start(cmd: list, start_sec=None, sub_file=None, media_title=None, get_stop_sec=True,
+                     mount_disk_mode=None):
     is_nt = True if os.name == 'nt' else False
-    # file_is_http = bool(media_title)
     port = get_pipe_or_port_str()
-    if not media_title:
+    if mount_disk_mode:
         cmd[1] = f'file:///{cmd[1]}'
         # base_name = os.path.basename(cmd[1])
         # media_title = base_name
@@ -426,7 +426,7 @@ def stop_sec_vlc(vlc: VLCHttpApi, stop_sec_only=True, **_):
         time.sleep(0.2)
 
 
-def mpc_player_start(cmd, start_sec=None, sub_file=None, media_title=None, get_stop_sec=True):
+def mpc_player_start(cmd, start_sec=None, sub_file=None, media_title=None, get_stop_sec=True, mount_disk_mode=None):
     port = get_pipe_or_port_str()
     if sub_file:
         cmd += ['/sub', f'"{sub_file}"']
@@ -566,7 +566,8 @@ def stop_sec_mpc(mpc: MPCHttpApi, stop_sec_only=True, **_):
         time.sleep(0.5)
 
 
-def pot_player_start(cmd: list, start_sec=None, sub_file=None, media_title=None, get_stop_sec=True):
+def pot_player_start(cmd: list, start_sec=None, sub_file=None, media_title=None, get_stop_sec=True,
+                     mount_disk_mode=None):
     if sub_file:
         cmd.append(f'/sub={sub_file}')
     if start_sec is not None:
@@ -605,7 +606,8 @@ def playlist_add_pot(pid, player_path, data, eps_data=None, limit=5, **_):
     pot_cmds = []
     for ep in episodes:
         basename = ep['basename']
-        playlist_data[basename] = ep
+        media_title = ep['media_title']
+        playlist_data[media_title] = ep
         if basename == data['basename']:
             append = True
             continue
@@ -614,7 +616,7 @@ def playlist_add_pot(pid, player_path, data, eps_data=None, limit=5, **_):
         limit -= 1
         # f'/sub={ep["sub_file"]}' pot 下一集会丢失字幕
         # /add /title 不能复用，会丢失 /title
-        pot_cmds.append([player_path, '/add', ep['media_path'], f'/title={basename}'])
+        pot_cmds.append([player_path, '/add', ep['media_path'], f'/title={media_title}'])
     if pot_cmds:
         def add_thread():
             sleep_sec = 1 if mount_disk_mode else 5
@@ -678,11 +680,13 @@ def stop_sec_pot(pid, stop_sec_only=True, check_only=False, **_):
     return stop_sec if stop_sec_only else name_stop_sec_dict
 
 
-def dandan_player_start(cmd: list, start_sec=None, sub_file=None, media_title=None, get_stop_sec=True):
+def dandan_player_start(cmd: list, start_sec=None, sub_file=None, media_title=None, get_stop_sec=True,
+                        mount_disk_mode=None):
     if sub_file:
         pass
-    if media_title:
-        cmd[1] += f'|filePath={media_title}'
+    if not mount_disk_mode:
+        file_name = media_title.split('  |  ')[-1]
+        cmd[1] += f'|filePath={file_name}'
     if cmd[1].startswith('http'):
         cmd[0] = 'start'
         cmd[1] = 'ddplay:' + urllib.parse.quote(cmd[1])

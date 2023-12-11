@@ -263,6 +263,29 @@ def list_episodes_plex(data: dict):
     return result
 
 
+def list_playlist_or_mix_s0(data):
+    scheme = data['scheme']
+    netloc = data['netloc']
+    api_key = data['api_key']
+    user_id = data['user_id']
+    extra_str = '/emby' if data['server'] == 'emby' else ''
+    device_id, play_session_id = data['device_id'], data['play_session_id']
+    playlist_info = data['playlist_info']  # 电影或者音乐视频
+    episodes_info = data['episodes_info']  # 可能是混合了S0的正确集数
+
+    params = {'X-Emby-Token': api_key, }
+    headers = {'accept': 'application/json', }
+    headers.update(data['headers'])
+
+    ids = [ep['Id'] for ep in playlist_info]
+    params.update({'Fields': 'MediaSources,Path,ProviderIds',
+                   'Ids': ','.join(ids), })
+    playlist_data = requests_urllib(
+        f'{scheme}://{netloc}{extra_str}/Users/{user_id}/Items/{data["item_id"]}',
+        params=params, headers=headers, get_json=True)
+    return playlist_data
+
+
 def list_episodes(data: dict):
     if data['server'] == 'plex':
         return list_episodes_plex(data)
@@ -278,8 +301,9 @@ def list_episodes(data: dict):
     headers = {'accept': 'application/json', }
     headers.update(data['headers'])
 
-    main_ep_info = requests_urllib(f'{scheme}://{netloc}{extra_str}/Users/{user_id}/Items/{data["item_id"]}',
-                                   params=params, headers=headers, get_json=True)
+    main_ep_info = data.get('main_ep_info') or requests_urllib(
+        f'{scheme}://{netloc}{extra_str}/Users/{user_id}/Items/{data["item_id"]}',
+        params=params, headers=headers, get_json=True)
     # if video is movie
     if 'SeasonId' not in main_ep_info:
         data['Type'] = main_ep_info['Type']
@@ -288,14 +312,16 @@ def list_episodes(data: dict):
     season_id = main_ep_info['SeasonId']
     series_id = main_ep_info['SeriesId']
 
-    stream_name = data['stream_url'].split('?',maxsplit=1)[0].rsplit('/', maxsplit=1)[-1].split('.')[0]
+    stream_name = data['stream_url'].split('?', maxsplit=1)[0].rsplit('/', maxsplit=1)[-1].split('.')[0]
 
     def version_filter(file_path, episodes_data):
         ver_re = configs.raw.get('playlist', 'version_filter', fallback='').strip().strip('|')
         if not ver_re:
             return episodes_data
         try:
-            ep_num = len(set([i['IndexNumber'] for i in episodes_data]))
+            ep_seq_cur_list = list(
+                dict.fromkeys([f"{i['ParentIndexNumber']}-{i['IndexNumber']}" for i in episodes_data]))
+            ep_num = len(ep_seq_cur_list)
         except KeyError:
             logger.error('version_filter: KeyError: some ep not IndexNumber')
             return episodes_data
@@ -321,23 +347,41 @@ def list_episodes(data: dict):
         if _ep_data_num == ep_num:
             logger.info(f'version_filter: success with {ini_re=}')
             return _ep_data
-        elif _ep_data_num > ep_num:
-            logger.info(f'version_filter: fail, {ini_re=}, pass {_ep_data_num}, {ep_num=}, disable playlist')
-            return [_ep_current]
         else:
-            index = _ep_current['IndexNumber']
             _ep_success = []
-            for _ep in _ep_data:
-                if _ep['IndexNumber'] == index:
+            _current_key = f"{_ep_current['ParentIndexNumber']}-{_ep_current['IndexNumber']}"
+            _cut_ep_data = _ep_data[_ep_data.index(_ep_current):]
+            _cut_cur_list = ep_seq_cur_list[ep_seq_cur_list.index(_current_key):]
+            if len(_cut_cur_list) == 1:
+                return [_ep_current]
+            for _ep, _ep_cur in zip(_cut_ep_data, _cut_cur_list):
+                if f"{_ep['ParentIndexNumber']}-{_ep['IndexNumber']}" == _ep_cur:
                     _ep_success.append(_ep)
-                    index += 1
+
             _success = True if len(_ep_success) > 1 else False
             if _success:
                 logger.info(f'version_filter: success with {ini_re=}, pass {len(_ep_success)} ep')
                 return _ep_success
             else:
-                logger.info(f'version_filter: fail, {ini_re=}, disable playlist')
+                logger.info(f'disable playlist, cuz version_filter: fail, {ini_re=}')
                 return [_ep_current]
+
+    def emby_title_ep_map():
+        episodes_info = data.get('episodes_info')
+        _map = {}
+        for ep in episodes_info:
+            if 'ParentIndexNumber' not in ep or 'IndexNumber' not in ep:
+                logger.info('disable emby_title_ep_map, cuz season or ep index num error found')
+                return {}
+            if 'IndexNumberEnd' in ep:
+                _t = f"{ep['SeriesName']} S{ep['ParentIndexNumber']}" \
+                     f":E{ep['IndexNumber']}-{ep['IndexNumberEnd']} - {ep['Name']}"
+            else:
+                _t = f"{ep['SeriesName']} S{ep['ParentIndexNumber']}:E{ep['IndexNumber']} - {ep['Name']}"
+            _map[f"{ep['ParentIndexNumber']}-{ep['IndexNumber']}"] = _t
+        return _map
+
+    emby_title_ep_data = emby_title_ep_map()
 
     def parse_item(item):
         source_info = item['MediaSources'][0]
@@ -350,9 +394,12 @@ def list_episodes(data: dict):
                      f'&PlaySessionId={play_session_id}&api_key={api_key}&Static=true'
         media_path = translate_path_by_ini(file_path) if mount_disk_mode else stream_url
         basename = os.path.basename(file_path)
+        index = item.get('IndexNumber', 0)
+        title_key = f"{item.get('ParentIndexNumber')}-{index}"
+        emby_title = emby_title_ep_data.get(title_key)
+        media_title = f'{emby_title}  |  {basename}' if emby_title else basename
         media_basename = os.path.basename(media_path)
         total_sec = int(source_info['RunTimeTicks']) // 10 ** 7
-        index = item.get('IndexNumber', 0)
 
         media_streams = source_info['MediaStreams']
         sub_dict_list = [dict(title=s['DisplayTitle'], index=s['Index'], path=s['Path'])
@@ -382,7 +429,8 @@ def list_episodes(data: dict):
             total_sec=total_sec,
             sub_file=sub_file,
             index=index,
-            size=source_info['Size']
+            size=source_info['Size'],
+            media_title=media_title,
         ))
         return result
 
