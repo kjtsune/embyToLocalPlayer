@@ -137,7 +137,7 @@ class PlayerManager:
             logger.info(f'auto play: {next_media_title}')
 
     def update_playlist_time_loop(self):
-        if configs.raw.getboolean('dev', 'http_sub_auto_next_ep', fallback=True) and (
+        if configs.raw.getboolean('dev', 'http_sub_auto_next_ep', fallback=False) and (
                 (self.is_http_sub and self.player_name == 'potplayer')
                 or (self.is_http_sub and self.player_name == 'vlc' and os.name != 'nt')):
             key_field_map = {'potplayer': 'media_title', 'vlc': 'media_basename'}
@@ -216,7 +216,7 @@ def mpv_player_start(cmd, start_sec=None, sub_file=None, media_title=None, get_s
     if is_darwin:
         cmd.append('--focus-on-open')
     cmd.append(fr'--input-ipc-server={cmd_pipe}')
-    cmd.append('--script-opts=autoload-disabled=yes')
+    cmd.append('--script-opts-append=autoload-disabled=yes')
     if configs.fullscreen:
         cmd.append('--fullscreen=yes')
     if configs.disable_audio:
