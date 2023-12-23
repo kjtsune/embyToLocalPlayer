@@ -13,19 +13,33 @@ kernel32 = ctypes.windll.kernel32
 EnumWindowsProc = ctypes.WINFUNCTYPE(ctypes.c_int, ctypes.POINTER(ctypes.c_int), ctypes.POINTER(ctypes.c_int))
 
 
-def list_pid_and_cmd(name_re='.') -> list:
-    cmd = 'Get-WmiObject Win32_Process | Select ProcessId,CommandLine | ConvertTo-Json'
+def list_pid_and_cmd(name_re: str = '.') -> list:
+    cmd = 'Get-WmiObject Win32_Process | Select-Object ProcessId, CommandLine | ConvertTo-Json'
     try:
-        proc = subprocess.run(['chcp', '65001', '>NUL', '&', 'powershell', cmd],
+        # 预编译正则表达式以提高性能
+        pattern = re.compile(name_re)
+        proc = subprocess.run(['chcp', '65001', '>', 'NUL', '&', 'powershell', cmd],
                               capture_output=True, encoding='utf-8', shell=True)
-    except FileNotFoundError:
-        raise FileNotFoundError('powershell not found in cmd, check sys and user environment path') from None
-    if proc.returncode != 0:
+    except FileNotFoundError as e:
+        raise FileNotFoundError(f'PowerShell not found in command prompt. Check system and user environment paths.') from None
+    except subprocess.CalledProcessError as e:
+        # WMIC命令失败时返回空列表
         return []
-    stdout = [(i['ProcessId'], i['CommandLine']) for i in json.loads(proc.stdout)
-              if i['ProcessId'] and i['CommandLine']]
-    result = [(pid, _cmd) for (pid, _cmd) in stdout if re.search(name_re, _cmd)]
-    return result
+    
+    try:
+        json_output = json.loads(proc.stdout)
+    except json.JSONDecodeError:
+        return []
+
+    # 使用列表推导式直接构建结果列表
+    processes = [(i['ProcessId'], i['CommandLine']) for i in json_output
+                 if i['ProcessId'] is not None and i['CommandLine'] is not None
+                 and pattern.search(i['CommandLine'])]
+    return processes
+
+# 使用函数
+# result = list_pid_and_cmd('.*python.*')
+# print(result)
 
 
 class RECT(ctypes.Structure):
