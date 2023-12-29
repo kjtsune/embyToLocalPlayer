@@ -132,7 +132,7 @@ class PlayerManager:
             #     break
             self.player_kwargs = player_start_func_dict[self.player_name](
                 cmd=[self.player_path, next_ep['media_path']], sub_file=next_ep.get('sub_file'),
-                media_title=next_media_title,mount_disk_mode=False)
+                media_title=next_media_title, mount_disk_mode=False)
             activate_window_by_pid(self.player_kwargs['pid'])
             logger.info(f'auto play: {next_media_title}')
 
@@ -188,16 +188,15 @@ def init_player_instance(function, **kwargs):
 def mpv_player_start(cmd, start_sec=None, sub_file=None, media_title=None, get_stop_sec=True, mount_disk_mode=None):
     is_darwin = True if platform.system() == 'Darwin' else False
     is_iina = True if 'iina-cli' in cmd[0] else False
+    is_mpvnet = True if 'mpvnet' in cmd[0] else False
     pipe_name = get_pipe_or_port_str(get_pipe=True)
     cmd_pipe = fr'\\.\pipe\{pipe_name}' if os.name == 'nt' else f'/tmp/{pipe_name}.pipe'
     pipe_name = pipe_name if os.name == 'nt' else cmd_pipe
     osd_title = '${path}' if mount_disk_mode else media_title
-    # if sub_file:
-    #     if is_iina:
-    #         # https://github.com/iina/iina/issues/1991
-    #         pass
-    #     # 全局 sub_file 会影响播放列表下一集
-    #     # cmd.append(f'--sub-file={sub_file}')
+    if sub_file and not is_iina and not is_mpvnet:
+        # https://github.com/iina/iina/issues/1991
+        # https://github.com/kjtsune/embyToLocalPlayer/issues/26
+        cmd.append(f'--sub-files-toggle={sub_file}')
     if mount_disk_mode and is_iina:
         # iina 读盘模式下 media-title 会影响下一集
         pass
@@ -228,7 +227,7 @@ def mpv_player_start(cmd, start_sec=None, sub_file=None, media_title=None, get_s
     activate_window_by_pid(player.pid)
 
     mpv = init_player_instance(MPV, start_mpv=False, ipc_socket=pipe_name)
-    if sub_file and not is_iina and mpv:
+    if sub_file and is_mpvnet and mpv:
         _cmd = ['sub-add', sub_file]
         mpv.command(*_cmd)
 
@@ -236,6 +235,7 @@ def mpv_player_start(cmd, start_sec=None, sub_file=None, media_title=None, get_s
         return
     if mpv:
         mpv.is_iina = is_iina
+        mpv.is_mpvnet = is_mpvnet
     return dict(mpv=mpv)
 
 
@@ -257,13 +257,22 @@ def playlist_add_mpv(mpv: MPV, data, eps_data=None, limit=10):
         if not append or limit <= 0 or getattr(mpv, 'is_iina'):
             continue
         limit -= 1
-        sub_file = ep['sub_file'] or ''
-        sub_file_cmd = f',sub-file={sub_file}' if sub_file else ''
+
+        sub_cmd = ''
+        main_ep_sub = data.get('sub_file', '')
+        if sub_file := ep['sub_file']:
+            # mpvnet 不支持 sub-files-toggle
+            if main_ep_sub and not getattr(mpv, 'is_mpvnet'):
+                sub_cmd = f',sub-files-remove={main_ep_sub},sub-files-append={main_ep_sub}'
+                sub_cmd = sub_cmd + f',sub-files-append={sub_file}'
+            else:
+                sub_cmd = f',sub-file={sub_file}'
+
         try:
             mpv.command(
                 'loadfile', ep['media_path'], 'append',
                 f'title="{media_title}",force-media-title="{media_title}",osd-playing-msg="{media_title}"'
-                f',start=0{sub_file_cmd}')
+                f',start=0{sub_cmd}')
         except OSError:
             logger.error('mpv exit: by playlist_add_mpv: except OSError')
             return {}
