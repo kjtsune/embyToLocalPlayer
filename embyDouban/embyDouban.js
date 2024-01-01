@@ -3,7 +3,7 @@
 // @name:zh-CN   embyDouban
 // @name:en      embyDouban
 // @namespace    https://github.com/kjtsune/embyToLocalPlayer/tree/main/embyDouban
-// @version      0.1.13
+// @version      0.1.14
 // @description  emby 里展示: 豆瓣 Bangumi bgm.tv 评分 链接 (豆瓣评论可关)
 // @description:zh-CN emby 里展示: 豆瓣 Bangumi bgm.tv 评分 链接 (豆瓣评论可关)
 // @description:en  show douban Bangumi ratings in emby
@@ -469,7 +469,7 @@ var runLimit = 50;
 
 async function main() {
     let linkZone = getVisibleElement(document.querySelectorAll('div[class*="linksSection"]'));
-    let infoTable = getVisibleElement(document.querySelectorAll('div[class="flex-grow detailTextContainer details-largefont"]'));
+    let infoTable = getVisibleElement(document.querySelectorAll('div[class*="flex-grow detailTextContainer"]'));
     if (infoTable && linkZone) {
         if (!infoTable.querySelector('h3.itemName-secondary')) { // not eps page
             insertDoubanMain(linkZone);
