@@ -59,8 +59,12 @@ GOTO END
 :TWO
 echo you have pressed two
 set startupVbs="%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup\embyToLocalPlayer.vbs"
-rem echo "%startupVbs%"
-echo CreateObject("Wscript.Shell").Run """python"" ""%cd%\embyToLocalPlayer.py""" , 0, True > %startupVbs%
+set startupCmd=CreateObject("Wscript.Shell").Run """python"" ""%cd%\embyToLocalPlayer.py""" , 0, True
+echo startupCmd=%startupCmd%
+echo startupVbs=%startupVbs%
+echo %startupCmd% > %startupVbs%
+echo writing startupCmd to startupVbs, save in startup folder.
+timeout /nobreak /t 1 >nul
 echo close this window manually
 wscript.exe ""%startupVbs%""
 GOTO END

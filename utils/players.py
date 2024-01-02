@@ -185,7 +185,9 @@ def init_player_instance(function, **kwargs):
     return player
 
 
-def mpv_player_start(cmd, start_sec=None, sub_file=None, media_title=None, get_stop_sec=True, mount_disk_mode=None):
+def mpv_player_start(cmd, start_sec=None, sub_file=None, media_title=None, get_stop_sec=True, mount_disk_mode=None,
+                     data=None):
+    intro_start, intro_end = data.get('intro_start'), data.get('intro_end')
     is_darwin = True if platform.system() == 'Darwin' else False
     is_iina = True if 'iina-cli' in cmd[0] else False
     is_mpvnet = True if 'mpvnet' in cmd[0] else False
@@ -230,7 +232,9 @@ def mpv_player_start(cmd, start_sec=None, sub_file=None, media_title=None, get_s
     if sub_file and is_mpvnet and mpv:
         _cmd = ['sub-add', sub_file]
         mpv.command(*_cmd)
-
+    if mpv and intro_end:
+        chapter_list = [{'title': 'intro', 'time': intro_start}, {'title': 'main', 'time': intro_end}]
+        mpv.command('set_property', 'chapter-list', chapter_list)
     if not get_stop_sec:
         return
     if mpv:
@@ -268,11 +272,36 @@ def playlist_add_mpv(mpv: MPV, data, eps_data=None, limit=10):
             else:
                 sub_cmd = f',sub-file={sub_file}'
 
+        if intro_end := ep.get('intro_end'):
+            # chapter_list = [{'title': 'intro', 'time': ep['intro_start']}, {'title': 'main', 'time': intro_end}]
+            # mpv.command('set_property', 'chapter-list', chapter_list)
+            chapters_text = f''';FFMETADATA1
+[CHAPTER]
+TIMEBASE=1/1
+START={ep['intro_start']}
+END={intro_end}
+title=intro
+[CHAPTER]
+TIMEBASE=1/1
+START={intro_end}
+END=9999
+title=main
+'''
+            _tmp = os.path.join(configs.cwd, '.tmp')
+            chap_path = os.path.join(_tmp, f'{basename}-chapters.txt')
+            chap_cmd = f',chapters-file="{chap_path}"'
+            if not os.path.exists(_tmp):
+                os.mkdir(_tmp)
+            with open(chap_path, 'w', encoding='utf-8') as f:
+                f.write(chapters_text)
+        else:
+            chap_cmd = ''
+
         try:
             mpv.command(
                 'loadfile', ep['media_path'], 'append',
                 f'title="{media_title}",force-media-title="{media_title}",osd-playing-msg="{media_title}"'
-                f',start=0{sub_cmd}')
+                f',start=0{sub_cmd}{chap_cmd}')
         except OSError:
             logger.error('mpv exit: by playlist_add_mpv: except OSError')
             return {}
@@ -302,8 +331,7 @@ def stop_sec_mpv(mpv, stop_sec_only=True, **_):
             return stop_sec if stop_sec_only else name_stop_sec_dict
 
 
-def vlc_player_start(cmd: list, start_sec=None, sub_file=None, media_title=None, get_stop_sec=True,
-                     mount_disk_mode=None):
+def vlc_player_start(cmd: list, start_sec=None, sub_file=None, get_stop_sec=True, mount_disk_mode=None, **_):
     is_nt = True if os.name == 'nt' else False
     port = get_pipe_or_port_str()
     if mount_disk_mode:
@@ -435,7 +463,7 @@ def stop_sec_vlc(vlc: VLCHttpApi, stop_sec_only=True, **_):
         time.sleep(0.2)
 
 
-def mpc_player_start(cmd, start_sec=None, sub_file=None, media_title=None, get_stop_sec=True, mount_disk_mode=None):
+def mpc_player_start(cmd, start_sec=None, sub_file=None, media_title=None, get_stop_sec=True, **_):
     port = get_pipe_or_port_str()
     if sub_file:
         cmd += ['/sub', f'"{sub_file}"']
@@ -575,8 +603,7 @@ def stop_sec_mpc(mpc: MPCHttpApi, stop_sec_only=True, **_):
         time.sleep(0.5)
 
 
-def pot_player_start(cmd: list, start_sec=None, sub_file=None, media_title=None, get_stop_sec=True,
-                     mount_disk_mode=None):
+def pot_player_start(cmd: list, start_sec=None, sub_file=None, media_title=None, get_stop_sec=True, **_):
     if sub_file:
         cmd.append(f'/sub={sub_file}')
     if start_sec is not None:
@@ -690,7 +717,7 @@ def stop_sec_pot(pid, stop_sec_only=True, check_only=False, **_):
 
 
 def dandan_player_start(cmd: list, start_sec=None, sub_file=None, media_title=None, get_stop_sec=True,
-                        mount_disk_mode=None):
+                        mount_disk_mode=None, **_):
     if sub_file:
         pass
     if not mount_disk_mode:

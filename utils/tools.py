@@ -249,12 +249,28 @@ def main_ep_to_title(main_ep_info):
            f":E{main_ep_info['IndexNumber']}-{main_ep_info['IndexNumberEnd']} - {main_ep_info['Name']}"
 
 
+def main_ep_intro_time(main_ep_info):
+    res = {}
+    chapters = [i for i in main_ep_info['Chapters'][:5] if i.get('MarkerType')
+                and not str(i['StartPositionTicks']).endswith('000000000')
+                and not (i['StartPositionTicks'] == 0 and i['MarkerType'] == 'Chapter')]
+    if not chapters or len(chapters) > 2:
+        return res
+    for i in chapters:
+        if i['MarkerType'] == 'IntroStart':
+            res['intro_start'] = i['StartPositionTicks'] // (10 ** 7)
+        elif i['MarkerType'] == 'IntroEnd':
+            res['intro_end'] = i['StartPositionTicks'] // (10 ** 7)
+    return res
+
+
 def parse_received_data_emby(received_data):
     extra_data = received_data['extraData']
     main_ep_info = extra_data['mainEpInfo']
     episodes_info = extra_data['episodesInfo']
     playlist_info = extra_data['playlistInfo']
     emby_title = main_ep_to_title(main_ep_info)
+    intro_time = main_ep_intro_time(main_ep_info)
     api_client = received_data['ApiClient']
     mount_disk_mode = True if received_data['mountDiskEnable'] == 'true' else False
     url = urllib.parse.urlparse(received_data['playbackUrl'])
@@ -363,6 +379,8 @@ def parse_received_data_emby(received_data):
         main_ep_info=main_ep_info,
         episodes_info=episodes_info,
         playlist_info=playlist_info,
+        intro_start=intro_time.get('intro_start'),
+        intro_end=intro_time.get('intro_end'),
     )
     return result
 

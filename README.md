@@ -41,7 +41,7 @@
 
 > Windows
 
-* 双击 `embyToLocalPlayer_debug.bat`
+* 双击 `embyToLocalPlayer_debug.bat` （不要用管理员运行）
 * 若无报错，按 1（窗口运行），可网页播放测试。（点击原来的播放按钮就可以）
 * 按 2 则创建开机启动项并后台运行。
 * 问题排查：
@@ -89,9 +89,8 @@ https://github.com/kjtsune/embyToLocalPlayer#faq
 > 通用说明
 
 * Python 最低支持版本为 3.8。
-* 用鼠标手势软件关闭播放器体验更舒服一点。
 * 同服务器同时开启多个浏览器标签页，会造成回传进度失败假象。手动刷新一下页面，或者只开一个标签。
-* Plex 及部分域名有 dns 污染，若无法播放，修改系统 DNS 或使用代理。
+* 部分域名及 Plex 域名有 dns 污染，若无法播放，修改系统 DNS 或使用代理。
 * 反馈群组在频道置顶，提问前先把 FAQ 看一遍，不含敏感数据不私聊。  
   小更新会频道提醒，不过应该也没什么更新的了，反馈不需要关注频道。[https://t.me/embyToLocalPlayer](https://t.me/embyToLocalPlayer)
 
@@ -121,7 +120,6 @@ https://github.com/kjtsune/embyToLocalPlayer#faq
 2. 换播放器及换视频文件测试是否复现。
 3. 截图或复制 `.bat` 窗口中的日志（选中后回车即复制）。
 4. 碰到什么问题及怎么复现。
-5. [可选] 开启日志文件会隐藏报错里的用户名 `.ini` > `[dev]` > `log_file`
 
 > 字幕相关
 

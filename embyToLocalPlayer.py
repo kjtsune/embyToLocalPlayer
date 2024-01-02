@@ -98,7 +98,7 @@ def start_play(data):
                 or (player_name == 'dandanplay' and mount_disk_mode):
             player_manager = PlayerManager(data=data, player_name=player_name, player_path=player_path)
             player_manager.start_player(cmd=cmd, start_sec=start_sec, sub_file=sub_file, media_title=media_title,
-                                        mount_disk_mode=mount_disk_mode)
+                                        mount_disk_mode=mount_disk_mode, data=data)
             eps_data = eps_data_thread.join()
             player_manager.playlist_add(eps_data=eps_data)
             player_manager.update_playlist_time_loop()
@@ -108,7 +108,7 @@ def start_play(data):
 
         player_function = player_start_func_dict[player_name]
         stop_sec_kwargs = player_function(cmd=cmd, start_sec=start_sec, sub_file=sub_file, media_title=media_title,
-                                          mount_disk_mode=mount_disk_mode)
+                                          mount_disk_mode=mount_disk_mode, data=data)
         stop_sec = stop_sec_function_dict[player_name](**stop_sec_kwargs)
         logger.info('stop_sec', stop_sec)
         if stop_sec is None:

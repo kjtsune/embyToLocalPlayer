@@ -3,7 +3,7 @@
 // @name:zh-CN   embyToLocalPlayer
 // @name:en      embyToLocalPlayer
 // @namespace    https://github.com/kjtsune/embyToLocalPlayer
-// @version      1.1.12.1
+// @version      1.1.13
 // @description  需要 Python。Emby/Jellyfin 调用外部本地播放器，并回传播放记录。适配 Plex。
 // @description:zh-CN 需要 Python。Emby/Jellyfin 调用外部本地播放器，并回传播放记录。适配 Plex。
 // @description:en  Require Python. Play in an external player. Update watch history to Emby/Jellyfin server. Support Plex.
@@ -21,6 +21,11 @@
 // ==/UserScript==
 'use strict';
 /*
+2024-1-2:
+1. 适配 Emby 跳过简介/片头。(限 mpv，且视频本身无章节，通过添加章节实现。)
+* 版本间累积更新：
+  * mpv script-opts 被覆盖。@verygoodlee
+  * mpv 切回第一集时网络外挂字幕丢失。@verygoodlee
 2023-12-11:
 1. 美化 mpv pot 标题。
 2. 改善版本筛选逻辑。
@@ -37,20 +42,6 @@
   * 默认启用日志文件。
   * pot 播放列表 未加载完成时可退出。
   * 网络流：外挂 sup 支持（限 Emby v4.8.0.55 | mpv)。升级 Emby 记得备份，无法回退。
-2023-10-04:
-1. pot 和 vlc(Linux/macOS) 网络外挂字幕时，使用连播代替播放列表。`.ini` > playlist
-2. 高版本 macOS 自启方案。@Eatsolx
-* 版本间累积更新：
-  * 增加：bangumi.tv bgm.tv 单向同步支持。见 FAQ。
-  * Jellyfin: 适配 基础 URL。
-  * 可一键更新。见 FAQ。
-  * 可保存日志。ini > dev > log_file。
-  * Trakt：未启用播放列表时同步失效。
-  * Trakt：自启时误弹认证窗口。
-  * 播放列表：文件命名不规范时失效。
-  * 减少回传次数。**油猴脚本也需要更新**
-  * 播放网络流时：pot 播放列表：降低添加条目速度，减少异常。
-  * 播放网络流时：mpc 切换进度时 api 无响应，导致提前回传。
 */
 (function () {
     'use strict';

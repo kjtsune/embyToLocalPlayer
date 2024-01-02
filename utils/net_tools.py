@@ -366,22 +366,37 @@ def list_episodes(data: dict):
                 logger.info(f'disable playlist, cuz version_filter: fail, {ini_re=}')
                 return [_ep_current]
 
-    def emby_title_ep_map():
+    def title_intro_index_map():
         episodes_info = data.get('episodes_info')
-        _map = {}
+        _title_map = {}
+        _start_map = {}
+        _end_map = {}
         for ep in episodes_info:
             if 'ParentIndexNumber' not in ep or 'IndexNumber' not in ep:
-                logger.info('disable emby_title_ep_map, cuz season or ep index num error found')
+                logger.info('disable title_intro_index_map, cuz season or ep index num error found')
                 return {}
             if 'IndexNumberEnd' in ep:
                 _t = f"{ep['SeriesName']} S{ep['ParentIndexNumber']}" \
                      f":E{ep['IndexNumber']}-{ep['IndexNumberEnd']} - {ep['Name']}"
             else:
                 _t = f"{ep['SeriesName']} S{ep['ParentIndexNumber']}:E{ep['IndexNumber']} - {ep['Name']}"
-            _map[f"{ep['ParentIndexNumber']}-{ep['IndexNumber']}"] = _t
-        return _map
+            _key = f"{ep['ParentIndexNumber']}-{ep['IndexNumber']}"
+            _title_map[_key] = _t
 
-    emby_title_ep_data = emby_title_ep_map()
+            chapters = [i for i in ep['Chapters'][:5] if i.get('MarkerType')
+                        and not str(i['StartPositionTicks']).endswith('000000000')
+                        and not (i['StartPositionTicks'] == 0 and i['MarkerType'] == 'Chapter')]
+            if not chapters or len(chapters) > 2:
+                continue
+            for i in chapters:
+                if i['MarkerType'] == 'IntroStart':
+                    _start_map[_key] = i['StartPositionTicks'] // (10 ** 7)
+                elif i['MarkerType'] == 'IntroEnd':
+                    _end_map[_key] = i['StartPositionTicks'] // (10 ** 7)
+
+        return _title_map, _start_map, _end_map
+
+    title_data, start_data, end_data = title_intro_index_map()
 
     def parse_item(item):
         source_info = item['MediaSources'][0]
@@ -395,8 +410,8 @@ def list_episodes(data: dict):
         media_path = translate_path_by_ini(file_path) if mount_disk_mode else stream_url
         basename = os.path.basename(file_path)
         index = item.get('IndexNumber', 0)
-        title_key = f"{item.get('ParentIndexNumber')}-{index}"
-        emby_title = emby_title_ep_data.get(title_key)
+        unique_key = f"{item.get('ParentIndexNumber')}-{index}"
+        emby_title = title_data.get(unique_key)
         media_title = f'{emby_title}  |  {basename}' if emby_title else basename
         media_basename = os.path.basename(media_path)
         total_sec = int(source_info['RunTimeTicks']) // 10 ** 7
@@ -431,6 +446,8 @@ def list_episodes(data: dict):
             index=index,
             size=source_info['Size'],
             media_title=media_title,
+            intro_start=start_data.get(unique_key),
+            intro_end=end_data.get(unique_key),
         ))
         return result
 
