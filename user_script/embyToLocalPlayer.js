@@ -3,7 +3,7 @@
 // @name:zh-CN   embyToLocalPlayer
 // @name:en      embyToLocalPlayer
 // @namespace    https://github.com/kjtsune/embyToLocalPlayer
-// @version      1.1.13
+// @version      1.1.13.1
 // @description  需要 Python。Emby/Jellyfin 调用外部本地播放器，并回传播放记录。适配 Plex。
 // @description:zh-CN 需要 Python。Emby/Jellyfin 调用外部本地播放器，并回传播放记录。适配 Plex。
 // @description:en  Require Python. Play in an external player. Update watch history to Emby/Jellyfin server. Support Plex.
@@ -246,7 +246,7 @@
             return _resp
         }
         // 适配播放列表及媒体库的全部播放、随机播放。限电影及音乐视频。
-        if (url.indexOf('Items?') != -1 && url.indexOf('Limit=300') != -1) {
+        if (url.includes('Items?') && (url.includes('Limit=300') || url.includes('Limit=1000'))) {
             playlistInfoCache = null;
             let _resp = await originFetch(url, request);
             let _resd = await _resp.clone().json();

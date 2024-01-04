@@ -281,7 +281,7 @@ def list_playlist_or_mix_s0(data):
     params.update({'Fields': 'MediaSources,Path,ProviderIds',
                    'Ids': ','.join(ids), })
     playlist_data = requests_urllib(
-        f'{scheme}://{netloc}{extra_str}/Users/{user_id}/Items/{data["item_id"]}',
+        f'{scheme}://{netloc}{extra_str}/Users/{user_id}/Items',
         params=params, headers=headers, get_json=True)
     return playlist_data
 
@@ -301,20 +301,22 @@ def list_episodes(data: dict):
     headers = {'accept': 'application/json', }
     headers.update(data['headers'])
 
+    playlist_info = data.get('playlist_info')
+    playlist_info and logger.info('playlist_info found')
     main_ep_info = data.get('main_ep_info') or requests_urllib(
         f'{scheme}://{netloc}{extra_str}/Users/{user_id}/Items/{data["item_id"]}',
         params=params, headers=headers, get_json=True)
     # if video is movie
-    if 'SeasonId' not in main_ep_info:
+    if not playlist_info and 'SeasonId' not in main_ep_info:
         data['Type'] = main_ep_info['Type']
         data['ProviderIds'] = main_ep_info['ProviderIds']
         return [data]
-    season_id = main_ep_info['SeasonId']
-    series_id = main_ep_info['SeriesId']
-
+    season_id = main_ep_info.get('SeasonId')
     stream_name = data['stream_url'].split('?', maxsplit=1)[0].rsplit('/', maxsplit=1)[-1].split('.')[0]
 
     def version_filter(file_path, episodes_data):
+        if playlist_info:
+            return episodes_data
         ver_re = configs.raw.get('playlist', 'version_filter', fallback='').strip().strip('|')
         if not ver_re:
             return episodes_data
@@ -367,7 +369,9 @@ def list_episodes(data: dict):
                 return [_ep_current]
 
     def title_intro_index_map():
-        episodes_info = data.get('episodes_info')
+        if playlist_info:
+            return {}, {}, {}
+        episodes_info = data.get('episodes_info') or []
         _title_map = {}
         _start_map = {}
         _end_map = {}
@@ -427,12 +431,13 @@ def list_episodes(data: dict):
                    f'/{sub_dict["index"]}/Stream{os.path.splitext(sub_dict["path"])[-1]}' if sub_dict else None
         sub_file = None if mount_disk_mode else sub_file
 
-        data['Type'] = item['Type']
-        data['ProviderIds'] = item['ProviderIds']
-        data['ParentIndexNumber'] = item.get('ParentIndexNumber')
-        data['SeriesId'] = item['SeriesId']
-        data['SeasonId'] = season_id
         result = data.copy()
+        result['Type'] = item['Type']
+        result['ProviderIds'] = item['ProviderIds']
+        result['ParentIndexNumber'] = item.get('ParentIndexNumber')
+        if not playlist_info:
+            result['SeriesId'] = item['SeriesId']
+            result['SeasonId'] = season_id
         result.update(dict(
             basename=basename,
             media_basename=media_basename,
@@ -451,11 +456,20 @@ def list_episodes(data: dict):
         ))
         return result
 
-    params.update({'Fields': 'MediaSources,Path,ProviderIds',
-                   'SeasonId': season_id, })
-    url = f'{scheme}://{netloc}{extra_str}/Shows/{series_id}/Episodes'
-    episodes = requests_urllib(url, params=params, headers=headers, get_json=True)
-    # dump_json_file(episodes, 'z_ep_parse.json')
+    if playlist_info:
+        ids = [ep['Id'] for ep in playlist_info]
+        params.update({'Fields': 'MediaSources,Path,ProviderIds',
+                       'Ids': ','.join(ids), })
+        episodes = requests_urllib(
+            f'{scheme}://{netloc}{extra_str}/Users/{user_id}/Items',
+            params=params, headers=headers, get_json=True)
+    else:
+        params.update({'Fields': 'MediaSources,Path,ProviderIds',
+                       'SeasonId': season_id, })
+        series_id = main_ep_info['SeriesId']
+        url = f'{scheme}://{netloc}{extra_str}/Shows/{series_id}/Episodes'
+        episodes = requests_urllib(url, params=params, headers=headers, get_json=True)
+    # dump_json_file(episodes, 'z_playlist_movie.json')
     episodes = [i for i in episodes['Items'] if 'Path' in i and 'RunTimeTicks' in i]
     episodes = version_filter(data['file_path'], episodes) if data['server'] == 'emby' else episodes
     episodes = [parse_item(i) for i in episodes]

@@ -269,7 +269,8 @@ def parse_received_data_emby(received_data):
     main_ep_info = extra_data['mainEpInfo']
     episodes_info = extra_data['episodesInfo']
     playlist_info = extra_data['playlistInfo']
-    emby_title = main_ep_to_title(main_ep_info)
+    # 随机播放剧集媒体库时，油猴没获取其他集的 Emby 标题，导致第一集回传数据失败，暂不处理。
+    emby_title = main_ep_to_title(main_ep_info) if not playlist_info else None
     intro_time = main_ep_intro_time(main_ep_info)
     api_client = received_data['ApiClient']
     mount_disk_mode = True if received_data['mountDiskEnable'] == 'true' else False
