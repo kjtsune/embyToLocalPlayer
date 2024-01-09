@@ -224,8 +224,7 @@ https://github.com/kjtsune/embyToLocalPlayer#faq
 
 > mpv
 
-* 日志正常调用却无法播放：  
-  可能是解码方面的问题，换视频或者软解看看，检查 mpv 日志。  
+* 若无法播放，换视频或者软解看看，并检查 mpv 日志。  
   `mpv.conf` > `log-file = <save path>`
 
 > mpv.net

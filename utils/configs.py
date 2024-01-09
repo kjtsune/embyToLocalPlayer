@@ -22,8 +22,8 @@ def mini_conf():
     config.read(path, encoding='utf-8-sig')
     return config
 
-
 raw_stdout = sys.stdout
+raw_stdout.reconfigure(encoding='utf-8-sig', errors='replace')
 
 
 class Stdout:

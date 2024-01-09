@@ -28,9 +28,11 @@ class TraktApi:
         url = f'{self.base_url}/{path}'
         res = self.req.get(url, params=params)
         try:
+            if res.status_code == 404:
+                return
             return res.json()
         except Exception:
-            raise PermissionError(f'error found, {res.status_code=} {url=}') from None
+            raise ConnectionError(f'error found, {res.status_code=} {url=}') from None
 
     def post(self, path, params=None, _json=None):
         url = f'{self.base_url}/{path}'
@@ -48,7 +50,7 @@ class TraktApi:
         return: [{.., ids:ep_ids}, ..] not standard ids_item, not type field
         """
         trans = f'?translations={translations}' if translations else ''
-        res = self.get(f'shows/{_id}/seasons/{season_num}{trans}')
+        res = self.get(f'shows/{_id}/seasons/{season_num}{trans}') or []
         return res
 
     @functools.lru_cache

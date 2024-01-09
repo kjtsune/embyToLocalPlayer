@@ -33,9 +33,10 @@ def fill_trakt_ep_ids_by_series(trakt, eps_data, force=False):
     if not series_pvd_ids:
         logger.info(f'trakt: not {providers} id in series_info')
         return eps_data
+    tk_eps_ids = []
     if s_imdb_id := series_pvd_ids.get('imdb'):
         tk_eps_ids = trakt.get_single_season(_id=s_imdb_id, season_num=season_num)
-    else:
+    if not tk_eps_ids:
         tk_sr_id = trakt.id_lookup(provider='tvdb', _id=series_pvd_ids['tvdb'], _type='show')
         if tk_sr_id and tk_sr_id[0]['show']['ids']['tvdb'] == int(series_pvd_ids['tvdb']):
             tk_sr_id = tk_sr_id[0]['show']['ids']['trakt']
