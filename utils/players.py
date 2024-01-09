@@ -644,6 +644,7 @@ def playlist_add_pot(pid, player_path, data, eps_data=None, limit=5, **_):
         basename = ep['basename']
         media_title = ep['media_title']
         playlist_data[media_title] = ep
+        playlist_data[basename] = ep
         if basename == data['basename']:
             append = True
             continue
@@ -652,6 +653,7 @@ def playlist_add_pot(pid, player_path, data, eps_data=None, limit=5, **_):
         limit -= 1
         # f'/sub={ep["sub_file"]}' pot 下一集会丢失字幕
         # /add /title 不能复用，会丢失 /title
+        # 奇怪，之前测试读盘模式混合第零季时成功添加播放列表，现在却失败。原因未知。
         pot_cmds.append([player_path, '/add', ep['media_path'], f'/title={media_title}'])
     if pot_cmds:
         def add_thread():

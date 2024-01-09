@@ -29,9 +29,9 @@
 > 基础配置
 
 1. 下载 `embyToLocalPlayer.zip` 并解压到任意文件夹。 [发布页](https://github.com/kjtsune/embyToLocalPlayer/releases)
-2. 安装油猴脚本。 [发布页](https://greasyfork.org/zh-CN/scripts/448648-embytolocalplayer)
+2. 修改配置文件：`embyToLocalPlayer_config.ini` 中的播放器路径，以及播放器选择。
 3. 安装 Python (勾选 add to path) [官网](https://www.python.org/downloads/)
-4. 修改播放器路径，以及修改播放器选择 `embyToLocalPlayer_config.ini`
+4. 安装油猴脚本。 [发布页](https://greasyfork.org/zh-CN/scripts/448648-embytolocalplayer)
 
 > 前置说明
 
@@ -120,6 +120,7 @@ https://github.com/kjtsune/embyToLocalPlayer#faq
 2. 换播放器及换视频文件测试是否复现。
 3. 截图或复制 `.bat` 窗口中的日志（选中后回车即复制）。
 4. 碰到什么问题及怎么复现。
+5. [可选] 关闭模糊日志。 ini > dev `mix_log = no`
 
 > 字幕相关
 
@@ -238,6 +239,7 @@ https://github.com/kjtsune/embyToLocalPlayer#faq
   网络用户或没有特殊需求的话，mpv 系的播放器综合体验较好。
 * 选项 > 播放 > 播放窗口尺寸：全屏
 * 配置/语言/其他 > 收尾处理 > 播放完当前后退出（触发回传进度）
+* 读盘模式可能和美化标题和混合S0的功能冲突，不过不影响使用。（之前 pot 设置只打开选定文件，成功过，现在失败，原因未知）
 * `.bat` 日志提示`KeyError: ''`。  
   初始化 pot 和 `.ini` 删除播放列表部分试试看。
 * Pot 自身问题：`.bat` 日志可能提示`KeyError: 'stream.mkv'`。  

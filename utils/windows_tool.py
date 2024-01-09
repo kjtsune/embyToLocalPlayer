@@ -18,12 +18,19 @@ def list_pid_and_cmd(name_re: str = '.') -> list:
     name_re = re.compile(name_re)
     try:
         proc = subprocess.run(['chcp', '65001', '>', 'NUL', '&', 'powershell', cmd],
-                              capture_output=True, encoding='utf-8', shell=True)
+                              capture_output=True, encoding='utf-8-sig', shell=True)
     except FileNotFoundError:
         raise FileNotFoundError('powershell not found in cmd, check sys and user environment path') from None
     if proc.returncode != 0:
         return []
-    result = [(i['ProcessId'], i['CommandLine']) for i in json.loads(proc.stdout)
+    stdout = proc.stdout
+    try:
+        stdout = json.loads(stdout)
+    except Exception:
+        logger.error(f'{stdout=}')
+        logger.error('powershell stdout error, kill python by yourself in task manager if you need to restart script')
+        return []
+    result = [(i['ProcessId'], i['CommandLine']) for i in stdout
               if i['ProcessId'] and i['CommandLine'] and name_re.search(i['CommandLine'])]
     return result
 
