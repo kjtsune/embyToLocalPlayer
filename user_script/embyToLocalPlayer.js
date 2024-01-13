@@ -3,7 +3,7 @@
 // @name:zh-CN   embyToLocalPlayer
 // @name:en      embyToLocalPlayer
 // @namespace    https://github.com/kjtsune/embyToLocalPlayer
-// @version      1.1.13.1
+// @version      1.1.13.2
 // @description  需要 Python。Emby/Jellyfin 调用外部本地播放器，并回传播放记录。适配 Plex。
 // @description:zh-CN 需要 Python。Emby/Jellyfin 调用外部本地播放器，并回传播放记录。适配 Plex。
 // @description:en  Require Python. Play in an external player. Update watch history to Emby/Jellyfin server. Support Plex.
@@ -235,16 +235,6 @@
         if (serverName === null) {
             serverName = typeof ApiClient === 'undefined' ? null : ApiClient._appName.split(' ')[0].toLowerCase();
         }
-        // 获取各集标题等
-        let _epMatch = url.match(episodesInfoRe);
-        if (_epMatch) {
-            _epMatch = _epMatch[0].split(['?'])[0].substring(1); // Episodes|NextUp|Items
-            let _resp = await originFetch(url, request);
-            episodesInfoCache = [_epMatch, _resp.clone()]
-            logger
-            logger.info(episodesInfoCache)
-            return _resp
-        }
         // 适配播放列表及媒体库的全部播放、随机播放。限电影及音乐视频。
         if (url.includes('Items?') && (url.includes('Limit=300') || url.includes('Limit=1000'))) {
             playlistInfoCache = null;
@@ -254,7 +244,15 @@
                 playlistInfoCache = _resd
             }
             return _resp
-
+        }
+        // 获取各集标题等，仅用于美化标题，放后面避免误拦截首页右键媒体库随机播放数据。
+        let _epMatch = url.match(episodesInfoRe);
+        if (_epMatch) {
+            _epMatch = _epMatch[0].split(['?'])[0].substring(1); // Episodes|NextUp|Items
+            let _resp = await originFetch(url, request);
+            episodesInfoCache = [_epMatch, _resp.clone()]
+            logger.info(episodesInfoCache)
+            return _resp
         }
         try {
             if (url.indexOf('/PlaybackInfo?UserId') != -1) {

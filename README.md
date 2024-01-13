@@ -88,7 +88,7 @@ https://github.com/kjtsune/embyToLocalPlayer#faq
 
 > 通用说明
 
-* Python 最低支持版本为 3.8。
+* Python 最低支持版本为 3.8。Windows 最低支持版本为 8.1。
 * 同服务器同时开启多个浏览器标签页，会造成回传进度失败假象。手动刷新一下页面，或者只开一个标签。
 * 部分域名及 Plex 域名有 dns 污染，若无法播放，修改系统 DNS 或使用代理。
 * 反馈群组在频道置顶，提问前先把 FAQ 看一遍，不含敏感数据不私聊。  
@@ -142,18 +142,19 @@ https://github.com/kjtsune/embyToLocalPlayer#faq
     * vlc:
     * mpc: be: 播放列表条目超过10个可能会卡住，hc 没这问题。
     * pot: 若日志显示`KeyError: 'stream.mkv'`，看下方 FAQ。  
-      pot: 采用连播模式解决：播放列表下一集无法添加 http 外挂字幕。
+      pot: 下一集无法添加 http 外挂字幕时，会禁用播放列表。
+      pot: 读盘模式可能和美化标题和混合S0的功能冲突，不过不影响使用。
 
 * macOS
 
     * mpv:
     * iina: 仅读盘模式支持并可回传
-    * vlc: 采用连播模式解决：播放列表下一集无法添加 http 外挂字幕。
+    * vlc: 下一集无法添加 http 外挂字幕时，会禁用播放列表。
 
 * Linux
 
     * mpv:
-    * vlc: 采用连播模式解决：播放列表下一集无法添加 http 外挂字幕。
+    * vlc: 下一集无法添加 http 外挂字幕时，会禁用播放列表。
 
 </details>
 

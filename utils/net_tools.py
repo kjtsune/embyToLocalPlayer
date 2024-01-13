@@ -369,16 +369,15 @@ def list_episodes(data: dict):
                 return [_ep_current]
 
     def title_intro_index_map():
+        _res = _title_map, _start_map, _end_map = {}, {}, {}
         if playlist_info:
-            return {}, {}, {}
+            return _res
         episodes_info = data.get('episodes_info') or []
-        _title_map = {}
-        _start_map = {}
-        _end_map = {}
+
         for ep in episodes_info:
             if 'ParentIndexNumber' not in ep or 'IndexNumber' not in ep:
                 logger.info('disable title_intro_index_map, cuz season or ep index num error found')
-                return {}
+                return _res
             if 'IndexNumberEnd' in ep:
                 _t = f"{ep['SeriesName']} S{ep['ParentIndexNumber']}" \
                      f":E{ep['IndexNumber']}-{ep['IndexNumberEnd']} - {ep['Name']}"
@@ -398,7 +397,7 @@ def list_episodes(data: dict):
                 elif i['MarkerType'] == 'IntroEnd':
                     _end_map[_key] = i['StartPositionTicks'] // (10 ** 7)
 
-        return _title_map, _start_map, _end_map
+        return _res
 
     title_data, start_data, end_data = title_intro_index_map()
 

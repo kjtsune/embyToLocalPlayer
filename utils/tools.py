@@ -382,6 +382,7 @@ def parse_received_data_emby(received_data):
         playlist_info=playlist_info,
         intro_start=intro_time.get('intro_start'),
         intro_end=intro_time.get('intro_end'),
+        server_version=server_version
     )
     return result
 
