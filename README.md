@@ -37,7 +37,7 @@
 
 * 网页闪一下是自动关闭兼容流提示。
 * 播放器要退出触发回传进度。
-* **碰到问题先参考下方相关 FAQ**。
+* **碰到问题先参考下方相关 FAQ，没按要求反馈会忽略**。
 
 > Windows
 
@@ -116,11 +116,12 @@ https://github.com/kjtsune/embyToLocalPlayer#faq
 
 1. 运行 `debug.bat` 选1。（ macOS 或 Linux 运行 `.command`)  
    若无正常日志输出，命令行输入 `python --version` 检查 python 是否安装成功及版本。  
-   Python 低于 3.8.10 的先升级试试看。
+   Python 低于 3.8.10 的先升级试试看。  
+   参考`如何更新`，更新到最新版后测试。
 2. 换播放器及换视频文件测试是否复现。
 3. 截图或复制 `.bat` 窗口中的日志（选中后回车即复制）。
 4. 碰到什么问题及怎么复现。
-5. [可选] 关闭模糊日志。 ini > dev `mix_log = no`
+5. [可选] 关闭模糊日志。 ini > dev > `mix_log = no`
 
 > 字幕相关
 
@@ -142,7 +143,7 @@ https://github.com/kjtsune/embyToLocalPlayer#faq
     * vlc:
     * mpc: be: 播放列表条目超过10个可能会卡住，hc 没这问题。
     * pot: 若日志显示`KeyError: 'stream.mkv'`，看下方 FAQ。  
-      pot: 下一集无法添加 http 外挂字幕时，会禁用播放列表。
+      pot: 下一集无法添加 http 外挂字幕时，会禁用播放列表。  
       pot: 读盘模式可能和美化标题和混合S0的功能冲突，不过不影响使用。
 
 * macOS

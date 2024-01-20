@@ -17,6 +17,7 @@ from utils.tools import activate_window_by_pid
 logger = MyLogger()
 prefetch_data = dict(on=True, running=False, stop_sec_dict={}, done_list=[], playlist_data={})
 pipe_port_stack = list(reversed(range(25)))
+mpv_play_speed = {'media_title': 'speed'}
 
 
 # *_player_start 返回获取播放时间等操作所需参数字典
@@ -235,6 +236,8 @@ def mpv_player_start(cmd, start_sec=None, sub_file=None, media_title=None, get_s
     if mpv and intro_end:
         chapter_list = [{'title': 'intro', 'time': intro_start}, {'title': 'main', 'time': intro_end}]
         mpv.command('set_property', 'chapter-list', chapter_list)
+    if speed := mpv_play_speed.get(media_title):
+        mpv.command('set_property', 'speed', speed)
     if not get_stop_sec:
         return
     if mpv:
@@ -308,7 +311,7 @@ title=main
     return playlist_data
 
 
-def stop_sec_mpv(mpv, stop_sec_only=True, **_):
+def stop_sec_mpv(mpv: MPV, stop_sec_only=True, **_):
     if not mpv:
         logger.error('mpv not found, skip stop_sec_mpv')
         return None if stop_sec_only else {}
@@ -316,15 +319,17 @@ def stop_sec_mpv(mpv, stop_sec_only=True, **_):
     name_stop_sec_dict = {}
     while True:
         try:
-            basename = mpv.command('get_property', 'media-title')
+            media_title = mpv.command('get_property', 'media-title')
             tmp_sec = mpv.command('get_property', 'time-pos')
+            speed = mpv.command('get_property', 'speed')
             if not tmp_sec:
                 print('.', end='')
             else:
+                mpv_play_speed[media_title] = speed
                 stop_sec = tmp_sec
                 if not stop_sec_only:
-                    name_stop_sec_dict[basename] = tmp_sec
-                    prefetch_data['stop_sec_dict'][basename] = tmp_sec
+                    name_stop_sec_dict[media_title] = tmp_sec
+                    prefetch_data['stop_sec_dict'][media_title] = tmp_sec
             time.sleep(0.5)
         except Exception:
             logger.info(f'mpv exit, return stop sec')
