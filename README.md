@@ -227,7 +227,8 @@ https://github.com/kjtsune/embyToLocalPlayer#faq
 
 > mpv
 
-* 若无法播放，换视频或者软解看看，并检查 mpv 日志。  
+* 若碰到问题，换官方最新原版及使用默认配置测试。  
+  可以换视频或者软解看看，并检查 mpv 日志。  
   `mpv.conf` > `log-file = <save path>`
 
 > mpv.net
@@ -497,6 +498,8 @@ https://github.com/kjtsune/embyToLocalPlayer#faq
     1. 每次播放需要选择弹幕。（已把文件名发送给播放器匹配）
     2. 启动时无法及时跳转到 Emby 开始时间，需要播放开始后等待15秒。（每次看完一集则不影响）
     3. 无法加载外挂字幕。
+* 读盘模式：当 Emby 上的进度大于120秒，但弹弹播放器进度小于30秒时（且 api 启动后未曾超过120秒），
+  会调整弹弹播放器进度，使其与 Emby 上的一致，需等待。
 
 </details>
 

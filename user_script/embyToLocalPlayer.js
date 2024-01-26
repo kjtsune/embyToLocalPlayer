@@ -50,6 +50,7 @@
     let config = {
         logLevel: 2,
         disableOpenFolder: false, // false 改为 true 则禁用打开文件夹的按钮。
+        crackFullPath: false,
     };
 
     let logger = {
@@ -218,6 +219,7 @@
             const pathDiv = pathDivs[index];
             let filePath = data[index].Path;
             let fileName = filePath.split('\\').pop().split('/').pop();
+            fileName = (config.crackFullPath) ? filePath : fileName;
             let fileDiv = `<div id="addFileNameElement">${fileName}</div> `
             pathDiv.insertAdjacentHTML('beforebegin', fileDiv);
         }

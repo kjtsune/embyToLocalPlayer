@@ -637,6 +637,7 @@ def playlist_add_pot(pid, player_path, data, eps_data=None, limit=5, **_):
     mount_disk_mode = data['mount_disk_mode']
     limit = 12 if limit == 5 and mount_disk_mode and mix_s0 else limit
     is_http_sub = bool(data.get('sub_file'))
+    is_http_sub and logger.info('disable playlist cuz is_http_sub')
     if not mount_disk_mode:
         while True:
             if stop_sec_pot(pid=pid, check_only=True):
@@ -780,14 +781,15 @@ def stop_sec_dandan(*_, start_sec=None, is_http=None, stop_sec_only=True):
                 logger.info('dandan player exited')
                 return start_sec if stop_sec_only else {}
             time.sleep(0.3)
+    seek_url = f'{base_url}/api/v1/control/seek/{start_sec * 1000}'
     if start_sec and is_http and dandan.getboolean('http_seek'):
-        seek_time = f'{base_url}/api/v1/control/seek/{start_sec * 1000}'
-        requests_urllib(seek_time, headers=headers)
+        requests_urllib(seek_url, headers=headers)
     logger.info('\n', 'dandan api started')
     library = requests_urllib(f'{base_url}/api/v1/library', headers=headers, get_json=True)
     library = {i['EpisodeId']: i['Size'] for i in library}
     size_stop_sec_dict = {}
     stop_flag = False
+    disk_mode_seek = not is_http
     while True:
         try:
             api_data = requests_urllib(status, headers=headers, get_json=True, timeout=0.2, retry=1, silence=True)
@@ -798,6 +800,12 @@ def stop_sec_dandan(*_, start_sec=None, is_http=None, stop_sec_only=True):
             stop_sec = tmp_sec if tmp_sec else stop_sec
             size_stop_sec_dict[ep_id] = stop_sec
             stop_flag = not api_data['Seekable'] and position > 0
+            if disk_mode_seek and tmp_sec > 120:
+                disk_mode_seek = False
+            if disk_mode_seek and tmp_sec < 30 and start_sec > 90:
+                requests_urllib(seek_url, headers=headers)
+                disk_mode_seek = False
+                logger.info(f'seek by tmp_sec < 30 and start_sec > 90, {start_sec=} {tmp_sec=}')
             if position > 0.98 and is_http or (stop_flag and is_http):
                 break
             else:
