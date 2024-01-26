@@ -133,20 +133,19 @@ def change_emby_play_position(scheme, netloc, item_id, api_key, stop_sec, play_s
         logger.error('stop_sec error, check it')
         return
     ticks = stop_sec * 10 ** 7
+    params = {
+        'X-Emby-Token': api_key,
+        'X-Emby-Device-Id': device_id,
+        'X-Emby-Device-Name': 'embyToLocalPlayer',
+    }
     requests_urllib(f'{scheme}://{netloc}/emby/Sessions/Playing',
-                    params={
-                        'X-Emby-Token': api_key,
-                        'X-Emby-Device-Id': device_id,
-                    },
+                    params=params,
                     _json={
                         'ItemId': item_id,
                         'PlaySessionId': play_session_id,
                     })
     requests_urllib(f'{scheme}://{netloc}/emby/Sessions/Playing/Stopped',
-                    params={
-                        'X-Emby-Token': api_key,
-                        'X-Emby-Device-Id': device_id,
-                    },
+                    params=params,
                     _json={
                         'PositionTicks': ticks,
                         'ItemId': item_id,
@@ -368,7 +367,10 @@ def list_episodes(data: dict):
                 logger.info(f'disable playlist, cuz version_filter: fail, {ini_re=}')
                 return [_ep_current]
 
+    title_intro_map_fail = False
+
     def title_intro_index_map():
+        nonlocal title_intro_map_fail
         _res = _title_map, _start_map, _end_map = {}, {}, {}
         if playlist_info:
             return _res
@@ -376,6 +378,7 @@ def list_episodes(data: dict):
 
         for ep in episodes_info:
             if 'ParentIndexNumber' not in ep or 'IndexNumber' not in ep:
+                title_intro_map_fail = True
                 logger.info('disable title_intro_index_map, cuz season or ep index num error found')
                 return _res
             if 'IndexNumberEnd' in ep:
@@ -472,6 +475,11 @@ def list_episodes(data: dict):
     episodes = [i for i in episodes['Items'] if 'Path' in i and 'RunTimeTicks' in i]
     episodes = version_filter(data['file_path'], episodes) if data['server'] == 'emby' else episodes
     episodes = [parse_item(i) for i in episodes]
+    if title_intro_map_fail:
+        _file_path = data['file_path']
+        for ep in episodes:
+            if ep['file_path'] == _file_path:
+                ep['media_title'] = data['media_title']
 
     if stream_redirect := configs.ini_str_split('dev', 'stream_redirect'):
         stream_redirect = zip(stream_redirect[0::2], stream_redirect[1::2])
