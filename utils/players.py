@@ -819,9 +819,11 @@ def stop_sec_dandan(*_, start_sec=None, is_http=None, stop_sec_only=True):
                 time.sleep(1)
                 continue
             break
-    size_stop_sec_dict = {int(k): v for k, v in size_stop_sec_dict.items() if k}
-    size_stop_sec_dict = {library[k]: v for k, v in size_stop_sec_dict.items() if k in library}
-    logger.info(f'dandanplay exit, return stop sec')
+    raw_dict = {int(k): v for k, v in size_stop_sec_dict.items() if k}
+    size_stop_sec_dict = {library[k]: v for k, v in raw_dict.items() if k in library}
+    if raw_dict and not size_stop_sec_dict:
+        logger.error('media info not in dandan library, need to set dandan library auto add item')
+    logger.info(f'dandanplay exit, return stop sec, {stop_sec=}')
     return stop_sec if stop_sec_only else size_stop_sec_dict
 
 

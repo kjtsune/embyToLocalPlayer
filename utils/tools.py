@@ -445,7 +445,7 @@ def parse_received_data_plex(received_data):
         total_sec = int(meta['duration']) // (10 ** 3)
         position = start_sec / total_sec
 
-        provider_ids = [tuple(i['id'].split('://')) for i in meta['Guid']]
+        provider_ids = [tuple(i['id'].split('://')) for i in meta['Guid']] if meta.get('Guid') else []
         provider_ids = {k.title(): v for (k, v) in provider_ids}
 
         trakt_emby_ver_dict = dict(
