@@ -109,6 +109,17 @@ def requests_urllib(host, params=None, _json=None, decode=False, timeout=5.0, he
         return save_path
 
 
+def get_redirect_url(url):
+    try:
+        response = requests_urllib(url, res_only=True)
+    except urllib.error.HTTPError as e:
+        if e.code == 302:
+            return e.headers['Location']
+        else:
+            return url
+    return response.url
+
+
 def multi_thread_requests(urls: Union[list, tuple, dict], **kwargs):
     return_list = False
 

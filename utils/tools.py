@@ -312,6 +312,13 @@ def parse_received_data_emby(received_data):
                  f'?DeviceId={device_id}&MediaSourceId={media_source_id}' \
                  f'&PlaySessionId={play_session_id}&api_key={api_key}&Static=true'
 
+    if configs.check_str_match(netloc, 'dev', 'redirect_check_host'):
+        from utils.net_tools import get_redirect_url
+        _stream_url = get_redirect_url(stream_url)
+        if stream_url != _stream_url:
+            stream_url = _stream_url
+            _logger.info(f'url redirect to {stream_url}')
+
     if stream_redirect := configs.ini_str_split('dev', 'stream_redirect'):
         stream_redirect = zip(stream_redirect[0::2], stream_redirect[1::2])
         for (_raw, _jump) in stream_redirect:
