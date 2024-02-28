@@ -253,15 +253,18 @@ def playlist_add_mpv(mpv: MPV, data, eps_data=None, limit=10):
         return {}
     episodes = eps_data or list_episodes(data)
     append = False
+    is_iina = getattr(mpv, 'is_iina')
     for ep in episodes:
         basename = ep['basename']
         media_title = ep['media_title']
         playlist_data[media_title] = ep
+        if is_iina:
+            playlist_data[basename] = ep
         if basename == data['basename']:
             append = True
             continue
         # iina 添加不上
-        if not append or limit <= 0 or getattr(mpv, 'is_iina'):
+        if not append or limit <= 0 or is_iina:
             continue
         limit -= 1
 
