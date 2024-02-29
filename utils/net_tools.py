@@ -20,6 +20,7 @@ sync_third_party_done_ids = {'trakt': [],
                              'bangumi': []}
 
 logger = MyLogger()
+redirect_url_cache = {}
 
 
 def run_server(req_handler):
@@ -109,15 +110,17 @@ def requests_urllib(host, params=None, _json=None, decode=False, timeout=5.0, he
         return save_path
 
 
-def get_redirect_url(url):
+def get_redirect_url(url, key_trim='PlaySessionId'):
     try:
-        response = requests_urllib(url, res_only=True)
+        key = url.split(key_trim)[0] if key_trim else url
+        if cache := redirect_url_cache.get(key):
+            return cache
+        jump_url = requests_urllib(url, res_only=True).url
     except urllib.error.HTTPError as e:
         if e.code == 302:
-            return e.headers['Location']
-        else:
-            return url
-    return response.url
+            jump_url = e.headers['Location']
+    redirect_url_cache[key] = jump_url
+    return jump_url
 
 
 def multi_thread_requests(urls: Union[list, tuple, dict], **kwargs):

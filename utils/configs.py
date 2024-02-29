@@ -1,7 +1,7 @@
+import datetime
 import os
 import platform
 import sys
-import time
 from configparser import ConfigParser
 
 
@@ -21,6 +21,7 @@ def mini_conf():
     config = ConfigParser()
     config.read(path, encoding='utf-8-sig')
     return config
+
 
 raw_stdout = sys.stdout
 raw_stdout.reconfigure(encoding='utf-8-sig', errors='replace')
@@ -85,7 +86,7 @@ class MyLogger:
     def log(*args, end=None, silence=False):
         if silence:
             return
-        t = f"[{time.strftime('%D %H:%M:%S', time.localtime())}] "
+        t = f"[{datetime.datetime.now().strftime('%D %H:%M:%S.%f')[:19]}] "
         args = ' '.join(str(i) for i in args)
         print(t + args, end=end)
 
@@ -187,7 +188,7 @@ class Configs:
         else:
             result = False
         _log = {True: "match", False: "not match"}[bool(result)]
-        if log:
+        if log and ini_list:
             _log = f'{_str} {_log}: {section}[{option}] {ini_list}'
             if MyLogger.need_mix:
                 _log = MyLogger.mix_args_str(_log)
