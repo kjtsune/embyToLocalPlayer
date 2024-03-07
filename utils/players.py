@@ -254,6 +254,18 @@ def playlist_add_mpv(mpv: MPV, data, eps_data=None, limit=10):
     episodes = eps_data or list_episodes(data)
     append = False
     is_iina = getattr(mpv, 'is_iina')
+    # 检查是否是新版loadfile命令
+    # https://github.com/mpv-player/mpv/commit/c678033
+    new_loadfile_cmd = False
+    if not is_iina:
+        try:
+            for c in mpv.command("get_property", "command-list"):
+                if c["name"] == "loadfile":
+                    for a in c["args"]:
+                        if a["name"] == "index": 
+                            new_loadfile_cmd = True
+        except Exception:
+            pass    
     for ep in episodes:
         basename = ep['basename']
         media_title = ep['media_title']
@@ -304,10 +316,12 @@ title=main
             chap_cmd = ''
 
         try:
-            mpv.command(
-                'loadfile', ep['media_path'], 'append',
-                f'title="{media_title}",force-media-title="{media_title}",osd-playing-msg="{media_title}"'
-                f',start=0{sub_cmd}{chap_cmd}')
+            options = (f'title="{media_title}",force-media-title="{media_title}"'
+                       f',osd-playing-msg="{media_title}",start=0{sub_cmd}{chap_cmd}')
+            if new_loadfile_cmd:
+                mpv.command('loadfile', ep['media_path'], 'append', '-1', options)
+            else:
+                mpv.command('loadfile', ep['media_path'], 'append', options)
         except OSError:
             logger.error('mpv exit: by playlist_add_mpv: except OSError')
             return {}
