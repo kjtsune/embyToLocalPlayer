@@ -31,13 +31,13 @@ if "%PYTHON_VERSION:~0,6%" == "Python" (
 
 :SIX
 echo you have pressed six
-python utils/update.py
+python %~dp0/utils/update.py
 GOTO END
 
 
 :FIVE
 echo you have pressed five
-set mainCmd=python "%cd%\embyToLocalPlayer.py"
+set mainCmd=python "%~dp0\embyToLocalPlayer.py"
 echo %mainCmd%
 echo already copied, paste command is "Ctrl + V"
 echo %mainCmd%|clip
@@ -46,7 +46,7 @@ GOTO END
 
 :FOUR
 echo you have pressed four
-python utils/conf_helper.py
+python %~dp0/utils/conf_helper.py
 GOTO END
 
 
@@ -59,7 +59,7 @@ GOTO END
 :TWO
 echo you have pressed two
 set startupVbs="%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup\embyToLocalPlayer.vbs"
-set startupCmd=CreateObject("Wscript.Shell").Run """python"" ""%cd%\embyToLocalPlayer.py""" , 0, True
+set startupCmd=CreateObject("Wscript.Shell").Run """python"" ""%~dp0\embyToLocalPlayer.py""" , 0, True
 echo startupCmd=%startupCmd%
 echo startupVbs=%startupVbs%
 echo %startupCmd% > %startupVbs%
@@ -72,7 +72,7 @@ GOTO END
 
 :ONE
 echo you have pressed one
-python embyToLocalPlayer.py
+python %~dp0/embyToLocalPlayer.py
 GOTO END
 
 
