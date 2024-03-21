@@ -259,13 +259,13 @@ def playlist_add_mpv(mpv: MPV, data, eps_data=None, limit=10):
     new_loadfile_cmd = False
     if not is_iina:
         try:
-            for c in mpv.command("get_property", "command-list"):
-                if c["name"] == "loadfile":
-                    for a in c["args"]:
-                        if a["name"] == "index": 
+            for c in mpv.command('get_property', 'command-list'):
+                if c['name'] == 'loadfile':
+                    for a in c['args']:
+                        if a['name'] == 'index':
                             new_loadfile_cmd = True
         except Exception:
-            pass    
+            pass
     for ep in episodes:
         basename = ep['basename']
         media_title = ep['media_title']
@@ -788,20 +788,25 @@ def stop_sec_dandan(*_, start_sec=None, is_http=None, stop_sec_only=True):
     time.sleep(5)
     from utils.windows_tool import find_pid_by_process_name, process_is_running_by_pid
     pid = find_pid_by_process_name('dandanplay.exe')
+    try_sec = 0
     while True:
         try:
             if requests_urllib(status, headers=headers, decode=True, timeout=0.2, retry=1, silence=True):
                 break
         except Exception:
+            try_sec += 0.3
             print('.', end='')
             if not process_is_running_by_pid(pid):
-                logger.info('dandan player exited')
+                print()
+                try_sec > 10 and logger.error('dandan api time out, may need set api_key or wait 10s after video play')
+                logger.info('dandan player exited before dandan api started')
                 return start_sec if stop_sec_only else {}
             time.sleep(0.3)
     seek_url = f'{base_url}/api/v1/control/seek/{start_sec * 1000}'
     if start_sec and is_http and dandan.getboolean('http_seek'):
         requests_urllib(seek_url, headers=headers)
-    logger.info('\n', 'dandan api started')
+    try_sec and print()
+    logger.info('dandan api started')
     library = requests_urllib(f'{base_url}/api/v1/library', headers=headers, get_json=True)
     library = {i['EpisodeId']: i['Size'] for i in library}
     size_stop_sec_dict = {}

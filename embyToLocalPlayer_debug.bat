@@ -3,6 +3,14 @@ chcp 65001
 :BEGIN
 cls
 
+net session >nul 2>&1
+if %errorLevel% == 0 (
+    echo ERROR: do not run as admin!
+    echo ERROR: do not run as admin!
+    GOTO END
+)
+
+
 for /F "usebackq tokens=*" %%A in (`python --version 2^>^&1`) do set PYTHON_VERSION=%%A
 
 if "%PYTHON_VERSION:~0,6%" == "Python" (

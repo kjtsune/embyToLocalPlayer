@@ -110,15 +110,40 @@ def requests_urllib(host, params=None, _json=None, decode=False, timeout=5.0, he
         return save_path
 
 
+class SkipHTTPRedirectHandler(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, hdrs, newurl):
+        return
+
+
+class FollowHTTPRedirectHandler(urllib.request.HTTPRedirectHandler):
+    def http_error_301(self, req, fp, code, msg, hdrs):
+        # 避免重复301，原因未知
+        return
+
+
 def get_redirect_url(url, key_trim='PlaySessionId'):
+    jump_url = url
+    key = url.split(key_trim)[0] if key_trim else url
+    if cache := redirect_url_cache.get(key):
+        return cache
+    start = time.time()
     try:
-        key = url.split(key_trim)[0] if key_trim else url
-        if cache := redirect_url_cache.get(key):
-            return cache
-        jump_url = requests_urllib(url, res_only=True).url
+        handlers = [
+            urllib.request.HTTPSHandler(context=ssl_context),
+            SkipHTTPRedirectHandler,
+            # FollowHTTPRedirectHandler, # 可能和系统代理冲突，不启用
+        ]
+        opener = urllib.request.build_opener(*handlers)
+        jump_url = opener.open(requests_urllib(url, req_only=True), timeout=3).url
     except urllib.error.HTTPError as e:
         if e.code == 302:
             jump_url = e.headers['Location']
+        else:
+            logger.error(f'{e.code=} get_redirect_url: {str(e)[:100]}')
+            jump_url = e.url
+    except Exception as e:
+        logger.error(f'code={getattr(e, "code")} get_redirect_url: {str(e)[:100]}')
+    logger.info(f'get_redirect_url: used time={str(time.time() - start)[:4]}')
     redirect_url_cache[key] = jump_url
     return jump_url
 
