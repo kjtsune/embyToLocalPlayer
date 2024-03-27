@@ -3,7 +3,7 @@
 // @name:zh-CN   embyToLocalPlayer
 // @name:en      embyToLocalPlayer
 // @namespace    https://github.com/kjtsune/embyToLocalPlayer
-// @version      1.1.13.3
+// @version      2024.03.27
 // @description  需要 Python。Emby/Jellyfin 调用外部本地播放器，并回传播放记录。适配 Plex。
 // @description:zh-CN 需要 Python。Emby/Jellyfin 调用外部本地播放器，并回传播放记录。适配 Plex。
 // @description:en  Require Python. Play in an external player. Update watch history to Emby/Jellyfin server. Support Plex.
@@ -22,6 +22,13 @@
 // ==/UserScript==
 'use strict';
 /*
+2024.03.27:
+1. 预重定向下一集视频流 url (配置文件有新增条目 [dev])
+* 版本间累积更新：
+  * 可播放前检查视频流重定向。
+  * 新版 mpv 播放列表报错。@verygoodlee
+  * 修了些回传失败的情况。
+  * 适配 Emby 全部播放/随机播放/播放列表 (油猴也需要更新，限电影和音乐视频类型)
 2024-1-2:
 1. 适配 Emby 跳过简介/片头。(限 mpv，且视频本身无章节，通过添加章节实现。)
 * 版本间累积更新：
@@ -30,19 +37,6 @@
 2023-12-11:
 1. 美化 mpv pot 标题。
 2. 改善版本筛选逻辑。
-2023-12-07:
-1. mpv 播放列表避免与官方 autoload.lua 冲突。
-2. pot 修复读盘模式播放列表漏播第零季选集。（详见 FAQ 隐藏功能）
-* 版本间累积更新：
-  * 追更 TG 通知。（详见 FAQ 隐藏功能）
-  * 适配 Emby beta 版本 api 变动。
-  * bgm.tv: 适配上游搜索结果变动。
-  * bgm.tv: 增加旧版搜索 api 备选。
-  * trakt: 适配上游新剧缺失单集 imdb/tvdb。
-  * .bat 强制使用 utf-8 编码。
-  * 默认启用日志文件。
-  * pot 播放列表 未加载完成时可退出。
-  * 网络流：外挂 sup 支持（限 Emby v4.8.0.55 | mpv)。升级 Emby 记得备份，无法回退。
 */
 (function () {
     'use strict';
@@ -276,6 +270,8 @@
                         mainEpInfo: mainEpInfo,
                         episodesInfo: episodesInfoData,
                         playlistInfo: playlistData,
+                        gmInfo: GM_info,
+                        userAgent: navigator.userAgent,
                     }
                     playlistInfoCache = null;
                     logger.info(extraData);

@@ -264,6 +264,18 @@ def main_ep_intro_time(main_ep_info):
     return res
 
 
+def show_version_info(extra_data):
+    py_script_version = '2024.03.27'
+    gm_info = extra_data.get('gmInfo')
+    user_agent = extra_data.get('userAgent')
+    if not gm_info:
+        _logger.info('userscript info not found, userscript update needed')
+        return
+    _logger.info(f"PyScript/{py_script_version} UserScript/{gm_info['script']['version']}"
+                 f" {gm_info['scriptHandler']}/{gm_info['version']}")
+    _logger.info(user_agent)
+
+
 def parse_received_data_emby(received_data):
     extra_data = received_data['extraData']
     main_ep_info = extra_data['mainEpInfo']
@@ -391,6 +403,7 @@ def parse_received_data_emby(received_data):
         intro_end=intro_time.get('intro_end'),
         server_version=server_version
     )
+    show_version_info(extra_data=extra_data)
     return result
 
 

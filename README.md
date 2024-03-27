@@ -334,7 +334,7 @@ https://github.com/kjtsune/embyToLocalPlayer#faq
 > 模拟 302 重定向视频流
 
 * 若使用预读取下一集，nginx 可以只反代视频流。浏览器访问源站，重定向视频流交给本机。降低 nginx 配置难度。减少 bug。
-* 亦可用于采用播放分离的公益服，视频流线路本地重定向。加速访问。
+* 亦可用于其他重定向视频流服务器。采用本地重定向。加速访问。
 * 填写位置：`.ini` > dev
   ```
   # 网址之间逗号隔开，成对填写。源站, 反代站。
@@ -508,6 +508,7 @@ https://github.com/kjtsune/embyToLocalPlayer#faq
 <details>
 <summary>Pot 漏播第零季选集</summary>
 
+* 若配置好但不生效，属于正常，不用反馈。
 * 修复情景：Pot 读盘模式播放动漫第一季，会漏播 Emby 穿插的 S0 集数。
 * 前提条件：Pot 选项 > 基本 > 相似文件打开策略 > 仅打开选定的文件。（由脚本添加播放列表）
 * 填写位置：`.ini` > playlist

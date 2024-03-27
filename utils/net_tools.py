@@ -121,28 +121,32 @@ class FollowHTTPRedirectHandler(urllib.request.HTTPRedirectHandler):
         return
 
 
-def get_redirect_url(url, key_trim='PlaySessionId'):
+def get_redirect_url(url, key_trim='PlaySessionId', follow_redirect=False):
     jump_url = url
     key = url.split(key_trim)[0] if key_trim else url
     if cache := redirect_url_cache.get(key):
         return cache
     start = time.time()
     try:
+        redirect_handler = FollowHTTPRedirectHandler if follow_redirect else SkipHTTPRedirectHandler
+        # FollowHTTPRedirectHandler, # 系统代理有可能很慢，默认不启用
+        timeout = 15 if follow_redirect else 3
         handlers = [
             urllib.request.HTTPSHandler(context=ssl_context),
-            SkipHTTPRedirectHandler,
-            # FollowHTTPRedirectHandler, # 可能和系统代理冲突，不启用
+            redirect_handler,
         ]
         opener = urllib.request.build_opener(*handlers)
-        jump_url = opener.open(requests_urllib(url, req_only=True), timeout=3).url
+        jump_url = opener.open(requests_urllib(url, req_only=True), timeout=timeout).url
     except urllib.error.HTTPError as e:
         if e.code == 302:
             jump_url = e.headers['Location']
+        elif e.code == 301:
+            jump_url = e.url
         else:
             logger.error(f'{e.code=} get_redirect_url: {str(e)[:100]}')
             jump_url = e.url
     except Exception as e:
-        logger.error(f'code={getattr(e, "code")} get_redirect_url: {str(e)[:100]}')
+        logger.error(f'disable redirect: code={getattr(e, "code", None)} get_redirect_url: {str(e)[:100]}')
     logger.info(f'get_redirect_url: used time={str(time.time() - start)[:4]}')
     redirect_url_cache[key] = jump_url
     return jump_url
