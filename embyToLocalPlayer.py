@@ -89,7 +89,7 @@ def start_play(data):
     player_path = cmd[0]
     player_path_lower = player_path.lower()
     # 播放器特殊处理
-    player_is_running = True if configs.raw.getboolean('dev', 'one_instance_mode', fallback=False) else False
+    player_is_running = True if configs.raw.getboolean('dev', 'one_instance_mode', fallback=True) else False
     player_name = [i for i in player_start_func_dict if i in player_path_lower]
     if player_name:
         player_name = player_name[0]

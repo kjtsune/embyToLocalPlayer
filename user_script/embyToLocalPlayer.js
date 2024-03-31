@@ -13,6 +13,7 @@
 // @match        https://app.plex.tv/*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=emby.media
 // @grant        unsafeWindow
+// @grant        GM_info
 // @grant        GM_xmlhttpRequest
 // @grant        GM_registerMenuCommand
 // @grant        GM_unregisterMenuCommand

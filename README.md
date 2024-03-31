@@ -42,7 +42,7 @@
 > Windows
 
 * 双击 `embyToLocalPlayer_debug.bat` （不要用管理员运行）
-* 若无报错，按 1（窗口运行），可网页播放测试。（点击原来的播放按钮就可以）
+* 若无报错，按 1（不要关闭窗口），然后网页播放测试。（点击原来的播放按钮就可以）
 * 按 2 则创建开机启动项并后台运行。
 * 问题排查：
     * 若双击 `.bat` 就提示找不到 Python，轮流尝试安装以下三种 Python 安装程序：  
@@ -50,7 +50,10 @@
         * 1：[官网](https://www.python.org/downloads/)
         * 2：[Miniconda](https://docs.conda.io/en/latest/miniconda.html)
         * 3：微软商店
-    * 若自启失败，检查启动项是否被禁用：任务管理器 > 启动。
+    * 若自启失败，检查启动项是否被禁用：任务管理器 > 启动。  
+      `.bat` 按 3 查看开机文件夹里面`embyToLocalPlayer.vbs`是否被杀毒软件删了。可以自己创建
+      vbs，然后双击测试是否正常后台运行。  
+      `.vbs` 模板: `CreateObject("Wscript.Shell").Run """python"" ""<脚本所在文件夹>\embyToLocalPlayer.py""" , 0, True`
 
 > macOS
 
@@ -500,8 +503,9 @@ https://github.com/kjtsune/embyToLocalPlayer#faq
     1. 每次播放需要选择弹幕。（已把文件名发送给播放器匹配）
     2. 启动时无法及时跳转到 Emby 开始时间，需要播放开始后等待15秒。（每次看完一集则不影响）
     3. 无法加载外挂字幕。
-* 读盘模式：当 Emby 上的进度大于120秒，但弹弹播放器进度小于30秒时（且 api 启动后未曾超过120秒），
-  会调整弹弹播放器进度，使其与 Emby 上的一致，需等待。
+* 读盘模式：解决切换设备播放时，进度不一致（读盘模式进度由弹弹存储），同步策略：  
+  当 Emby 上的进度大于120秒，但弹弹播放器进度小于30秒时（且 api 启动后未曾超过120秒），
+  会调整弹弹播放器进度，使其与 Emby 上的一致，需等待 api 启动。
 
 </details>
 
