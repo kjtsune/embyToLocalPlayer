@@ -39,7 +39,7 @@ if "%PYTHON_VERSION:~0,6%" == "Python" (
 
 :SIX
 echo you have pressed six
-python %~dp0/utils/update.py
+python "%~dp0/utils/update.py"
 GOTO END
 
 
@@ -54,7 +54,7 @@ GOTO END
 
 :FOUR
 echo you have pressed four
-python %~dp0/utils/conf_helper.py
+python "%~dp0/utils/conf_helper.py"
 GOTO END
 
 
@@ -80,7 +80,7 @@ GOTO END
 
 :ONE
 echo you have pressed one
-python %~dp0/embyToLocalPlayer.py
+python "%~dp0/embyToLocalPlayer.py"
 GOTO END
 
 
