@@ -706,6 +706,8 @@ def pot_player_start(cmd: list, start_sec=None, sub_file=None, media_title=None,
         cmd += [f'/seek={format_time}']
     if media_title:
         cmd += [f'/title={media_title}']
+    cmd += ['config=emby']
+
     logger.info(cmd)
     player = subprocess.Popen(cmd)
     activate_window_by_pid(player.pid, sleep=1)
@@ -748,9 +750,8 @@ def playlist_add_pot(pid, player_path, data, eps_data=None, limit=5, **_):
             continue
         limit -= 1
         # f'/sub={ep["sub_file"]}' pot 下一集会丢失字幕
-        # /add /title 不能复用，会丢失 /title
-        # 奇怪，之前测试读盘模式混合第零季时成功添加播放列表，现在却失败。原因未知。
-        pot_cmds.append([player_path, '/add', ep['media_path'], f'/title={media_title}'])
+        # /add /title 不能复用，会丢失 /title，选项要放后面，否则会有奇怪的问题。
+        pot_cmds.append([player_path, ep['media_path'], '/add', f'/title={media_title}'])
     if pot_cmds:
         def add_thread():
             sleep_sec = 1 if mount_disk_mode else 5
