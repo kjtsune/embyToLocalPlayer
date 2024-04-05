@@ -4,18 +4,24 @@ chcp 65001
 cls
 
 net session >nul 2>&1
-if %errorLevel% == 0 (
+if %errorLevel% == 0 if not %USERNAME% == Administrator (
     echo ERROR: do not run as admin!
     echo ERROR: do not run as admin!
     GOTO END
 )
 
+set pythonPath="python"
+set pythonEmbed="%~dp0python_embed\python.exe"
+if exist %pythonEmbed% (
+    echo use python embed. %pythonEmbed%
+    set pythonPath=%pythonEmbed%
+)
 
-for /F "usebackq tokens=*" %%A in (`python --version 2^>^&1`) do set PYTHON_VERSION=%%A
+for /F "usebackq tokens=*" %%A in (`%pythonPath% --version 2^>^&1`) do set PYTHON_VERSION=%%A
 
 if "%PYTHON_VERSION:~0,6%" == "Python" (
     echo %PYTHON_VERSION%
-    python -c "import sys; print(sys.executable)"
+    %pythonPath% -c "import sys; print(sys.executable)"
     echo press a number
     echo 1: run in console
     echo 2: run in background and add to startup folder
@@ -39,22 +45,22 @@ if "%PYTHON_VERSION:~0,6%" == "Python" (
 
 :SIX
 echo you have pressed six
-python "%~dp0/utils/update.py"
+%pythonPath% "%~dp0utils/update.py"
 GOTO END
 
 
 :FIVE
 echo you have pressed five
-set mainCmd=python "%~dp0\embyToLocalPlayer.py"
+set mainCmd=%pythonPath% "%~dp0embyToLocalPlayer.py"
 echo %mainCmd%
-echo already copied, paste command is "Ctrl + V"
+echo already copied, run in cmd, not powershell. paste command is "Ctrl + V"
 echo %mainCmd%|clip
 GOTO END
 
 
 :FOUR
 echo you have pressed four
-python "%~dp0/utils/conf_helper.py"
+%pythonPath% "%~dp0utils/conf_helper.py"
 GOTO END
 
 
@@ -67,7 +73,7 @@ GOTO END
 :TWO
 echo you have pressed two
 set startupVbs="%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup\embyToLocalPlayer.vbs"
-set startupCmd=CreateObject("Wscript.Shell").Run """python"" ""%~dp0\embyToLocalPlayer.py""" , 0, True
+set startupCmd=CreateObject("Wscript.Shell").Run ""%pythonPath%" ""%~dp0embyToLocalPlayer.py""" , 0, True
 echo startupCmd=%startupCmd%
 echo startupVbs=%startupVbs%
 echo %startupCmd% > %startupVbs%
@@ -80,7 +86,7 @@ GOTO END
 
 :ONE
 echo you have pressed one
-python "%~dp0/embyToLocalPlayer.py"
+%pythonPath% "%~dp0embyToLocalPlayer.py"
 GOTO END
 
 

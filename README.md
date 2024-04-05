@@ -28,9 +28,11 @@
 
 > 基础配置
 
-1. 下载 `embyToLocalPlayer.zip` 并解压到任意文件夹。 [发布页](https://github.com/kjtsune/embyToLocalPlayer/releases)
-2. 修改配置文件：`embyToLocalPlayer_config.ini` 中的播放器路径，以及播放器选择。
+1. 下载 `embyToLocalPlayer-python-embed-win32.zip`(Windows only) 或者 `embyToLocalPlayer.zip`(Windows/Linux/macOS)。  
+   然后解压到任意文件夹。 [发布页](https://github.com/kjtsune/embyToLocalPlayer/releases)
+2. 进入文件夹，修改配置文件：`embyToLocalPlayer_config.ini` 中的播放器路径，以及播放器选择。
 3. 安装 Python (勾选 add to path) [官网](https://www.python.org/downloads/)
+   （若使用 `embyToLocalPlayer-python-embed-win32.zip`，无需安装。）
 4. 安装油猴脚本。 [发布页](https://greasyfork.org/zh-CN/scripts/448648-embytolocalplayer)
 
 > 前置说明
@@ -45,15 +47,13 @@
 * 若无报错，按 1（不要关闭窗口），然后网页播放测试。（点击原来的播放按钮就可以）
 * 按 2 则创建开机启动项并后台运行。
 * 问题排查：
-    * 若双击 `.bat` 就提示找不到 Python，轮流尝试安装以下三种 Python 安装程序：  
-      通用流程：卸载 Python > 重启 > 安装 Python (勾选 add to path) > 重启 >  双击 `.bat`
-        * 1：[官网](https://www.python.org/downloads/)
-        * 2：[Miniconda](https://docs.conda.io/en/latest/miniconda.html)
-        * 3：微软商店
+    * 若双击 `.bat` 就提示找不到 Python， 请使用 `embyToLocalPlayer-python-embed-win32.zip` 便携版：
     * 若自启失败，检查启动项是否被禁用：任务管理器 > 启动。  
-      `.bat` 按 3 查看开机文件夹里面`embyToLocalPlayer.vbs`是否被杀毒软件删了。可以自己创建
-      vbs，然后双击测试是否正常后台运行。  
-      `.vbs` 模板: `CreateObject("Wscript.Shell").Run """python"" ""<脚本所在文件夹>\embyToLocalPlayer.py""" , 0, True`
+      `.bat` 按 3 查看开机文件夹里面`embyToLocalPlayer.vbs`是否被杀毒软件删了。  
+      若被删，可以自己创建 vbs，然后双击测试是否正常后台运行。 `.vbs` 模板:
+      ```
+      CreateObject("Wscript.Shell").Run """<Python所在文件夹>\python.exe"" ""<脚本所在文件夹>\embyToLocalPlayer.py""" , 0, True
+      ```
 
 > macOS
 
@@ -510,16 +510,18 @@ https://github.com/kjtsune/embyToLocalPlayer#faq
 </details>
 
 <details>
-<summary>Pot 漏播第零季选集</summary>
+<summary>Pot 漏播第零季选集/美化播放列表标题</summary>
 
-* 修复情景：Pot 读盘模式播放动漫第一季，会漏播 Emby 穿插的 S0 集数。
+* 修复情景：
+    1. Pot 读盘模式：播放动漫第一季，会漏播 Emby 穿插的 S0 集数。
+    2. Pot 读盘模式：剧集播放列表标题错位/缺少。
 * 前提条件二选一：
     1. Pot 选项 > 配置 > 用当前方案创建 > 改配置文件名称为 `emby`（用脚本播放时会自动切换为该配置）:  
        Pot 选项 > 左上角切换配置为 emby > 基本 > 相似文件打开策略 > 仅打开选定的文件 > 确定 > 关闭。（仅 emby 播放时由脚本添加播列表）
     2. Pot 选项 > 基本 > 相似文件打开策略 > 仅打开选定的文件。（缺点：用文件管理器播放无播放列表）
 * 填写位置：`.ini` > playlist
   ```
-  # 解决 Pot 读盘模式漏播第零季选集，播放列表加载会变慢，每秒1集。
+  # 解决 Pot 读盘模式漏播第零季选集及播放列表标题错位/缺少，播放列表加载会变慢，每秒1集。
   mix_s0 = yes
   ```
 * 播放的第一个文件是 S0 的话，会连续播 S0。（通用 Bug，换 mpv 也会这样）

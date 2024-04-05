@@ -2,8 +2,14 @@ import json
 import multiprocessing
 import os
 import subprocess
+import sys
 import threading
 from http.server import BaseHTTPRequestHandler
+
+try:
+    sys.path.insert(0, os.path.dirname(__file__))
+except Exception:
+    pass
 
 from utils.downloader import DownloadManager, prefetch_resume_tv
 from utils.net_tools import update_server_playback_progress, run_server
