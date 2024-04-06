@@ -1,12 +1,11 @@
 # embyToLocalPlayer-Python
 
-* Emby/Jellyfin 调用 PotPlayer mpv IINA MPC VLC 播放，并回传播放进度（可关）。适配 Plex。
-* 本地需要安装 Python
+Emby/Jellyfin 调用 PotPlayer mpv IINA MPC VLC 播放，并回传播放进度（可关）。适配 Plex。
 
 **特性**
 
-* 在首页也可以播放。点击原来的播放按钮就可以。播放无需二次确认。
-* 播放列表（连续播放）支持，下一集保持相同版本。可设置版本偏好。
+* 在首页也可以播放。点击原来的播放按钮就可以。可配置版本优先级（若视频多版本）。
+* 播放列表（连续播放）支持，下一集保持相同版本。
 * trakt.tv bangumi.tv bgm.tv 单向标记已观看支持。
 * 本地挂载用户：可跳转到路径对应文件夹。（按钮在网页显示文件路径的上面）
 * 未适配的播放器一般也能用，只是不会回传进度。
@@ -28,26 +27,29 @@
 
 > 基础配置
 
-1. 下载 `embyToLocalPlayer-python-embed-win32.zip`(Windows only) 或者 `embyToLocalPlayer.zip`(Windows/Linux/macOS)。  
+1. 下载 `embyToLocalPlayer-python-embed-win32.zip` (**便携版** | Windows only)   
+   或者 `embyToLocalPlayer.zip` (Windows / Linux / macOS)  
    然后解压到任意文件夹。 [发布页](https://github.com/kjtsune/embyToLocalPlayer/releases)
 2. 进入文件夹，修改配置文件：`embyToLocalPlayer_config.ini` 中的播放器路径，以及播放器选择。
 3. 安装 Python (勾选 add to path) [官网](https://www.python.org/downloads/)
-   （若使用 `embyToLocalPlayer-python-embed-win32.zip`，无需安装。）
+   （若使用便携版，则无需安装。）
 4. 安装油猴脚本。 [发布页](https://greasyfork.org/zh-CN/scripts/448648-embytolocalplayer)
 
 > 前置说明
 
 * 网页闪一下是自动关闭兼容流提示。
 * 播放器要退出触发回传进度。
+* 日志出现 `serving at 127.0.0.1:58000` 为服务启动成功。
 * **碰到问题先参考下方相关 FAQ，没按要求反馈会忽略**。
 
 > Windows
 
-* 双击 `embyToLocalPlayer_debug.bat` （不要用管理员运行）
-* 若无报错，按 1（不要关闭窗口），然后网页播放测试。（点击原来的播放按钮就可以）
-* 按 2 则创建开机启动项并后台运行。
+1. 双击 `embyToLocalPlayer_debug.bat` （不要用管理员运行）
+2. 若无报错，按 1（不要关闭窗口），然后网页播放测试。（点击原来的播放按钮就可以）
+3. 按 2 则创建开机启动项并后台运行。
+
 * 问题排查：
-    * 若双击 `.bat` 就提示找不到 Python， 请使用 `embyToLocalPlayer-python-embed-win32.zip` 便携版：
+    * 若双击 `.bat` 就提示找不到 Python，请使用便携版。
     * 若自启失败，检查启动项是否被禁用：任务管理器 > 启动。  
       `.bat` 按 3 查看开机文件夹里面`embyToLocalPlayer.vbs`是否被杀毒软件删了。  
       若被删，可以自己创建 vbs，然后双击测试是否正常后台运行。 `.vbs` 模板:
@@ -94,7 +96,7 @@ https://github.com/kjtsune/embyToLocalPlayer#faq
 * Python 最低支持版本为 3.8。Windows 最低支持版本为 8.1。
 * 同服务器同时开启多个浏览器标签页，会造成回传进度失败假象。手动刷新一下页面，或者只开一个标签。
 * 部分域名及 Plex 域名有 dns 污染，若无法播放，修改系统 DNS 或使用代理。
-* 反馈群组在频道置顶，提问前先把 FAQ 看一遍，不含敏感数据不私聊。  
+* 反馈群组在频道置顶，提问前先把 FAQ 看一遍，并**按要求反馈**。不含敏感数据不私聊。  
   小更新会频道提醒，不过应该也没什么更新的了，反馈不需要关注频道。[https://t.me/embyToLocalPlayer](https://t.me/embyToLocalPlayer)
 
 > 如何切换模式
@@ -117,10 +119,10 @@ https://github.com/kjtsune/embyToLocalPlayer#faq
 
 > 如何反馈
 
-1. 运行 `debug.bat` 选1。（ macOS 或 Linux 运行 `.command`)  
-   若无正常日志输出，命令行输入 `python --version` 检查 python 是否安装成功及版本。  
-   Python 低于 3.8.10 的先升级试试看。  
-   参考`如何更新`，更新到最新版后测试。
+1. 运行 `debug.bat` 选1。（ macOS 或 Linux 运行 `.command`)
+    * 若启动不成功，命令行输入 `python --version` 检查 Python 是否安装成功及版本。（便携版用户可跳过）
+    * Python 低于 3.8.10 的先升级试试看。（便携版用户可跳过）
+    * 参考`如何更新`，更新到最新版后测试。（便携版用户**不可跳过**）
 2. 换播放器及换视频文件测试是否复现。
 3. 截图或复制 `.bat` 窗口中的日志（选中后回车即复制）。
 4. 碰到什么问题及怎么复现。
@@ -173,6 +175,11 @@ https://github.com/kjtsune/embyToLocalPlayer#faq
     * 日志报错：`SSLEOFError(8, 'EOF occurred in violation of protocol (_ssl.c:1129)'))`
     * 解决方案：Clash > Settings > System Proxy > Specify Protocol > 启用。
 
+* 使用含 Python 的便携版用户无需安装依赖。其他用户需要安装：命令行终端运行，安装失败尝试在启用或禁用代理的环境来安装：  
+  `python -m pip install requests`  
+  或者：  
+  `python -m pip install requests -i https://mirrors.aliyun.com/pypi/simple/ --trusted-host=mirrors.aliyun.com`
+
 > bangumi.tv（bgm.tv） 单向同步（点格子）
 
 * 缺点：
@@ -181,14 +188,10 @@ https://github.com/kjtsune/embyToLocalPlayer#faq
     3. 只支持常规剧集，不支持剧场版等。
     4. 不支持 Plex。
 * 使用说明：
-    1. 安装依赖：命令行终端运行，安装失败尝试在启用或禁用代理的环境来安装：  
-       `python -m pip install requests`  
-       或者：  
-       `python -m pip install requests -i https://mirrors.aliyun.com/pypi/simple/ --trusted-host=mirrors.aliyun.com`
-    2. 访问并创建令牌 [https://next.bgm.tv/demo/access-token](https://next.bgm.tv/demo/access-token)：   
+    1. 访问并创建令牌 [https://next.bgm.tv/demo/access-token](https://next.bgm.tv/demo/access-token)：   
        复制令牌到 ini 配置文件 `[bangumi]` 部分，` access_token = ` 里
-    3. ini 配置文件 `[bangumi]` 填写 `enable_host` `user_name` 这两项。
-    4. 启动脚本，播放一集动漫，拖到最后，关闭播放器。看日志是否同步成功。
+    2. ini 配置文件 `[bangumi]` 填写 `enable_host` `user_name` 这两项。
+    3. 启动脚本，播放一集动漫，拖到最后，关闭播放器。看日志是否同步成功。
 * 常见问题：
     1. 5季或者90集以上的条目暂不支持。
     2. 日志提示 `Unauthorized` 一般是令牌过期或者没填对，Windows 会自动弹出令牌生成页面。
@@ -207,15 +210,11 @@ https://github.com/kjtsune/embyToLocalPlayer#faq
     3. 只在播放器正常关闭后，同步播放器已播放的（网页点击已播放不触发）。
     4. 配置和使用都麻烦。
 * 使用说明：
-    1. 安装依赖：命令行终端运行，安装失败尝试在启用或禁用代理的环境来安装：  
-       `python -m pip install requests`  
-       或者：  
-       `python -m pip install requests -i https://mirrors.aliyun.com/pypi/simple/ --trusted-host=mirrors.aliyun.com`
-    2. [点击访问：Trakt app 管理页面](https://trakt.tv/oauth/applications)：   
+    1. [点击访问：Trakt app 管理页面](https://trakt.tv/oauth/applications)：   
        创建 app，名字任意，Redirect uri 填写: `http://localhost/trakt` ，然后保存。
-    3. ini 配置文件`[trakt]` 填写 `enable_host` `user_name` `client_id` `client_secret` 这四项。
-    4. 点击 app 详情页面的 `Authorize` 按钮，二次同意后，复制网址并填到配置文件 `oauth_code` 里。
-    5. 启动脚本，播放一个视频，拖到最后，关闭播放器。看日志是否同步成功。
+    2. ini 配置文件`[trakt]` 填写 `enable_host` `user_name` `client_id` `client_secret` 这四项。
+    3. 点击 app 详情页面的 `Authorize` 按钮，二次同意后，复制网址并填到配置文件 `oauth_code` 里。
+    4. 启动脚本，播放一个视频，拖到最后，关闭播放器。看日志是否同步成功。
 * 常见问题：
     1. 若同步失败。电影看是否缺失IMDb，剧集看单集下方是否有 IMDb 或 TheTVDB。
     2. 目录下`trakt_token.json`可以复制给新电脑用。然后删除原来的，并填写新的 `oauth_code` 来重新生成。   

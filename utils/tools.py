@@ -13,13 +13,13 @@ from utils.configs import configs, MyLogger
 _logger = MyLogger()
 
 
-def logger_setup(data):
+def logger_setup(api_key, netloc):
     if not configs.raw.getboolean('dev', 'mix_log', fallback=True):
         MyLogger.need_mix = False
         return
-    MyLogger.api_key = data['api_key']
-    MyLogger.netloc = data['netloc']
-    MyLogger.netloc_replace = MyLogger.mix_host_gen(data['netloc'])
+    MyLogger.api_key = api_key
+    MyLogger.netloc = netloc
+    MyLogger.netloc_replace = MyLogger.mix_host_gen(netloc)
 
 
 def safe_deleter(file, ext: Union[str, list, tuple] = ('mkv', 'mp4', 'srt', 'ass')):
@@ -303,6 +303,7 @@ def parse_received_data_emby(received_data):
     scheme, netloc = api_client['_serverAddress'].split('://')
     device_id = query['X-Emby-Device-Id'] if is_emby else jellyfin_auth['DeviceId']
     sub_index = int(query.get('SubtitleStreamIndex', -1))
+    logger_setup(api_key=api_key, netloc=netloc)
 
     data = received_data['playbackData']
     media_sources = data['MediaSources']
@@ -416,6 +417,7 @@ def parse_received_data_plex(received_data):
     client_id = query['X-Plex-Client-Identifier']
     netloc = url.netloc
     scheme = url.scheme
+    logger_setup(api_key=api_key, netloc=netloc)
     metas = received_data['playbackData']['MediaContainer']['Metadata']
     _file = metas[0]['Media'][0]['Part'][0]['file']
     mount_disk_mode = True if force_disk_mode_by_path(_file) else mount_disk_mode
