@@ -432,6 +432,8 @@ def list_episodes(data: dict):
             _key = f"{ep['ParentIndexNumber']}-{ep['IndexNumber']}"
             _title_map[_key] = _t
 
+            if not ep.get('Chapters'):
+                continue
             chapters = [i for i in ep['Chapters'][:5] if i.get('MarkerType')
                         and not str(i['StartPositionTicks']).endswith('000000000')
                         and not (i['StartPositionTicks'] == 0 and i['MarkerType'] == 'Chapter')]

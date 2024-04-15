@@ -46,7 +46,11 @@ def fill_trakt_ep_ids_by_series(trakt, eps_data, force=False):
             return eps_data
     tk_eps_ids = {i['number']: (i['ids'], i['title']) for i in tk_eps_ids}
     for ep in eps_data:
-        ep['trakt_ids'], ep['trakt_title'] = tk_eps_ids[ep['index']]
+        ep_index = ep['index']
+        if not tk_eps_ids.get(ep_index):
+            logger.info(f'fill_trakt_ep_ids_by_series: trakt info not found, {ep_index=}')
+            continue
+        ep['trakt_ids'], ep['trakt_title'] = tk_eps_ids[ep_index]
     return eps_data
 
 
