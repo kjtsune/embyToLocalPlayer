@@ -15,7 +15,7 @@ from utils.downloader import DownloadManager, prefetch_resume_tv
 from utils.net_tools import update_server_playback_progress, run_server
 from utils.players import (player_start_func_dict, PlayerManager, stop_sec_function_dict, list_episodes,
                            sync_third_party_for_eps)
-from utils.tools import (configs, logger_setup, MyLogger, open_local_folder, play_media_file,
+from utils.tools import (configs, MyLogger, open_local_folder, play_media_file,
                          kill_multi_process, activate_window_by_pid, clean_tmp_dir,
                          parse_received_data_emby, parse_received_data_plex,
                          get_player_cmd, ThreadWithReturnValue)
@@ -80,7 +80,7 @@ class _RequestHandler(BaseHTTPRequestHandler):
 def start_play(data):
     global player_is_running
     if player_is_running:
-        logger.error('player_is_running, skip')
+        logger.error('player_is_running, skip. You may want to disable one_instance_mode, see detail in config file')
         return
     file_path = data['file_path']
     start_sec = data['start_sec']

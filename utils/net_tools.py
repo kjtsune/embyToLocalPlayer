@@ -391,6 +391,9 @@ def list_episodes(data: dict):
         if _ep_data_num == ep_num:
             logger.info(f'version_filter: success with {ini_re=}')
             return _ep_data
+        elif _ep_data_num == 0:
+            logger.info(f'disable playlist, cuz version_filter: fail, ini regex match nothing. \n{file_path=}')
+            return [_ep_current]
         else:
             _ep_success = []
             _current_key = f"{_ep_current['ParentIndexNumber']}-{_ep_current['IndexNumber']}"

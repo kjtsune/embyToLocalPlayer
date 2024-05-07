@@ -431,7 +431,7 @@ def parse_received_data_plex(received_data):
     res_list = []
     fist_sub = None
     sub_lang = tuple(configs.ini_str_split('dev', 'sub_lang_check'))
-    for index, meta in enumerate(metas):
+    for _index, meta in enumerate(metas):
         res = base_info_dict.copy()
         data = meta['Media'][0]
         item_id = data['id']
@@ -441,7 +441,7 @@ def parse_received_data_plex(received_data):
         stream_path = data['Part'][0]['key']
         stream_url = f'{scheme}://{netloc}{stream_path}?download=1&X-Plex-Token={api_key}'
         sub_streams = [i for i in data['Part'][0]['Stream'] if i.get('streamType') == 3]
-        if index == 0:
+        if _index == 0:
             fist_sub = [i for i in sub_streams if i.get('selected')]
             if sub_lang and not fist_sub:
                 sub_check = [i for i in sub_streams if not i.get('key') and i['languageCode'].startswith(sub_lang)]
@@ -478,14 +478,14 @@ def parse_received_data_plex(received_data):
         playlist_diff_dict = dict(
             basename=basename,
             media_basename=media_basename,
-            item_id=item_id,
+            item_id=item_id,  # 视频流的 ID
             file_path=file_path,
             stream_url=stream_url,
             media_path=media_path,
             fake_name=fake_name,
             total_sec=total_sec,
             sub_file=sub_file,
-            index=index,
+            index=meta['index'] if meta['type'] == 'episode' else _index,  # 可能会有小数点吗
             size=size
         )
 
