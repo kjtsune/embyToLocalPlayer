@@ -3,10 +3,10 @@
 // @name:zh-CN   embyToLocalPlayer
 // @name:en      embyToLocalPlayer
 // @namespace    https://github.com/kjtsune/embyToLocalPlayer
-// @version      2024.03.27
-// @description  需要 Python。Emby/Jellyfin 调用外部本地播放器，并回传播放记录。适配 Plex。
-// @description:zh-CN 需要 Python。Emby/Jellyfin 调用外部本地播放器，并回传播放记录。适配 Plex。
-// @description:en  Require Python. Play in an external player. Update watch history to Emby/Jellyfin server. Support Plex.
+// @version      2024.05.08
+// @description  Emby/Jellyfin 调用外部本地播放器，并回传播放记录。适配 Plex。
+// @description:zh-CN Emby/Jellyfin 调用外部本地播放器，并回传播放记录。适配 Plex。
+// @description:en  Play in an external player. Update watch history to Emby/Jellyfin server. Support Plex.
 // @author       Kjtsune
 // @match        *://*/web/index.html*
 // @match        *://*/*/web/index.html*
@@ -233,8 +233,8 @@
         if (serverName === null) {
             serverName = typeof ApiClient === 'undefined' ? null : ApiClient._appName.split(' ')[0].toLowerCase();
         }
-        // 适配播放列表及媒体库的全部播放、随机播放。限电影及音乐视频。
-        if (url.includes('Items?') && (url.includes('Limit=300') || url.includes('Limit=1000'))) {
+        // 适配播放列表及媒体库的全部播放、随机播放。限电影及音乐视频。排除 Jellyfin
+        if (url.includes('Items?') && url.includes('emby') && (url.includes('Limit=300') || url.includes('Limit=1000'))) {
             playlistInfoCache = null;
             let _resp = await originFetch(url, request);
             let _resd = await _resp.clone().json();

@@ -1,4 +1,4 @@
-# embyToLocalPlayer-Python
+# embyToLocalPlayer
 
 Emby/Jellyfin 调用 PotPlayer mpv IINA MPC VLC 播放，并回传播放进度（可关）。适配 Plex。
 
@@ -186,7 +186,6 @@ https://github.com/kjtsune/embyToLocalPlayer#faq
     1. 只能往 Bangumi 单向同步。
     2. 只在播放器正常关闭后，同步播放器已播放的（网页点击已播放不触发）。
     3. 只支持常规剧集，不支持剧场版等。
-    4. 不支持 Plex。
 * 使用说明：
     1. 访问并创建令牌 [https://next.bgm.tv/demo/access-token](https://next.bgm.tv/demo/access-token)：   
        复制令牌到 ini 配置文件 `[bangumi]` 部分，` access_token = ` 里
