@@ -3,7 +3,7 @@
 // @name:zh-CN   embyToLocalPlayer
 // @name:en      embyToLocalPlayer
 // @namespace    https://github.com/kjtsune/embyToLocalPlayer
-// @version      2024.05.08
+// @version      2024.05.09
 // @description  Emby/Jellyfin 调用外部本地播放器，并回传播放记录。适配 Plex。
 // @description:zh-CN Emby/Jellyfin 调用外部本地播放器，并回传播放记录。适配 Plex。
 // @description:en  Play in an external player. Update watch history to Emby/Jellyfin server. Support Plex.
@@ -235,8 +235,25 @@
         }
         // 适配播放列表及媒体库的全部播放、随机播放。限电影及音乐视频。排除 Jellyfin
         if (url.includes('Items?') && url.includes('emby') && (url.includes('Limit=300') || url.includes('Limit=1000'))) {
-            playlistInfoCache = null;
             let _resp = await originFetch(url, request);
+            await ApiClient._userViewsPromise.then(result => {
+                let viewsItems = result.Items;
+                let viewsIds = [];
+                viewsItems.forEach(item => {
+                    viewsIds.push(item.Id);
+                });
+                let viewsRegex = viewsIds.join('|');
+                viewsRegex = `ParentId=(${viewsRegex})`
+                if (!RegExp(viewsRegex).test(url)) {  // 美化标题所需，并非播放列表。
+                    episodesInfoCache = ['Items', _resp.clone()]
+                    logger.info(episodesInfoCache);
+                    console.log(viewsRegex);
+                    return _resp;
+                }
+            }).catch(error => {
+                console.error("Error occurred: ", error);
+            });
+            playlistInfoCache = null;
             let _resd = await _resp.clone().json();
             if (['Movie', 'MusicVideo'].includes(_resd.Items[0].Type)) {
                 playlistInfoCache = _resd
