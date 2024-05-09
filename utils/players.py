@@ -10,7 +10,7 @@ from html.parser import HTMLParser
 from utils.configs import configs, MyLogger
 from utils.downloader import Downloader
 from utils.net_tools import (requests_urllib, update_server_playback_progress, sync_third_party_for_eps, list_episodes,
-                             save_sub_file, get_redirect_url)
+                             save_sub_file, get_redirect_url, updating_playing_progress)
 from utils.python_mpv_jsonipc import MPV
 from utils.tools import activate_window_by_pid
 
@@ -61,6 +61,41 @@ class PlayerManager:
 
         threading.Thread(target=self.prefetch_next_ep_loop, daemon=True).start()
         threading.Thread(target=self.redirect_next_ep_loop, daemon=True).start()
+        threading.Thread(target=self.playing_feedback_loop, daemon=True).start()
+
+    def playing_feedback_loop(self):
+        mpv = self.player_kwargs.get('mpv')
+        if not mpv or not configs.check_str_match(self.data['netloc'], 'dev', 'playing_feedback_host', log=True):
+            return
+        stop_sec_dict = prefetch_data['stop_sec_dict']
+        prefetch_data['on'] = True
+        last_key = None
+        req_sec = 0
+        interval = 5
+        while prefetch_data['on']:
+            try:
+                key = mpv.command('get_property', 'media-title')
+            except Exception:
+                break
+            cur_sec = stop_sec_dict.get(key)
+            ep = self.playlist_data.get(key)
+            if not all([cur_sec, ep]):
+                continue
+            if key != last_key:
+                updating_playing_progress(data=ep, cur_sec=cur_sec, method='start')
+                last_key = key
+                req_sec = cur_sec
+                logger.info('start')
+                time.sleep(interval)
+                continue
+            after_sec = cur_sec - req_sec
+            if 0 < after_sec < 30:  # 尽量增加汇报间隔
+                time.sleep(interval)
+                continue
+            updating_playing_progress(data=ep, cur_sec=cur_sec)
+            req_sec = cur_sec
+            logger.info(f'{req_sec=} {cur_sec=}')
+            time.sleep(interval)
 
     def redirect_next_ep_loop(self):
         # 未兼容播放器多开，暂不处理
@@ -107,6 +142,8 @@ class PlayerManager:
                                and i['filename'] in (cu_url, cu_re_url)]
                 if not cu_mpv_list:
                     logger.info('redirect_next_ep: mpv cur playing filename not match playlist_data, may need check')
+                    # 可能是起播时，集进度超50，在未获取重定向就进入下一集了。导致 stop_sec_dict 有未完成的条目，未进入 done_list。
+                    done_list.append(key)
                     continue
                 cu_mpv_index = playlist.index(cu_mpv_list[0])
                 if cu_mpv_index == (len(playlist) - 1):
@@ -142,8 +179,9 @@ class PlayerManager:
         prefetch_data['on'] = True
         stop_sec_dict = prefetch_data['stop_sec_dict']
         done_list = prefetch_data['done_list']
-        prefetch_tuple = configs.raw.get('playlist', 'prefetch_path', fallback='').replace('，', ',')
-        prefetch_tuple = tuple(p.strip() for p in prefetch_tuple.split(',') if p.strip())
+        prefetch_host = configs.raw.get('playlist', 'prefetch_host', fallback='').replace('，', ',')
+        prefetch_path = configs.raw.get('playlist', 'prefetch_path', fallback='').replace('，', ',')
+        prefetch_path = tuple(p.strip() for p in prefetch_path.split(',') if p.strip())
         while prefetch_data['on']:
             for key, stop_sec in stop_sec_dict.copy().items():
                 ep = self.playlist_data.get(key)
@@ -153,8 +191,11 @@ class PlayerManager:
                     return
                 if not key or not stop_sec or key in done_list:
                     continue
-                if prefetch_tuple and not ep['file_path'].startswith(prefetch_tuple):
-                    logger.info(f'{ep["file_path"]} not startswith {prefetch_tuple=} skip prefetch')
+                if prefetch_host and not configs.check_str_match(ep['netloc'], 'playlist', 'prefetch_host'):
+                    prefetch_data['running'] = False
+                    return
+                if prefetch_path and not ep['file_path'].startswith(prefetch_path):
+                    logger.info(f'{ep["file_path"]} not startswith {prefetch_path=} skip prefetch')
                     prefetch_data['running'] = False
                     return
                 total_sec = ep['total_sec']

@@ -389,6 +389,7 @@ def parse_received_data_emby(received_data):
         device_id=device_id,
         headers=headers,
         item_id=item_id,
+        media_source_id=media_source_id,
         file_path=file_path,
         stream_url=stream_url,
         fake_name=fake_name,
@@ -532,3 +533,10 @@ def show_confirm_button(message, width, height, result, fallback, timeout=3):
 
     _main()
     return res
+
+
+def debug_beep_win32():
+    if configs.debug_mode and os.name == 'nt':
+        import winsound
+
+        winsound.Beep(500, 2000)

@@ -12,7 +12,7 @@ from http.server import HTTPServer
 from typing import Union
 
 from utils.configs import configs, MyLogger
-from utils.tools import translate_path_by_ini
+from utils.tools import translate_path_by_ini, debug_beep_win32
 
 ssl_context = ssl.SSLContext() if configs.raw.getboolean('dev', 'skip_certificate_verify', fallback=False) else None
 bangumi_api_cache = {'cache_time': time.time(), 'bangumi': None}
@@ -181,21 +181,12 @@ def change_emby_play_position(scheme, netloc, item_id, api_key, stop_sec, play_s
         'X-Emby-Device-Id': device_id,
         'X-Emby-Device-Name': 'embyToLocalPlayer',
     }
-    requests_urllib(f'{scheme}://{netloc}/emby/Sessions/Playing',
-                    params=params,
-                    _json={
-                        'ItemId': item_id,
-                        'PlaySessionId': play_session_id,
-                    })
     requests_urllib(f'{scheme}://{netloc}/emby/Sessions/Playing/Stopped',
                     params=params,
                     _json={
                         'PositionTicks': ticks,
                         'ItemId': item_id,
                         'PlaySessionId': play_session_id,
-                        # 'PlaylistIndex': 0,
-                        # 'PlaybackRate': 1,
-                        # 'PlaylistLength': 1,
                     })
 
 
@@ -204,22 +195,12 @@ def change_jellyfin_play_position(scheme, netloc, item_id, stop_sec, play_sessio
         logger.error('stop_sec error, check it')
         return
     ticks = stop_sec * 10 ** 7
-    requests_urllib(f'{scheme}://{netloc}/Sessions/Playing',
-                    headers=headers,
-                    _json={
-                        # 'PositionTicks': ticks,
-                        # 'PlaybackStartTimeTicks': ticks,
-                        'ItemId': item_id,
-                        'PlaySessionId': play_session_id,
-                        # 'MediaSourceId': 'a43d6333192f126508d93240ae5683c5',
-                    })
     requests_urllib(f'{scheme}://{netloc}/Sessions/Playing/Stopped',
                     headers=headers,
                     _json={
                         'PositionTicks': ticks,
                         'ItemId': item_id,
                         'PlaySessionId': play_session_id,
-                        # 'MediaSourceId': 'a43d6333192f126508d93240ae5683c5',
                     })
 
 
@@ -250,6 +231,37 @@ def change_plex_play_position(scheme, netloc, api_key, stop_sec, rating_key, cli
                         'X-Plex-Token': api_key,
                         'identifier': 'com.plexapp.plugins.library',
                     })
+
+
+def updating_playing_progress(data, cur_sec, method='playing'):
+    ticks = int(cur_sec * 10 ** 7)
+    url_path = {
+        'start': 'Sessions/Playing',
+        'playing': 'Sessions/Playing/Progress',
+        'end': 'Sessions/Playing/Stopped',
+    }[method]
+    params = {
+        'X-Emby-Token': data['api_key'],
+        'X-Emby-Device-Id': data['device_id'],
+        'X-Emby-Device-Name': 'embyToLocalPlayer',
+    }
+    _json = {
+        'EventName': 'timeupdate',
+        'ItemId': data['item_id'],
+        'MediaSourceId': data['media_source_id'],
+        'PlayMethod': 'DirectStream',
+        'PlaySessionId': data['play_session_id'],
+        'PositionTicks': ticks,
+        'RepeatMode': 'RepeatNone',
+    }
+    try:
+        requests_urllib(f'{data["scheme"]}://{data["netloc"]}/emby/{url_path}',
+                        params=params,
+                        _json=_json,
+                        timeout=10)
+    except Exception:
+        time.sleep(30)
+        pass
 
 
 emby_last_dict = dict(watched=True, stop_sec=0, data={}, normal_file=True)
@@ -421,6 +433,7 @@ def list_episodes(data: dict):
         if playlist_info:
             return _res
         episodes_info = data.get('episodes_info') or []
+        title_intro_map_fail = not episodes_info
 
         for ep in episodes_info:
             if 'ParentIndexNumber' not in ep or 'IndexNumber' not in ep:
@@ -454,12 +467,13 @@ def list_episodes(data: dict):
 
     def parse_item(item):
         source_info = item['MediaSources'][0]
+        media_source_id = source_info["Id"]
         file_path = source_info['Path']
         fake_name = os.path.splitdrive(file_path)[1].replace('/', '__').replace('\\', '__')
         item_id = item['Id']
         container = os.path.splitext(file_path)[-1]
         stream_url = f'{scheme}://{netloc}{extra_str}/videos/{item_id}/{stream_name}{container}' \
-                     f'?DeviceId={device_id}&MediaSourceId={source_info["Id"]}' \
+                     f'?DeviceId={device_id}&MediaSourceId={media_source_id}' \
                      f'&PlaySessionId={play_session_id}&api_key={api_key}&Static=true'
         media_path = translate_path_by_ini(file_path) if mount_disk_mode else stream_url
         basename = os.path.basename(file_path)
@@ -492,6 +506,7 @@ def list_episodes(data: dict):
             basename=basename,
             media_basename=media_basename,
             item_id=item_id,
+            media_source_id=media_source_id,
             file_path=file_path,
             stream_url=stream_url,
             media_path=media_path,
@@ -524,6 +539,8 @@ def list_episodes(data: dict):
     episodes = version_filter(data['file_path'], episodes) if data['server'] == 'emby' else episodes
     episodes = [parse_item(i) for i in episodes]
     if title_intro_map_fail:
+        debug_beep_win32()
+        logger.info('pretty title: title_intro_map_fail')
         _file_path = data['file_path']
         for ep in episodes:
             if ep['file_path'] == _file_path:

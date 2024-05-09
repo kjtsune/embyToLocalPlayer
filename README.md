@@ -323,6 +323,9 @@ https://github.com/kjtsune/embyToLocalPlayer#faq
     
     # 服务端路径包含以下前缀才预读取，逗号隔开，全部启用就留空或删除。
     prefetch_path = /disk/od/TV, /disk/gd
+
+    # 启用本功能的域名的关键词，逗号隔开。全部启用就留空或删除。
+    prefetch_host = 
     ```
 * 网盘和本地硬盘混合使用的话。[可选] 配置本地文件用读盘模式：`.ini` > dev > force_disk_mode_path
 * 用自签证书反代 https 的站，可以仅反代视频流，并配置跳过证书验证。`.ini` > dev > skip_certificate_verify  
