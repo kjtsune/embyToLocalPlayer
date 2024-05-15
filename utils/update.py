@@ -53,9 +53,12 @@ def main():
     shutil.rmtree(pycache, ignore_errors=True)
 
     print('unpacking...')
+    is_nt = os.name == 'nt'
     with zipfile.ZipFile(zip_path) as z:
         for name in z.namelist():
-            if 'embyToLocalPlayer_config' in name:
+            if name.startswith('embyToLocalPlayer_config'):
+                continue
+            if is_nt and name.startswith('emby_script_run'):
                 continue
             z.extract(name)
         print(f'\nnew example {ini_example}')

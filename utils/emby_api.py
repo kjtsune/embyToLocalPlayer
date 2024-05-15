@@ -19,6 +19,7 @@ class EmbyApi:
                                                '(KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36',
                                  'Referer': f'{self.host}/web/index.html',
                                  'X-Emby-Authorization': f'MediaBrowser Client="EmbyApi",Token="{self.api_key}"',
+                                 'Authorization': f'MediaBrowser Client="EmbyApi",Token="{self.api_key}"',
                                  })
         self._default_fields = ','.join([
             'PremiereDate',
@@ -82,8 +83,22 @@ class EmbyApi:
         return res.json()
 
     def get_item(self, item_id):
-        res = self.get(f'Users/{self.user_id}/Items/{item_id}')
-        return res.json()
+        if self.user_id:
+            res = self.get(f'Users/{self.user_id}/Items/{item_id}')
+            return res.json()
+
+        ext_fields = ','.join([
+            'Genres'
+        ])
+        fields = self._default_fields + ',' + ext_fields
+        ext_params = {
+            'HasTmdbId': None,
+            'IncludeItemTypes': None,
+            'Fields': fields,
+            'X-Emby-Token': self.api_key,
+        }
+        res = self.get_items(ids=[item_id], ext_params=ext_params)['Items'][0]
+        return res
 
     def get_items(self, genre='', types='Movie,Series,Video', fields: typing.Union[list, str] = None, start_index=0,
                   ids=None, limit=50, parent_id=None,

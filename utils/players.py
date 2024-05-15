@@ -72,9 +72,15 @@ class PlayerManager:
         last_key = None
         req_sec = 0
         interval = 5
+        pause_sec = 0
         while prefetch_data['on']:
             try:
                 key = mpv.command('get_property', 'media-title')
+                speed = mpv.command('get_property', 'speed')
+                if mpv.command('get_property', 'pause'):
+                    pause_sec += interval
+                else:
+                    pause_sec = 0
             except Exception:
                 break
             cur_sec = stop_sec_dict.get(key)
@@ -85,16 +91,14 @@ class PlayerManager:
                 updating_playing_progress(data=ep, cur_sec=cur_sec, method='start')
                 last_key = key
                 req_sec = cur_sec
-                logger.info('start')
                 time.sleep(interval)
                 continue
             after_sec = cur_sec - req_sec
-            if 0 < after_sec < 30:  # 尽量增加汇报间隔
+            if 180 < pause_sec or 0 < after_sec < 30 * speed:  # 尽量增加汇报间隔
                 time.sleep(interval)
                 continue
             updating_playing_progress(data=ep, cur_sec=cur_sec)
             req_sec = cur_sec
-            logger.info(f'{req_sec=} {cur_sec=}')
             time.sleep(interval)
 
     def redirect_next_ep_loop(self):
@@ -191,7 +195,8 @@ class PlayerManager:
                     return
                 if not key or not stop_sec or key in done_list:
                     continue
-                if prefetch_host and not configs.check_str_match(ep['netloc'], 'playlist', 'prefetch_host'):
+                if prefetch_host and not configs.check_str_match(ep['netloc'], 'playlist', 'prefetch_host',
+                                                                 log_by=False):
                     prefetch_data['running'] = False
                     return
                 if prefetch_path and not ep['file_path'].startswith(prefetch_path):

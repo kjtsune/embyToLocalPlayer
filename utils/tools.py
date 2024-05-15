@@ -289,7 +289,7 @@ def parse_received_data_emby(received_data):
     url = urllib.parse.urlparse(received_data['playbackUrl'])
     headers = received_data['request']['headers']
     is_emby = True if '/emby/' in url.path else False
-    jellyfin_auth = headers['X-Emby-Authorization'] if not is_emby else ''
+    jellyfin_auth = headers.get('X-Emby-Authorization', headers.get('Authorization')) if not is_emby else ''
     jellyfin_auth = [i.replace('\'', '').replace('"', '').strip().split('=')
                      for i in jellyfin_auth.split(',')] if not is_emby else []
     jellyfin_auth = dict((i[0], i[1]) for i in jellyfin_auth if len(i) == 2)

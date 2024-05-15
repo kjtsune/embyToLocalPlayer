@@ -2,6 +2,7 @@ import datetime
 import os
 import platform
 import sys
+import typing
 from configparser import ConfigParser
 
 
@@ -180,7 +181,8 @@ class Configs:
         self.player_proxy = self._get_proxy('player')
         return config
 
-    def check_str_match(self, _str, section, option, return_value=False, log=True):
+    def check_str_match(self, _str, section, option, return_value=False, log=True,
+                        log_by: typing.Literal[True, False] = None):
         ini_list = self.ini_str_split(section, option, fallback='')
         match_list = [i for i in ini_list if i in _str]
         if ini_list and any(match_list):
@@ -189,6 +191,8 @@ class Configs:
             result = False
         _log = {True: "match", False: "not match"}[bool(result)]
         if log and ini_list:
+            if log_by is not None and bool(log_by) != result:
+                return result
             _log = f'{_str} {_log}: {section}[{option}] {ini_list}'
             if MyLogger.need_mix:
                 _log = MyLogger.mix_args_str(_log)
