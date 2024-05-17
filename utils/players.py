@@ -67,6 +67,9 @@ class PlayerManager:
         mpv = self.player_kwargs.get('mpv')
         if not mpv or not configs.check_str_match(self.data['netloc'], 'dev', 'playing_feedback_host', log=True):
             return
+        if self.data['server'] != 'emby':
+            logger.info('playing_feedback support emby only, skip')
+            return
         stop_sec_dict = prefetch_data['stop_sec_dict']
         prefetch_data['on'] = True
         last_key = None
@@ -752,7 +755,8 @@ def pot_player_start(cmd: list, start_sec=None, sub_file=None, media_title=None,
         cmd += [f'/seek={format_time}']
     if media_title:
         cmd += [f'/title={media_title}']
-    cmd += ['config=emby']
+    if pot_conf := configs.raw.get('dev', 'pot_conf', fallback=''):
+        cmd += [f'config={pot_conf.strip()}']
 
     logger.info(cmd)
     player = subprocess.Popen(cmd)
