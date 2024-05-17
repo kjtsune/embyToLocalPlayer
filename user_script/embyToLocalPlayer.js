@@ -43,12 +43,13 @@
 */
 (function () {
     'use strict';
-
+    let _crackFullPath = Boolean(localStorage.getItem('crackFullPath'));
+    let _disableOpenFolder = Boolean(localStorage.getItem('disableOpenFolder'));
     let fistTime = true;
     let config = {
         logLevel: 2,
-        disableOpenFolder: false, // false 改为 true 则禁用打开文件夹的按钮。
-        crackFullPath: false,
+        disableOpenFolder: _disableOpenFolder, // _disableOpenFolder 改为 true 则禁用打开文件夹的按钮。
+        crackFullPath: _crackFullPath,
     };
 
     let logger = {

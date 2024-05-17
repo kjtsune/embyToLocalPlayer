@@ -485,14 +485,17 @@ def list_episodes(data: dict):
         total_sec = int(source_info['RunTimeTicks']) // 10 ** 7
 
         media_streams = source_info['MediaStreams']
-        sub_dict_list = [dict(title=s['DisplayTitle'], index=s['Index'], path=s['Path'])
-                         for s in media_streams
+        sub_dict_list = [s for s in media_streams
                          if not mount_disk_mode and s['Type'] == 'Subtitle' and s['IsExternal']]
-        sub_dict_list = [s for s in sub_dict_list
-                         if configs.check_str_match(s['title'], 'playlist', 'subtitle_priority', log=False)]
+        for _sub in sub_dict_list:
+            _sub['Order'] = configs.check_str_match(
+                f"{str(_sub.get('Title', '') + ',' + _sub['DisplayTitle']).lower()}",
+                'dev', 'subtitle_priority', log=False, order_only=True)
+        sub_dict_list = [i for i in sub_dict_list if i['Order'] != 0]
+        sub_dict_list.sort(key=lambda s: s['Order'])
         sub_dict = sub_dict_list[0] if sub_dict_list else {}
         sub_file = f'{scheme}://{netloc}/Videos/{item_id}/{source_info["Id"]}/Subtitles' \
-                   f'/{sub_dict["index"]}/Stream{os.path.splitext(sub_dict["path"])[-1]}' if sub_dict else None
+                   f'/{sub_dict["Index"]}/Stream{os.path.splitext(sub_dict["Path"])[-1]}' if sub_dict else None
         sub_file = None if mount_disk_mode else sub_file
 
         result = data.copy()

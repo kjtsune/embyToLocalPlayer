@@ -1,12 +1,11 @@
 # qbittorrent\_webui\_open_file
 
-需要 python。在 qBittorrent WebUI 里打开文件夹或者播放文件。
+在 qBittorrent WebUI 里打开文件夹或者播放文件。
 
 ![](https://github.com/kjtsune/embyToLocalPlayer/raw/main/qbittorrent_webui_open_file/qbittorrent_webui_open_file.png)
 
 **缺点**
 
-* 本地需要安装 python
 * 若种子含多文件，只播放体积最大的。
 
 ## 使用说明
@@ -15,39 +14,22 @@
 ，教程通用，有时候那边会更准确一点。有疑问可以参考那边。**
 
 
-> 基础配置
+> 基础配置 > 按 **embyToLocalPlayer** 原项目配置即可
 
-1. 下载 `embyToLocalPlayer.zip` 并解压到任意文件夹 [发布页](https://github.com/kjtsune/embyToLocalPlayer/releases)
-2. 添加脚本匹配网址。油猴插件 > 已安装脚本 > 编辑 >
-   设置。[发布页](https://greasyfork.org/zh-CN/scripts/450015-qbittorrent-webui-open-file)
-3. 安装 python (勾选 add to path) [官网](https://www.python.org/downloads/)
-4. 填写播放器路径与名称以及路径转换规则 `embyToLocalPlayer_config.ini`
+1. 下载 `etlp-python-embed-win32.zip` (**便携版** | Windows only)   
+   或者 `etlp-mpv-py-embed-win32.zip` (含mpv播放器便携版 | Windows only | 快捷键见 FAQ)  
+   或者 `embyToLocalPlayer.zip` (Windows / Linux / macOS)  
+   然后解压到任意文件夹。 [发布页](https://github.com/kjtsune/embyToLocalPlayer/releases)
+2. 进入文件夹，修改配置文件：`embyToLocalPlayer_config.ini` 中的播放器路径，以及播放器选择。（若使用含mpv便携版，则无需配置。）
+3. 安装 Python (勾选 add to path) [官网](https://www.python.org/downloads/)
+   （若使用便携版，则无需安装。）
 
-> Windows
+> **差异配置 （特别注意）**
 
-* 双击 `embyToLocalPlayer_debug.bat`
-* 按 1（窗口运行），若无报错，可网页播放测试。
-* 按 2 则创建开机启动项并后台运行。
-* 以下可选：
-    * 命令行输入 `python -V` 检查 Python 是否安装成功。  
-      Windows 11 有可能需要用商店安装。
-    * 若自启失败，检查启动项是否被禁用：任务管理器 > 启动。
-    * 若需要源码运行：安装 AutoHotKey v2 或把 `autohotkey_tool.ahk` 编译为 `exe`。
-    * ~~告诉我怎么可以取消 AutoHotKey 依赖~~。即：通过 `.vbs` 自启后所有播放器都可以正常显示并激活。例如：mpv。
+* 添加本油猴脚本匹配网址：油猴插件 > 已安装脚本 > `qbittorrent_webui_open_file` > 编辑 >
+  设置 > 用户匹配 > 添加 > 填入 qBittorrent WebUi
+  的网址。[发布页](https://greasyfork.org/zh-CN/scripts/450015-qbittorrent-webui-open-file)
+* 进入文件夹，修改配置文件：`embyToLocalPlayer_config.ini` 中的路径转换规则。
 
-> macOS
+> 如何运行 Windows / macOS / Linux > 按 **embyToLocalPlayer** 原项目运行即可
 
-1. 刚才保存的文件夹 > 右击 > 新建位于文件夹的终端窗口 `chmod +x *.command` 回车。
-2. 双击 `emby_script_run.command`, 若无报错，可播放测试。
-3. 开机自启（无窗口运行）：
-    1. 启动台 > 自动操作 > 文件 > 新建 > 应用程序 > 运行 Shell 脚本 >   
-       把 `emby_script_run.command` 文件拖入 > 点击运行后测试播放 > 文件 > 存储 > 取名并保存到应用程序。
-    2. 启动台 > 刚才的应用 > 双击后台运行后再次播放测试。
-    3. 系统偏好设置 > 用户与群组 > 登录项 > 添加刚才的应用。
-
-> Linux
-
-1. `apt install python3-tk`（没报错不装也行）
-2. 添加 `emby_script_run.command` 执行权限，并用终端打开。
-3. 正常播放后，加入开机启动项（无窗口运行）：  
-   Debian_Xfce：设置 > 会话和启动 > 应用程序自启动

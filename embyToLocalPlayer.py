@@ -162,5 +162,6 @@ if __name__ == '__main__':
     logger = MyLogger()
     logger.info(__file__)
     clean_tmp_dir()
+    configs.necessary_setting_when_server_start()
     threading.Thread(target=prefetch_resume_tv, daemon=True).start()
     run_server(_RequestHandler)

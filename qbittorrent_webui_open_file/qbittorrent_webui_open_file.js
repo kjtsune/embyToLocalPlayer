@@ -2,9 +2,9 @@
 // @name         qbittorrent_webui_open_file
 // @namespace    https://github.com/kjtsune/embyToLocalPlayer/tree/main/qbittorrent_webui_open_file
 // @version      0.2
-// @description  需要python。在 qBittorrent WebUI 里打开文件夹或者播放文件。
-// @description:zh-CN 需要python。在 qBittorrent WebUI 里打开文件夹或者播放文件。
-// @description:en  Require python. open folder or play media file from qb webui.
+// @description  在 qBittorrent WebUI 里打开文件夹或者播放文件。
+// @description:zh-CN 在 qBittorrent WebUI 里打开文件夹或者播放文件。
+// @description:en  open folder or play media file from qb webui.
 // @author       Kjtsune
 // @match        http://127.0.0.1:8822/
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=qbittorrent.org

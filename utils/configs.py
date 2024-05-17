@@ -1,18 +1,12 @@
+import collections
 import datetime
 import os
 import platform
 import sys
+import threading
 import typing
 from configparser import ConfigParser
 
-
-# def MyLogger():
-#     logger = logging.getLogger(__name__)
-#     logger.setLevel(logging.INFO)
-#     ch = logging.StreamHandler()
-#     ch.setLevel(logging.INFO)
-#     logger.addHandler(ch)
-#     return logger
 
 def mini_conf():
     cwd = os.path.dirname(os.path.dirname(__file__))
@@ -65,9 +59,21 @@ class MyLogger:
     netloc = '_mix_netloc_'
     netloc_replace = '_mix_netloc_'
     user_name = os.getlogin()
+    log_deque = collections.deque()
 
     def __init__(self):
         self.debug_mode = configs.debug_mode
+
+    @staticmethod
+    def log_printer_thread_start():
+        def printer():
+            log_deque = MyLogger.log_deque
+            while True:
+                if log_deque:
+                    _str, end = log_deque.popleft()
+                    print(_str, end=end)
+
+        threading.Thread(target=printer).start()
 
     @staticmethod
     def mix_host_gen(netloc):
@@ -89,7 +95,7 @@ class MyLogger:
             return
         t = f"[{datetime.datetime.now().strftime('%D %H:%M:%S.%f')[:19]}] "
         args = ' '.join(str(i) for i in args)
-        print(t + args, end=end)
+        MyLogger.log_deque.append((t + args, end))
 
     def info(self, *args, end=None, silence=False):
         if not silence and MyLogger.need_mix:
@@ -102,6 +108,9 @@ class MyLogger:
 
     def error(self, *args, end=None, silence=False):
         self.log(*args, end=end, silence=silence)
+
+
+MyLogger.log_printer_thread_start()
 
 
 class Configs:
@@ -182,22 +191,99 @@ class Configs:
         return config
 
     def check_str_match(self, _str, section, option, return_value=False, log=True,
-                        log_by: typing.Literal[True, False] = None):
+                        log_by: typing.Literal[True, False] = None, order_only=False):
+        # 注意 order_only 在匹配失败时返回 0
         ini_list = self.ini_str_split(section, option, fallback='')
         match_list = [i for i in ini_list if i in _str]
+        match_order = ini_list.index(match_list[0]) + 1 if match_list else 0
         if ini_list and any(match_list):
             result = match_list[0] if return_value else True
+            if order_only:
+                result = match_order
         else:
-            result = False
+            result = 0 if order_only else False
         _log = {True: "match", False: "not match"}[bool(result)]
         if log and ini_list:
-            if log_by is not None and bool(log_by) != result:
+            if log_by is not None and bool(log_by) != bool(result):
                 return result
             _log = f'{_str} {_log}: {section}[{option}] {ini_list}'
             if MyLogger.need_mix:
                 _log = MyLogger.mix_args_str(_log)
             MyLogger.log(_log)
         return result
+
+    def set_player_path_by_mpv_embed_(self):
+        ini_mpv = configs.raw.get('exe', 'mpv', fallback='')
+        embed_mpv = os.path.join(self.cwd, 'mpv_embed', 'mpv.exe')
+        if not os.path.exists(embed_mpv) or ini_mpv == embed_mpv:
+            return
+        self.overwrite_value_to_ini('exe', 'mpv', embed_mpv)
+        self.overwrite_value_to_ini('emby', 'player', 'mpv')
+        MyLogger.log(f'use mpv_embed and overwrite ini because mpv_embed folder exists\n{embed_mpv}')
+
+    def overwrite_value_to_ini(self, section, option, value, new_comment='', delete_only=False):
+        with open(self.path, encoding='utf-8') as f:
+            liens = list(f.readlines())
+        str_list = []
+        start_section = False
+        end_section = False
+        sect_str = f'[{section}]'
+        option_index = -1
+        for line in liens:
+            if end_section:
+                str_list.append(line)
+                continue
+            if line.startswith(sect_str):
+                start_section = True
+                str_list.append(line)
+                if not delete_only:
+                    if new_comment:
+                        str_list.append(f'# {new_comment}\n')
+                    str_list.append(f'{option} = {value}\n')
+                option_index = len(str_list) - 1
+                continue
+            if start_section and line.startswith('['):
+                end_section = True
+                str_list.append(line)
+                continue
+            if start_section and line.startswith(option) and '=' in line:
+                line_op = line.split('=', maxsplit=1)[0].strip()
+                if line_op == option:
+                    old_comm_list = []
+                    while True:
+                        old_comment = str_list[-1]
+                        if old_comment.startswith(('#', ';')):
+                            old_comm_list.append(old_comment)
+                            del str_list[-1]
+                        else:
+                            break
+                    if not delete_only and old_comm_list:
+                        str_list[option_index:option_index] = old_comm_list
+                    end_section = True
+                    continue
+            str_list.append(line)
+        str_res = ''.join(str_list)
+        with open(self.path, 'w', encoding='utf-8') as f:
+            f.write(str_res)
+
+    def necessary_setting_when_server_start(self):
+        self.set_player_path_by_mpv_embed_()
+        is_new_subtitle_priority = False
+        sub_priority = '中英特效, 双语特效, 简中特效, 简体特效, 特效, 中上, 中英, 双语, 简, simp, 中, chi, ass, srt, sup, und, ('
+        sub_p_comment = '''字幕未选中时，尝试按顺序规则加载外挂字幕，规则间逗号隔开。
+# 这些字符串是浏览器里选择字幕时，显示的名称的一部分。'''
+        if configs.raw.get('dev', 'sub_lang_check', fallback=''):
+            MyLogger.log('breaking change: [dev] > sub_lang_check was replaced'
+                         f' by [dev] > subtitle_priority. overwriting...\n{sub_priority}')
+            self.overwrite_value_to_ini('dev', 'sub_lang_check', '', delete_only=True)
+            self.overwrite_value_to_ini('dev', 'subtitle_priority', sub_priority, new_comment=sub_p_comment)
+            is_new_subtitle_priority = True
+        if configs.raw.get('playlist', 'subtitle_priority', fallback=''):
+            MyLogger.log('breaking change: [playlist] > subtitle_priority was replaced'
+                         f' by [dev] > subtitle_priority. overwriting...\n{sub_priority}')
+            self.overwrite_value_to_ini('playlist', 'subtitle_priority', '', delete_only=True)
+            if not is_new_subtitle_priority:
+                self.overwrite_value_to_ini('dev', 'subtitle_priority', sub_priority, new_comment=sub_p_comment)
 
 
 configs = Configs()
