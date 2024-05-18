@@ -1,7 +1,7 @@
-import collections
 import datetime
 import os
 import platform
+import queue
 import sys
 import threading
 import typing
@@ -59,7 +59,7 @@ class MyLogger:
     netloc = '_mix_netloc_'
     netloc_replace = '_mix_netloc_'
     user_name = os.getlogin()
-    log_deque = collections.deque()
+    _log_queue = queue.Queue()
 
     def __init__(self):
         self.debug_mode = configs.debug_mode
@@ -67,13 +67,11 @@ class MyLogger:
     @staticmethod
     def log_printer_thread_start():
         def printer():
-            log_deque = MyLogger.log_deque
             while True:
-                if log_deque:
-                    _str, end = log_deque.popleft()
-                    print(_str, end=end)
+                _str, end = MyLogger._log_queue.get()
+                print(_str, end=end)
 
-        threading.Thread(target=printer).start()
+        threading.Thread(target=printer, daemon=True).start()
 
     @staticmethod
     def mix_host_gen(netloc):
@@ -95,7 +93,7 @@ class MyLogger:
             return
         t = f"[{datetime.datetime.now().strftime('%D %H:%M:%S.%f')[:19]}] "
         args = ' '.join(str(i) for i in args)
-        MyLogger.log_deque.append((t + args, end))
+        MyLogger._log_queue.put((t + args, end))
 
     def info(self, *args, end=None, silence=False):
         if not silence and MyLogger.need_mix:
@@ -271,7 +269,7 @@ class Configs:
         is_new_subtitle_priority = False
         sub_priority = '中英特效, 双语特效, 简中特效, 简体特效, 特效, 中上, 中英, 双语, 简, simp, 中, chi, ass, srt, sup, und, ('
         sub_p_comment = '''字幕未选中时，尝试按顺序规则加载外挂字幕，规则间逗号隔开。
-# 这些字符串是浏览器里选择字幕时，显示的名称的一部分。'''
+# 这些字符串是浏览器里选择字幕时，显示的名称小写化后的一部分。'''
         if configs.raw.get('dev', 'sub_lang_check', fallback=''):
             MyLogger.log('breaking change: [dev] > sub_lang_check was replaced'
                          f' by [dev] > subtitle_priority. overwriting...\n{sub_priority}')
