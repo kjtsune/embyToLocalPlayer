@@ -319,8 +319,14 @@ def parse_received_data_emby(received_data):
     container = os.path.splitext(file_path)[-1]
     extra_str = '/emby' if is_emby else ''
     server_version = api_client['_serverVersion']
-    *_is_bata, _bata_ver = server_version.split('4.8.0.')
-    stream_name = 'original' if _is_bata and int(_bata_ver) > 50 else 'stream'
+    _a, _b, _c, *_d = [int(i) for i in server_version.split('.')]
+    stream_name = 'original' if 4 <= _a < 10 and _b >= 8 and (_c > 0 or _d and _d[0] > 50) else 'stream'
+    if media_source_info.get('Container') == 'bluray':  # emby
+        container = '.m2ts'
+    if media_source_info.get('VideoType') == 'BluRay':  # jellyfin
+        stream_name = 'main'
+        container = '.m3u8'
+        _logger.info('WARNING: bluray bdmv found, may trigger transcode')
     stream_url = f'{scheme}://{netloc}{extra_str}/videos/{item_id}/{stream_name}{container}' \
                  f'?DeviceId={device_id}&MediaSourceId={media_source_id}' \
                  f'&PlaySessionId={play_session_id}&api_key={api_key}&Static=true'

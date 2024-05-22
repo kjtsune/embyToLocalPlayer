@@ -282,6 +282,7 @@ def update_server_playback_progress(stop_sec, data):
     stop_sec = stop_sec - 2 if stop_sec > 5 else stop_sec
 
     if not normal_file:
+        logger.info(f'skip update progress because media is {ext}')
         return
     if server == 'emby':
         change_emby_play_position(stop_sec=stop_sec, **data)

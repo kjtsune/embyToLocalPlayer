@@ -36,7 +36,7 @@ Emby/Jellyfin 调用 PotPlayer mpv IINA MPC VLC 播放，并回传播放进度�
 2. 进入文件夹，修改配置文件：`embyToLocalPlayer_config.ini` 中的播放器路径，以及播放器选择。（若使用含mpv便携版，则无需配置。）
 3. 安装 Python (勾选 add to path) [官网](https://www.python.org/downloads/)
    （若使用便携版，则无需安装。）
-4. 安装油猴脚本。 [发布页](https://greasyfork.org/zh-CN/scripts/448648-embytolocalplayer)
+4. 安装油猴脚本并刷新 Emby 页面。[发布页](https://greasyfork.org/zh-CN/scripts/448648-embytolocalplayer)
 
 > 前置说明
 
@@ -47,7 +47,7 @@ Emby/Jellyfin 调用 PotPlayer mpv IINA MPC VLC 播放，并回传播放进度�
 
 > Windows
 
-1. 双击 `embyToLocalPlayer_debug.bat` （不要用管理员运行）
+1. 双击 `embyToLocalPlayer_debug.bat` （不要右击以管理员身份运行）
 2. 若无报错，按 1（不要关闭窗口），然后网页播放测试。（点击原来的播放按钮就可以）
 3. 按 2 则创建开机启动项并后台运行。（隐藏窗口运行）
 
@@ -105,7 +105,7 @@ https://github.com/kjtsune/embyToLocalPlayer#faq
 
 > 如何切换模式
 
-* 点击浏览器油猴插件图标，会有菜单可供点击切换。
+* 在 Emby 页面点击浏览器油猴插件图标，会有菜单可供点击切换。
 * 脚本在当前服务器：启用（默认）；禁用：当前域名不使用脚本。
 * 读取硬盘模式：关闭 > 调用本地播放器但使用服务器网络链接。（默认）
 * 读取硬盘模式：开启 > 调用本地播放器并转换服务器路径为本地文件地址。前提是本地有文件或挂载。  
@@ -123,6 +123,7 @@ https://github.com/kjtsune/embyToLocalPlayer#faq
 
 > 如何反馈
 
+* **没按要求反馈会忽略。**
 1. 运行 `debug.bat` 选1。（ macOS 或 Linux 运行 `.command`)
     * 若启动不成功，命令行输入 `python --version` 检查 Python 是否安装成功及版本。（便携版用户可跳过）
     * Python 低于 3.8.10 的先升级试试看。（便携版用户可跳过）
@@ -131,6 +132,7 @@ https://github.com/kjtsune/embyToLocalPlayer#faq
 3. 截图或复制 `.bat` 窗口中的日志（选中后回车即复制）。
 4. 碰到什么问题及怎么复现。
 5. [可选] 关闭模糊日志。 ini > dev > `mix_log = no`
+6. 若调用失败（仍在浏览器里播放），反馈时提供在 Emby 页面点击浏览器油猴插件图标后的截图。
 
 > 字幕相关
 
@@ -143,7 +145,7 @@ https://github.com/kjtsune/embyToLocalPlayer#faq
 
 * 默认已启用，可在配置文件里 `[playlist]` 中修改。
 * 播放列表添加完成前最好不退出（大部分没事）
-* 特别说明：若是 Emby 网页上的 全部播放/随机播放/播放列表 ，仅支持电影和音乐视频类型。
+* 特别说明：若是 Emby/Jellyfin 网页上的 全部播放/随机播放/播放列表 ，仅支持电影和音乐视频类型。
 
 * Windows:
 

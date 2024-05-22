@@ -2,6 +2,7 @@ import datetime
 import os
 import platform
 import queue
+import shutil
 import sys
 import threading
 import typing
@@ -59,7 +60,7 @@ class MyLogger:
     netloc = '_mix_netloc_'
     netloc_replace = '_mix_netloc_'
     user_name = os.getlogin()
-    _log_queue = queue.Queue()
+    _log_queue = queue.SimpleQueue()
 
     def __init__(self):
         self.debug_mode = configs.debug_mode
@@ -211,12 +212,12 @@ class Configs:
         return result
 
     def set_player_path_by_mpv_embed_(self):
-        ini_mpv = configs.raw.get('exe', 'mpv', fallback='')
+        ini_mpv = configs.raw.get('exe', 'mpv_embed', fallback='')
         embed_mpv = os.path.join(self.cwd, 'mpv_embed', 'mpv.exe')
         if not os.path.exists(embed_mpv) or ini_mpv == embed_mpv:
             return
-        self.overwrite_value_to_ini('exe', 'mpv', embed_mpv)
-        self.overwrite_value_to_ini('emby', 'player', 'mpv')
+        self.overwrite_value_to_ini('exe', 'mpv_embed', embed_mpv)
+        self.overwrite_value_to_ini('emby', 'player', 'mpv_embed')
         MyLogger.log(f'use mpv_embed and overwrite ini because mpv_embed folder exists\n{embed_mpv}')
 
     def overwrite_value_to_ini(self, section, option, value, new_comment='', delete_only=False):
@@ -264,6 +265,17 @@ class Configs:
         with open(self.path, 'w', encoding='utf-8') as f:
             f.write(str_res)
 
+    def backup_ini_file(self):
+        today = datetime.date.today().strftime('%y%m%d')
+        new = f'{self.path}-{today}.bak'
+        if os.path.exists(new):
+            for i in range(99):
+                new = f'{self.path}-{today}-{i}.bak'
+                if not os.path.exists(new):
+                    break
+        shutil.copy2(self.path, new)
+        MyLogger.log(f'backup ini to {new}')
+
     def necessary_setting_when_server_start(self):
         self.set_player_path_by_mpv_embed_()
         is_new_subtitle_priority = False
@@ -271,12 +283,14 @@ class Configs:
         sub_p_comment = '''字幕未选中时，尝试按顺序规则加载外挂字幕，规则间逗号隔开。
 # 这些字符串是浏览器里选择字幕时，显示的名称小写化后的一部分。'''
         if configs.raw.get('dev', 'sub_lang_check', fallback=''):
+            configs.backup_ini_file()
             MyLogger.log('breaking change: [dev] > sub_lang_check was replaced'
                          f' by [dev] > subtitle_priority. overwriting...\n{sub_priority}')
             self.overwrite_value_to_ini('dev', 'sub_lang_check', '', delete_only=True)
             self.overwrite_value_to_ini('dev', 'subtitle_priority', sub_priority, new_comment=sub_p_comment)
             is_new_subtitle_priority = True
         if configs.raw.get('playlist', 'subtitle_priority', fallback=''):
+            configs.backup_ini_file()
             MyLogger.log('breaking change: [playlist] > subtitle_priority was replaced'
                          f' by [dev] > subtitle_priority. overwriting...\n{sub_priority}')
             self.overwrite_value_to_ini('playlist', 'subtitle_priority', '', delete_only=True)
