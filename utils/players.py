@@ -319,6 +319,11 @@ def mpv_player_start(cmd, start_sec=None, sub_file=None, media_title=None, get_s
         # https://github.com/iina/iina/issues/1991
         # https://github.com/kjtsune/embyToLocalPlayer/issues/26
         cmd.append(f'--sub-files-toggle={sub_file}')
+        
+    if is_iina:
+        srt = save_sub_file(url=sub_file)
+        cmd.append(f'--sub-files={srt}')
+        
     if mount_disk_mode and is_iina:
         # iina 读盘模式下 media-title 会影响下一集
         pass
