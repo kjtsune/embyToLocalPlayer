@@ -9,7 +9,7 @@ Emby/Jellyfin 调用 PotPlayer mpv IINA MPC VLC 播放，并回传播放进度�
 * trakt.tv bangumi.tv bgm.tv 单向标记已观看支持。
 * 本地挂载用户：可跳转到路径对应文件夹。（按钮在网页显示文件路径的上面）
 * 未适配的播放器一般也能用，只是不会回传进度。
-* 可在 qBittorrent WebUi 里直接播放或者跳转到路径对应挂载文件夹。
+* 可在 qBittorrent WebUI 里直接播放或者跳转到路径对应挂载文件夹。
   [配套脚本](https://greasyfork.org/zh-CN/scripts/450015-qbittorrent-webui-open-file)
 
 **以下播放器支持回传进度**
@@ -23,7 +23,7 @@ Emby/Jellyfin 调用 PotPlayer mpv IINA MPC VLC 播放，并回传播放进度�
 * MPC-HC [发布页](https://github.com/clsid2/mpc-hc/releases)
 * MPC-BE [发布页](https://sourceforge.net/projects/mpcbe/files/MPC-BE/Release%20builds/)
 * VLC [发布页](https://www.videolan.org/vlc/)
-* IINA（macOS）[发布页](https://iina.io/) 若使用 http 播放不支持外挂字幕文件（mpv 支持）
+* IINA（macOS）[发布页](https://iina.io/)
 
 ### 使用说明
 
@@ -124,14 +124,15 @@ https://github.com/kjtsune/embyToLocalPlayer#faq
 > 如何反馈
 
 * **没按要求反馈会忽略。**
+
 1. 运行 `debug.bat` 选1。（ macOS 或 Linux 运行 `.command`)
     * 若启动不成功，命令行输入 `python --version` 检查 Python 是否安装成功及版本。（便携版用户可跳过）
     * Python 低于 3.8.10 的先升级试试看。（便携版用户可跳过）
-    * 参考`如何更新`，更新到最新版后测试。（便携版用户**不可跳过**）
+    * 参考`如何更新`，更新到最新版后测试。（所有用户均**不可跳过**）
 2. 换播放器及换视频文件测试是否复现。（Windows 用户更换包含 mpv 的便携版测试）
 3. 截图或复制 `.bat` 窗口中的日志（选中后回车即复制）。
 4. 碰到什么问题及怎么复现。
-5. [可选] 关闭模糊日志。 ini > dev > `mix_log = no`
+5. [可选] 关闭模糊日志。 `.ini` > `[dev]` > `mix_log = no`
 6. 若调用失败（仍在浏览器里播放），反馈时提供在 Emby 页面点击浏览器油猴插件图标后的截图。
 
 > 字幕相关
@@ -336,7 +337,7 @@ https://github.com/kjtsune/embyToLocalPlayer#faq
 > IINA
 
 * 完全退出播放器才会回传进度。
-* 非读盘模式不支持外挂字幕文件（mpv 支持）
+* 非读盘模式不支持播放列表。
 
 </details>
 
@@ -380,7 +381,7 @@ https://github.com/kjtsune/embyToLocalPlayer#faq
 * 需要配合 nginx 反代管理缓存，比较麻烦。(在本机或者 nas 运行一个 nginx，缓存并切片视频流)  
   读取并丢弃 首8% 尾2% 的数据。按理 rclone 配置缓存也可以，但实测效果不佳。
 * 浏览器访问局域网的反代站，或配合后续的 模拟 302 重定向视频流。才能起到缓存效果。
-* 填写位置：`.ini` > playlist
+* 填写位置：`.ini` > `[playlist]`
     ```
     # 播放进度超过 50% 时触发预读取，预读取下一集。
     prefetch_percent = 50
@@ -404,7 +405,7 @@ https://github.com/kjtsune/embyToLocalPlayer#faq
 
 * 若使用预读取下一集，nginx 可以只反代视频流。浏览器访问源站，重定向视频流交给本机。降低 nginx 配置难度。减少 bug。
 * 亦可用于其他重定向视频流服务器。采用本地重定向。加速访问。
-* 填写位置：`.ini` > dev
+* 填写位置：`.ini` > `[dev]`
   ```
   # 网址之间逗号隔开，成对填写。源站, 反代站。
   stream_redirect = http://src.src.com, http://reverse.proxy.com, https://src.abc.org, https://reverse.efg.xyz
@@ -419,7 +420,7 @@ https://github.com/kjtsune/embyToLocalPlayer#faq
 
 * 类似预读取下一集。仅处理最近上映的集（7天内），适合追更。
 * [可选] 在不关机的机器里配置并运行更合适一点。
-* 填写位置：`.ini` > dev
+* 填写位置：`.ini` > `[dev]`
   ```
   # 配置格式：网址，user_id，api_key，一个或者多个服务端路径前缀;
   # 服务端路径包含路径前缀才预读取，全部就写 /
@@ -585,13 +586,13 @@ https://github.com/kjtsune/embyToLocalPlayer#faq
     1. Pot 选项 > 配置 > 用当前方案创建 > 改配置文件名称为 `emby`（用脚本播放时会自动切换为该配置）:  
        Pot 选项 > 左上角切换配置为 emby > 基本 > 相似文件打开策略 > 仅打开选定的文件 > 确定 > 关闭。（仅 emby 播放时由脚本添加播列表）
     2. Pot 选项 > 基本 > 相似文件打开策略 > 仅打开选定的文件。（缺点：用文件管理器播放无播放列表）
-* 填写位置：`.ini` > dev
+* 填写位置：`.ini` > `[dev]`
   ```
   # 启动 Pot 的时候指定配置文件的名称，不需要就清空。
   # 若指定的配置名称不存在，Pot 会回退使用重置后的初始配置。
   pot_conf = emby
   ```
-* 填写位置：`.ini` > playlist
+* 填写位置：`.ini` > `[playlist]`
   ```
   # 解决 Pot 读盘模式漏播第零季选集及播放列表标题错位/缺少，播放列表加载会变慢，每秒1集。
   mix_s0 = yes

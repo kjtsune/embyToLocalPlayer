@@ -8,7 +8,6 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from http.server import HTTPServer
 from typing import Union
 
 from utils.configs import configs, MyLogger
@@ -21,13 +20,6 @@ sync_third_party_done_ids = {'trakt': [],
 
 logger = MyLogger()
 redirect_url_cache = {}
-
-
-def run_server(req_handler):
-    server_address = ('127.0.0.1', 58000)
-    httpd = HTTPServer(server_address, req_handler)
-    logger.info('serving at %s:%d' % server_address)
-    httpd.serve_forever()
 
 
 def tg_notify(msg, silence=False):

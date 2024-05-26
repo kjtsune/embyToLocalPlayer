@@ -88,10 +88,23 @@ def open_local_folder(data):
 
 
 def play_media_file(data):
+    server_token = configs.raw.get('dev', 'http_server_token', fallback='')
+    nas_href = configs.raw.get('dev', 'server_side_href', fallback='').strip().strip('/')
+    href = data.get('href', '').rsplit(':', maxsplit=1)[0].strip('/')
+    if not href:
+        _logger.info('qb open file: userscript update needed.')
+        return
+    href = nas_href or f'{href}:58000'
     save_path = data['info'][0]['save_path']
     big_file = sorted(data['file'], key=lambda i: i['size'], reverse=True)[0]['name']
     file_path = os.path.join(save_path, big_file)
     media_path = translate_path_by_ini(file_path)
+    if server_token and not os.path.exists(media_path):
+        _, ext = os.path.splitext(file_path)
+        params = {'token': server_token,
+                  'file_path': file_path}
+        media_path = f'{href}/play_media_file{ext}' + '?' + urllib.parse.urlencode(params)
+        _logger.info(f'{file_path=}')
     cmd = get_player_cmd(media_path, file_path=file_path)
     player = subprocess.Popen(cmd)
     activate_window_by_pid(player.pid)

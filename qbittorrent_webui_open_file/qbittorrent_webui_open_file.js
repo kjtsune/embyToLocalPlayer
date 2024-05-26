@@ -1,12 +1,13 @@
 // ==UserScript==
 // @name         qbittorrent_webui_open_file
 // @namespace    https://github.com/kjtsune/embyToLocalPlayer/tree/main/qbittorrent_webui_open_file
-// @version      0.2
+// @version      0.3
 // @description  在 qBittorrent WebUI 里打开文件夹或者播放文件。
 // @description:zh-CN 在 qBittorrent WebUI 里打开文件夹或者播放文件。
 // @description:en  open folder or play media file from qb webui.
 // @author       Kjtsune
-// @match        http://127.0.0.1:8822/
+// @match        http://127.0.0.1:88*
+// @include      *192.168.*:88*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=qbittorrent.org
 // @grant        GM.xmlHttpRequest
 // @license MIT
@@ -37,7 +38,11 @@ function playMediaFile() {
 
 async function sendTorrentInfoAndOperate(operate) {
     let data = await getTorrentInfo();
-    let result = { info: data[0], file: data[1] }
+    let result = {
+        info: data[0],
+        file: data[1],
+        href: window.location.href
+    }
     sendDataToLocalServer(result, operate)
 }
 
