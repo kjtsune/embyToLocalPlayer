@@ -315,10 +315,14 @@ def mpv_player_start(cmd, start_sec=None, sub_file=None, media_title=None, get_s
     cmd_pipe = fr'\\.\pipe\{pipe_name}' if os.name == 'nt' else f'/tmp/{pipe_name}.pipe'
     pipe_name = pipe_name if os.name == 'nt' else cmd_pipe
     osd_title = '${path}' if mount_disk_mode else media_title
-    if sub_file and not is_iina and not is_mpvnet:
-        # https://github.com/iina/iina/issues/1991
-        # https://github.com/kjtsune/embyToLocalPlayer/issues/26
-        cmd.append(f'--sub-files-toggle={sub_file}')
+    if sub_file:
+        if not is_iina and not is_mpvnet:
+            # https://github.com/iina/iina/issues/1991
+            # https://github.com/kjtsune/embyToLocalPlayer/issues/26
+            cmd.append(f'--sub-files-toggle={sub_file}')
+        if is_iina and not mount_disk_mode:
+            srt = save_sub_file(url=sub_file)
+            cmd.append(f'--sub-files={srt}')
     if mount_disk_mode and is_iina:
         # iina 读盘模式下 media-title 会影响下一集
         pass

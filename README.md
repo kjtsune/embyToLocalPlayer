@@ -33,7 +33,9 @@ Emby/Jellyfin 调用 PotPlayer mpv IINA MPC VLC 播放，并回传播放进度�
    或者 `etlp-mpv-py-embed-win32.zip` (含mpv播放器便携版 | Windows only | 快捷键见 FAQ)  
    或者 `embyToLocalPlayer.zip` (Windows / Linux / macOS)  
    然后解压到任意文件夹。 [发布页](https://github.com/kjtsune/embyToLocalPlayer/releases)
-2. 进入文件夹，修改配置文件：`embyToLocalPlayer_config.ini` 中的播放器路径，以及播放器选择。（若使用含mpv便携版，则无需配置。）
+2. 进入文件夹，修改配置文件：`embyToLocalPlayer_config.ini`
+   中的播放器路径，以及播放器选择。（若使用含mpv便携版，则无需修改。）  
+   \[可选\]：改名为 `embyToLocalPlayer.ini`
 3. 安装 Python (勾选 add to path) [官网](https://www.python.org/downloads/)
    （若使用便携版，则无需安装。）
 4. 安装油猴脚本并刷新 Emby 页面。[发布页](https://greasyfork.org/zh-CN/scripts/448648-embytolocalplayer)
