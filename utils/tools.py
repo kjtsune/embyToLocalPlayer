@@ -103,7 +103,9 @@ def play_media_file(data):
         _, ext = os.path.splitext(file_path)
         params = {'token': server_token,
                   'file_path': file_path}
-        media_path = f'{href}/play_media_file{ext}' + '?' + urllib.parse.urlencode(params)
+        params = {key: urllib.parse.quote(str(value)) for key, value in params.items()}
+        query_str = '&'.join(f'{key}={value}' for key, value in params.items())
+        media_path = f'{href}/play_media_file{ext}' + '?' + query_str
         _logger.info(f'{file_path=}')
     cmd = get_player_cmd(media_path, file_path=file_path)
     player = subprocess.Popen(cmd)

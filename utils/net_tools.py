@@ -226,6 +226,8 @@ def change_plex_play_position(scheme, netloc, api_key, stop_sec, rating_key, cli
 
 
 def updating_playing_progress(data, cur_sec, method='playing'):
+    is_emby = (data['server'] == 'emby')
+    emby_str = '/emby' if is_emby else ''
     ticks = int(cur_sec * 10 ** 7)
     url_path = {
         'start': 'Sessions/Playing',
@@ -247,9 +249,10 @@ def updating_playing_progress(data, cur_sec, method='playing'):
         'RepeatMode': 'RepeatNone',
     }
     try:
-        requests_urllib(f'{data["scheme"]}://{data["netloc"]}/emby/{url_path}',
+        requests_urllib(f'{data["scheme"]}://{data["netloc"]}{emby_str}/{url_path}',
                         params=params,
                         _json=_json,
+                        headers=data['headers'],
                         timeout=10)
     except Exception:
         time.sleep(30)

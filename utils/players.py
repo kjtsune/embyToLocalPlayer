@@ -67,8 +67,8 @@ class PlayerManager:
         mpv = self.player_kwargs.get('mpv')
         if not mpv or not configs.check_str_match(self.data['netloc'], 'dev', 'playing_feedback_host', log=True):
             return
-        if self.data['server'] != 'emby':
-            logger.info('playing_feedback support emby only, skip')
+        if self.data['server'] == 'plex':
+            logger.info('playing_feedback not support plex, skip')
             return
         stop_sec_dict = prefetch_data['stop_sec_dict']
         prefetch_data['on'] = True
@@ -76,6 +76,7 @@ class PlayerManager:
         req_sec = 0
         interval = 5
         pause_sec = 0
+        last_ep = None
         while prefetch_data['on']:
             try:
                 key = mpv.command('get_property', 'media-title')
@@ -91,7 +92,10 @@ class PlayerManager:
             if not all([cur_sec, ep]):
                 continue
             if key != last_key:
+                if last_ep:
+                    updating_playing_progress(data=last_ep, cur_sec=cur_sec, method='end')
                 updating_playing_progress(data=ep, cur_sec=cur_sec, method='start')
+                last_ep = ep
                 last_key = key
                 req_sec = cur_sec
                 time.sleep(interval)
