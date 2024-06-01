@@ -173,6 +173,13 @@ def change_emby_play_position(scheme, netloc, item_id, api_key, stop_sec, play_s
         'X-Emby-Device-Id': device_id,
         'X-Emby-Device-Name': 'embyToLocalPlayer',
     }
+    if not _.get('update_success'):
+        requests_urllib(f'{scheme}://{netloc}/emby/Sessions/Playing',
+                        params=params,
+                        _json={
+                            'ItemId': item_id,
+                            'PlaySessionId': play_session_id,
+                        })
     requests_urllib(f'{scheme}://{netloc}/emby/Sessions/Playing/Stopped',
                     params=params,
                     _json={
@@ -285,6 +292,7 @@ def update_server_playback_progress(stop_sec, data):
         change_jellyfin_play_position(stop_sec=stop_sec, **data)
     elif server == 'plex':
         change_plex_play_position(stop_sec=stop_sec, **data)
+    logger.info(f'update progress: {data["basename"]} {stop_sec=}')
 
 
 def list_episodes_plex(data: dict):

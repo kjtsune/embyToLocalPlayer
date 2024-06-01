@@ -94,6 +94,7 @@ class PlayerManager:
             if key != last_key:
                 if last_ep:
                     updating_playing_progress(data=last_ep, cur_sec=cur_sec, method='end')
+                    last_ep['update_success'] = True
                 updating_playing_progress(data=ep, cur_sec=cur_sec, method='start')
                 last_ep = ep
                 last_key = key
@@ -284,7 +285,6 @@ class PlayerManager:
                 continue
             if not _stop_sec:
                 continue
-            logger.info(f'update progress: {ep["basename"]} {_stop_sec=}')
             update_server_playback_progress(stop_sec=_stop_sec, data=ep)
 
             ep['_stop_sec'] = _stop_sec
