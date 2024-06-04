@@ -291,6 +291,27 @@ def show_version_info(extra_data):
     _logger.info(user_agent)
 
 
+def match_version_range(ver_str, ver_range='4.6.7.0-4.7.14.0'):
+    def compare_version(version1, version2):
+        v1_parts = [int(i) for i in version1.split('.')]
+        v2_parts = [int(i) for i in version2.split('.')]
+        max_length = max(len(v1_parts), len(v2_parts))
+        v1_parts.extend([0] * (max_length - len(v1_parts)))
+        v2_parts.extend([0] * (max_length - len(v2_parts)))
+
+        for v1, v2 in zip(v1_parts, v2_parts):
+            if v1 < v2:
+                return '<'
+            elif v1 > v2:
+                return '>'
+        return '='
+
+    ver_min, ver_max = ver_range.strip().split('-')
+    if compare_version(ver_str, ver_min) in '>=' and compare_version(ver_str, ver_max) in '<=':
+        return True
+    return False
+
+
 def parse_received_data_emby(received_data):
     extra_data = received_data['extraData']
     main_ep_info = extra_data['mainEpInfo']
@@ -335,7 +356,7 @@ def parse_received_data_emby(received_data):
     extra_str = '/emby' if is_emby else ''
     server_version = api_client['_serverVersion']
     _a, _b, _c, *_d = [int(i) for i in server_version.split('.')]
-    stream_name = 'original' if 4 <= _a < 10 and _b >= 8 and (_c > 0 or _d and _d[0] > 50) else 'stream'
+    stream_name = 'stream' if match_version_range(server_version, ver_range='0-4.8.0.39') else 'original'
     if media_source_info.get('Container') == 'bluray':  # emby
         container = '.m2ts'
     if media_source_info.get('VideoType') == 'BluRay':  # jellyfin

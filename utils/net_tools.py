@@ -11,7 +11,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Union
 
 from utils.configs import configs, MyLogger
-from utils.tools import translate_path_by_ini, debug_beep_win32
+from utils.tools import translate_path_by_ini, debug_beep_win32, match_version_range
 
 ssl_context = ssl.SSLContext() if configs.raw.getboolean('dev', 'skip_certificate_verify', fallback=False) else None
 bangumi_api_cache = {'cache_time': time.time(), 'bangumi': None}
@@ -163,7 +163,7 @@ def multi_thread_requests(urls: Union[list, tuple, dict], **kwargs):
     return result
 
 
-def change_emby_play_position(scheme, netloc, item_id, api_key, stop_sec, play_session_id, device_id, **_):
+def change_emby_play_position(scheme, netloc, item_id, api_key, stop_sec, play_session_id, device_id, **kwargs):
     if stop_sec > 10 * 60 * 60:
         logger.error('stop_sec error, check it')
         return
@@ -173,7 +173,8 @@ def change_emby_play_position(scheme, netloc, item_id, api_key, stop_sec, play_s
         'X-Emby-Device-Id': device_id,
         'X-Emby-Device-Name': 'embyToLocalPlayer',
     }
-    if not _.get('update_success'):
+    if not kwargs.get('update_success') and not match_version_range(kwargs.get('server_version', ''),
+                                                                    ver_range='0-4.8.0.64'):
         requests_urllib(f'{scheme}://{netloc}/emby/Sessions/Playing',
                         params=params,
                         _json={
