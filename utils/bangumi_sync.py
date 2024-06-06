@@ -2,6 +2,7 @@ import datetime
 import os
 import re
 import sys
+import time
 import urllib.parse
 
 try:
@@ -179,13 +180,12 @@ def bangumi_sync_main(bangumi=None, eps_data: list = None, test=False, use_ini=F
     return bgm
 
 
-def bgm_sync_via_stream_url(url, get_emby=False):
-    from utils.bangumi_api import BangumiApiEmbyVer
+def api_client_via_stream_url(url):
     from utils.emby_api import EmbyApi
-    url = urllib.parse.urlparse(url)
-    netloc, path_spit = url.netloc, url.path.split('/')
+    parsed_url = urllib.parse.urlparse(url)
+    netloc, path_spit = parsed_url.netloc, parsed_url.path.split('/')
     item_id = str(path_spit[-2])
-    query = dict(urllib.parse.parse_qsl(url.query))
+    query = dict(urllib.parse.parse_qsl(parsed_url.query))
     query: dict
 
     plex_token = query.get('X-Plex-Token')
@@ -195,28 +195,40 @@ def bgm_sync_via_stream_url(url, get_emby=False):
 
     if is_plex:
         # 没找到好的媒体文件 key 反查条目的方法。
-        # plex = PlexApi(host=f"{url.scheme}://{netloc}",
+        # plex = PlexApi(host=f"{parsed_url.scheme}://{netloc}",
         #                api_key=api_key)
         # media_key = 'library/parts/3814/1687966436/file.mp4'
-        logger.error('bgm_sync_via_stream_url: not support plex')
-        return
-    emby = EmbyApi(host=f"{url.scheme}://{netloc}{jelly_sp}",
+        logger.error('third_party_sync_via_stream_url: not support plex')
+        return None, None, None
+    emby = EmbyApi(host=f"{parsed_url.scheme}://{netloc}{jelly_sp}",
                    api_key=api_key,
                    user_id=None,
                    http_proxy=configs.script_proxy,
                    cert_verify=(not configs.raw.getboolean('dev', 'skip_certificate_verify', fallback=False)), )
-    if get_emby:
-        return emby
+    return emby, item_id, parsed_url
+
+
+def bgm_sync_via_stream_url(url):
+    from utils.bangumi_api import BangumiApiEmbyVer
+    emby, item_id, parsed_url = api_client_via_stream_url(url)
+    if not emby:
+        time.sleep(1)
+        return
+    if not configs.check_str_match(parsed_url.netloc, 'bangumi', 'enable_host', log=True):
+        time.sleep(1)
+        return
     bgm = BangumiApiEmbyVer(
         username=configs.raw.get('bangumi', 'username', fallback=''),
         private=configs.raw.getboolean('bangumi', 'private', fallback=True),
         access_token=configs.raw.get('bangumi', 'access_token', fallback=''),
         http_proxy=configs.script_proxy)
     bangumi_sync_emby(emby=emby, bgm=bgm, emby_ids=[item_id])
+    time.sleep(1)
 
 
 def run_via_console():
     argv = sys.argv
+    logger.info(f'{argv=}')
     if len(argv) == 2:
         bgm_sync_via_stream_url(url=argv[1])
 

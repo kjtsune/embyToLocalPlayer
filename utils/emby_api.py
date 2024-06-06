@@ -104,6 +104,7 @@ class EmbyApi:
                   ids=None, limit=50, parent_id=None,
                   sort_by='DateCreated,SortName',
                   recursive=True, ext_params: dict = None):
+        # 注意默认不包含 Episode。同时 Episode 需要 ext_params={'HasTmdbId': None}。
         fields = fields or self._default_fields
         fields = fields if isinstance(fields, str) else ','.join(fields)
         params = {

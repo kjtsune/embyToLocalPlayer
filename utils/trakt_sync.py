@@ -1,6 +1,15 @@
 import os.path
+import sys
+import time
+import typing
+
+try:
+    sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+except Exception:
+    pass
 
 from utils.configs import configs, MyLogger
+from utils.bangumi_sync import api_client_via_stream_url
 
 logger = MyLogger()
 
@@ -120,7 +129,7 @@ def sync_ep_or_movie_to_trakt(trakt, eps_data):
         return res
 
 
-def trakt_sync_main(trakt=None, eps_data=None, test=False):
+def trakt_api_client():
     from utils.trakt_api import TraktApi
     user_id = configs.raw.get('trakt', 'user_name', fallback='')
     client_id = configs.raw.get('trakt', 'client_id', fallback='')
@@ -129,13 +138,18 @@ def trakt_sync_main(trakt=None, eps_data=None, test=False):
     oauth_code = oauth_code[1] if len(oauth_code) == 2 else oauth_code[0]
     if not all([user_id, client_id, client_secret]):
         raise ValueError('trakt: require user_name, client_id, client_secret')
-    trakt = trakt or TraktApi(
+    trakt = TraktApi(
         user_id=user_id,
         client_id=client_id,
         client_secret=client_secret,
         oauth_code=oauth_code,
         token_file=os.path.join(configs.cwd, 'trakt_token.json'),
         http_proxy=configs.script_proxy)
+    return trakt
+
+
+def trakt_sync_main(trakt=None, eps_data=None, test=False):
+    trakt = trakt or trakt_api_client()
     if test:
         trakt.test()
         return trakt
@@ -143,3 +157,43 @@ def trakt_sync_main(trakt=None, eps_data=None, test=False):
         res = sync_ep_or_movie_to_trakt(trakt=trakt, eps_data=eps_data)
         res and logger.info('trakt:', res)
     return trakt
+
+
+def emby_eps_data_generator(emby, item_id: typing.Union[str, list]):
+    from utils.emby_api import EmbyApi
+    emby: EmbyApi
+    item_ids = [item_id] if isinstance(item_id, str) else item_id
+    eps_data = emby.get_items(ids=item_ids,
+                              types='Movie,Series,Video,Episode',
+                              ext_params={'HasTmdbId': None}
+                              )['Items']
+    for ep in eps_data:
+        ep['server'] = 'emby'
+        ep['basename'] = os.path.basename(ep['Path'])
+    return eps_data
+
+
+def trakt_sync_via_stream_url(url):
+    emby, item_id, parsed_url = api_client_via_stream_url(url)
+    if not emby:
+        time.sleep(1)
+        return
+    if not configs.check_str_match(parsed_url.netloc, 'trakt', 'enable_host', log=True):
+        time.sleep(1)
+        return
+    eps_data = emby_eps_data_generator(emby=emby, item_id=item_id)
+    trakt = trakt_api_client()
+    trakt_sync_main(trakt=trakt, eps_data=eps_data, test=False)
+    time.sleep(1)
+
+
+def run_via_console():
+    argv = sys.argv
+    logger.info(f'{argv=}')
+    if len(argv) == 2:
+        trakt_sync_via_stream_url(url=argv[1])
+
+
+if __name__ == '__main__':
+    os.chdir(configs.cwd)
+    run_via_console()

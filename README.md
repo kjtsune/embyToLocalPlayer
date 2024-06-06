@@ -128,10 +128,9 @@ https://github.com/kjtsune/embyToLocalPlayer#faq
 * **没按要求反馈会忽略。**
 
 1. 运行 `debug.bat` 选1。（ macOS 或 Linux 运行 `.command`)
-    * 若启动不成功，命令行输入 `python --version` 检查 Python 是否安装成功及版本。（便携版用户可跳过）
-    * Python 低于 3.8.10 的先升级试试看。（便携版用户可跳过）
-    * 参考`如何更新`，更新到最新版后测试。（所有用户均**不可跳过**）
-2. 换播放器及换视频文件测试是否复现。（Windows 用户更换包含 mpv 的便携版测试）
+    * 若启动不成功，Windows 用户换便携版测试。
+    * 参考`如何更新`，更新到最新版后测试。
+2. 换播放器及换视频文件测试是否复现。（Windows 用户换含 mpv 的便携版测试）
 3. 截图或复制 `.bat` 窗口中的日志（选中后回车即复制）。
 4. 碰到什么问题及怎么复现。
 5. [可选] 关闭模糊日志。 `.ini` > `[dev]` > `mix_log = no`
@@ -374,6 +373,24 @@ https://github.com/kjtsune/embyToLocalPlayer#faq
 <summary>隐藏功能（一般用不到 / 配置麻烦 / 无支持）</summary>
 
 ### 隐藏功能（无支持）:
+
+<details>
+<summary>mpv bangumi trakt 独立同步脚本</summary>
+
+> mpv bangumi trakt 独立同步脚本
+
+* 使用情景：使用其他工具或客户端调用 mpv 播放 Emby/Jellyfin 视频，需要标记 bangumi trakt 中对应条目为已观看。
+* 条件：mpv 播放器，播放网络视频流，播放进度超过 90% 时同步。
+* 使用方法：
+    1. 下载 `etlp-python-embed-win32.zip` 并解压到任意文件夹。
+    2. 将 lua： `刚才解压的文件夹\utils\others\etlp_sync_bgm_trakt.lua` 移动至 mpv 的脚本文件夹。  
+       例如：`mpv.exe 所在目录 > portable_config > scripts > etlp_sync_bgm_trakt.lua`
+    3. 修改 `etlp_sync_bgm_trakt.lua` 内 etlp 的保存目录（刚才解压的文件夹路径）
+    4. 参考上方 `FAQ > 观看记录存储服务相关` 修改配置文件：`embyToLocalPlayer_config.ini`
+    5. 播放一个视频，进度拖到 90% 以上，查看 etlp 日志：`刚才解压的文件夹 > log.txt`。或者查看 mpv 日志。
+* 排错方法：使用本项目浏览器调用播放测试。
+
+</details>
 
 <details>
 <summary>播放列表预读取下一集</summary>
