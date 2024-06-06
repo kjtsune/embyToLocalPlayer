@@ -382,7 +382,8 @@ https://github.com/kjtsune/embyToLocalPlayer#faq
 * 使用情景：使用其他工具或客户端调用 mpv 播放 Emby/Jellyfin 视频，需要标记 bangumi trakt 中对应条目为已观看。
 * 条件：mpv 播放器，播放网络视频流，播放进度超过 90% 时同步。
 * 使用方法：
-    1. 下载 `etlp-python-embed-win32.zip` 并解压到任意文件夹。
+    1. 下载 `etlp-python-embed-win32.zip` 并解压到任意文件夹。  
+       （之前就在用本脚本的，更换为便携版，不要运行两份。或者参考 `FAQ > 观看记录存储服务相关` 自行安装 Python 和依赖。）
     2. 将 lua： `刚才解压的文件夹\utils\others\etlp_sync_bgm_trakt.lua` 移动至 mpv 的脚本文件夹。  
        例如：`mpv.exe 所在目录 > portable_config > scripts > etlp_sync_bgm_trakt.lua`
     3. 修改 `etlp_sync_bgm_trakt.lua` 内 etlp 的保存目录（刚才解压的文件夹路径）
