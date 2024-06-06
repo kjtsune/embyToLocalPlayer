@@ -356,7 +356,7 @@ def parse_received_data_emby(received_data):
     extra_str = '/emby' if is_emby else ''
     server_version = api_client['_serverVersion']
     _a, _b, _c, *_d = [int(i) for i in server_version.split('.')]
-    stream_name = 'stream' if match_version_range(server_version, ver_range='0-4.8.0.39') else 'original'
+    stream_name = 'original' if match_version_range(server_version, ver_range='4.8.0.40-9') else 'stream'
     if media_source_info.get('Container') == 'bluray':  # emby
         container = '.m2ts'
     if media_source_info.get('VideoType') == 'BluRay':  # jellyfin
