@@ -284,7 +284,7 @@ def show_version_info(extra_data):
     gm_info = extra_data.get('gmInfo')
     user_agent = extra_data.get('userAgent')
     if not gm_info:
-        _logger.info('userscript info not found, userscript update needed')
+        _logger.info('userscript info not found, userscript update or reinstall needed')
         return
     _logger.info(f"PyScript/{py_script_version} UserScript/{gm_info['script']['version']}"
                  f" {gm_info['scriptHandler']}/{gm_info['version']}")
@@ -314,6 +314,7 @@ def match_version_range(ver_str, ver_range='4.6.7.0-4.7.14.0'):
 
 def parse_received_data_emby(received_data):
     extra_data = received_data['extraData']
+    show_version_info(extra_data=extra_data)
     main_ep_info = extra_data['mainEpInfo']
     episodes_info = extra_data['episodesInfo']
     playlist_info = extra_data['playlistInfo']
@@ -452,30 +453,34 @@ def parse_received_data_emby(received_data):
         intro_end=intro_time.get('intro_end'),
         server_version=server_version
     )
-    show_version_info(extra_data=extra_data)
     return result
 
 
 def parse_received_data_plex(received_data):
+    extra_data = received_data.get('extraData', {})
+    show_version_info(extra_data=extra_data)
     mount_disk_mode = True if received_data['mountDiskEnable'] == 'true' else False
     url = urllib.parse.urlparse(received_data['playbackUrl'])
     query = dict(urllib.parse.parse_qsl(url.query))
     query: dict
     api_key = query['X-Plex-Token']
     client_id = query['X-Plex-Client-Identifier']
+    front_end_ver = query['X-Plex-Version']
     netloc = url.netloc
     scheme = url.scheme
     logger_setup(api_key=api_key, netloc=netloc)
     metas = received_data['playbackData']['MediaContainer']['Metadata']
     _file = metas[0]['Media'][0]['Part'][0]['file']
     mount_disk_mode = True if force_disk_mode_by_path(_file) else mount_disk_mode
-    base_info_dict = dict(server='plex',
-                          mount_disk_mode=mount_disk_mode,
-                          api_key=api_key,
-                          scheme=scheme,
-                          netloc=netloc,
-                          client_id=client_id,
-                          )
+    base_info_dict = dict(
+        server='plex',
+        mount_disk_mode=mount_disk_mode,
+        api_key=api_key,
+        scheme=scheme,
+        netloc=netloc,
+        client_id=client_id,
+        server_version=f'?;front_end/{front_end_ver}'
+    )
     res_list = []
     for _index, meta in enumerate(metas):
         res = base_info_dict.copy()

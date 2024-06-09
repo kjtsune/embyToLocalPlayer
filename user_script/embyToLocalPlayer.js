@@ -24,23 +24,7 @@
 // @license MIT
 // ==/UserScript==
 'use strict';
-/*
-2024.03.27:
-1. 预重定向下一集视频流 url (配置文件有新增条目 [dev])
-* 版本间累积更新：
-  * 可播放前检查视频流重定向。
-  * 新版 mpv 播放列表报错。@verygoodlee
-  * 修了些回传失败的情况。
-  * 适配 Emby 全部播放/随机播放/播放列表 (油猴也需要更新，限电影和音乐视频类型)
-2024-1-2:
-1. 适配 Emby 跳过简介/片头。(限 mpv，且视频本身无章节，通过添加章节实现。)
-* 版本间累积更新：
-  * mpv script-opts 被覆盖。@verygoodlee
-  * mpv 切回第一集时网络外挂字幕丢失。@verygoodlee
-2023-12-11:
-1. 美化 mpv pot 标题。
-2. 改善版本筛选逻辑。
-*/
+
 (function () {
     'use strict';
     let _crackFullPath = Boolean(localStorage.getItem('crackFullPath'));
@@ -344,11 +328,15 @@
                 })
                     .then(response => response.json())
                     .then((res) => {
+                        let extraData = {
+                            gmInfo: GM_info,
+                            userAgent: navigator.userAgent,
+                        };
                         let data = {
                             playbackData: res,
                             playbackUrl: url,
                             mountDiskEnable: localStorage.getItem('mountDiskEnable'),
-
+                            extraData: extraData,
                         };
                         sendDataToLocalServer(data, 'plexToLocalPlayer');
                     });
