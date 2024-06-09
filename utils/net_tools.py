@@ -317,7 +317,7 @@ def list_episodes_plex(data: dict):
         streams = key_sub_dict[ep['rating_key']]['MediaContainer']['Metadata'][0]['Media'][0]['Part'][0]['Stream']
         sub_path = [s['key'] for s in streams if s.get('key')
                     and configs.check_str_match(s.get('displayTitle'), 'playlist', 'subtitle_priority', log=False)]
-        sub_file = f'{scheme}://{netloc}{sub_path[0]}?download=1&X-Plex-Token={api_key}' if sub_path else None
+        sub_file = f'{scheme}://{netloc}{sub_path[0]}?download=0&X-Plex-Token={api_key}' if sub_path else None
         ep['sub_file'] = sub_file
     return result
 

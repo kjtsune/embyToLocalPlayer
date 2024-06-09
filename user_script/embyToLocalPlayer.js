@@ -126,6 +126,7 @@
                 'Content-Type': 'application/json'
             },
         });
+        logger.info(path, data);
     }
 
     async function removeErrorWindowsMultiTimes() {

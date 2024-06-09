@@ -485,7 +485,7 @@ def parse_received_data_plex(received_data):
         file_path = data['Part'][0]['file']
         size = data['Part'][0]['size']
         stream_path = data['Part'][0]['key']
-        stream_url = f'{scheme}://{netloc}{stream_path}?download=1&X-Plex-Token={api_key}'
+        stream_url = f'{scheme}://{netloc}{stream_path}?download=0&X-Plex-Token={api_key}'
         sub_dict_list = [i for i in data['Part'][0]['Stream'] if i.get('streamType') == 3 and i.get('key')]
         sub_selected = None
         sub_key = None
@@ -500,12 +500,13 @@ def parse_received_data_plex(received_data):
             sub_dict_list = [i for i in sub_dict_list if i['order'] != 0]
             sub_dict = sub_dict_list[0] if sub_dict_list else {}
             sub_key = sub_dict.get('key')
-        sub_file = f'{scheme}://{netloc}{sub_key}?download=1&X-Plex-Token={api_key}' \
+        sub_file = f'{scheme}://{netloc}{sub_key}?download=0&X-Plex-Token={api_key}' \
             if not mount_disk_mode and sub_key else None
         media_path = translate_path_by_ini(file_path) if mount_disk_mode else stream_url
         basename = os.path.basename(file_path)
         media_basename = os.path.basename(media_path)
-        media_title = basename if not mount_disk_mode else None  # 播放http时覆盖标题
+        title = meta.get('title', basename)
+        media_title = title if title == basename else f'{title} | {basename}'
 
         seek = meta.get('viewOffset')
         rating_key = meta['ratingKey']
