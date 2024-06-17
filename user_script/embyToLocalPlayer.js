@@ -3,7 +3,7 @@
 // @name:zh-CN   embyToLocalPlayer
 // @name:en      embyToLocalPlayer
 // @namespace    https://github.com/kjtsune/embyToLocalPlayer
-// @version      2024.06.12
+// @version      2024.06.17
 // @description  Emby/Jellyfin 调用外部本地播放器，并回传播放记录。适配 Plex。
 // @description:zh-CN Emby/Jellyfin 调用外部本地播放器，并回传播放记录。适配 Plex。
 // @description:en  Play in an external player. Update watch history to Emby/Jellyfin server. Support Plex.
@@ -280,8 +280,8 @@
                     ]);
                     let playbackData = await playbackResp.clone().json();
                     let episodesInfoData = episodesInfoCache[0] ? await episodesInfoCache[1].clone().json() : null;
-                    episodesInfoData = episodesInfoData ? episodesInfoData.Items : null;
-                    let playlistData = playlistInfoCache ? playlistInfoCache.Items : null;
+                    episodesInfoData = (episodesInfoData && episodesInfoData.Items) ? episodesInfoData.Items : null;
+                    let playlistData = (playlistInfoCache && playlistInfoCache.Items) ? playlistInfoCache.Items : null;
                     episodesInfoCache = []
                     let extraData = {
                         mainEpInfo: mainEpInfo,

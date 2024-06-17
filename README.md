@@ -247,6 +247,8 @@ https://github.com/kjtsune/embyToLocalPlayer#faq
 * 相较原版 mpv，只修改了少部分快捷键和配置。  
   并添加增强字幕选择规则脚本（`sub-select.lua` `sub-select.json`)
 
+> mpv_embed 快捷键
+
 <details>
 <summary>mpv_embed 快捷键</summary>
 
@@ -308,6 +310,7 @@ https://github.com/kjtsune/embyToLocalPlayer#faq
 
 * 若碰到问题，本地用户可考虑：[MPC-HC](https://github.com/clsid2/mpc-hc/releases) 自带 LAV，同样支持 madVR MPCVR BFRC 等。  
   网络用户或没有特殊需求的话，mpv 系的播放器综合体验较好。
+* 碰到问题时，先尝试初始化 PotPlayer 设置后测试。
 * 选项 > 播放 > 播放窗口尺寸：全屏
 * 配置/语言/其他 > 收尾处理 > 播放完当前后退出（触发回传进度）
 * 读盘模式可能和美化标题和混合S0的功能冲突，不过不影响使用。（FAQ > 隐藏功能 有解决方案）
