@@ -93,13 +93,16 @@ class PlayerManager:
                 continue
             if key != last_key:
                 if last_ep:
-                    updating_playing_progress(data=last_ep, cur_sec=cur_sec, method='end')
+                    last_sec = stop_sec_dict[last_key]
+                    logger.debug(f'updating end {last_sec=} {last_ep["basename"]}')
+                    updating_playing_progress(data=last_ep, cur_sec=last_sec, method='end')
                     last_ep['update_success'] = True
                 updating_playing_progress(data=ep, cur_sec=cur_sec, method='start')
                 last_ep = ep
                 last_key = key
                 req_sec = cur_sec
                 time.sleep(interval)
+                logger.debug(f'updating start {cur_sec=} {last_ep["basename"]}')
                 continue
             after_sec = cur_sec - req_sec
             if 180 < pause_sec or 0 < after_sec < 30 * speed:  # 尽量增加汇报间隔
