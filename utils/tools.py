@@ -500,7 +500,7 @@ def parse_received_data_plex(received_data):
         if (_index == 0 and not sub_selected) or _index != 0:
             for _sub in sub_dict_list:
                 _sub['order'] = configs.check_str_match(
-                    f"{str(_sub.get('title', ''), +',' + _sub['displayTitle']).lower()}",
+                    f"{(_sub.get('title', '') + ',' + _sub['displayTitle']).lower()}",
                     'dev', 'subtitle_priority', log=False, order_only=True)
             sub_dict_list = [i for i in sub_dict_list if i['order'] != 0]
             sub_dict = sub_dict_list[0] if sub_dict_list else {}
