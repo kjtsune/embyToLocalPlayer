@@ -173,8 +173,8 @@ def change_emby_play_position(scheme, netloc, item_id, api_key, stop_sec, play_s
         'X-Emby-Device-Id': device_id,
         'X-Emby-Device-Name': 'embyToLocalPlayer',
     }
-    if not kwargs.get('update_success') and not match_version_range(kwargs.get('server_version', ''),
-                                                                    ver_range='0-4.8.0.64'):
+    if not kwargs.get('update_success'):  # 由实时回传功能标记
+        # 若省略该请求，低版本 Emby/4.8.0.64 继续观看无法新增条目，高版本 Emby 直接回传失败。
         requests_urllib(f'{scheme}://{netloc}/emby/Sessions/Playing',
                         params=params,
                         _json={
