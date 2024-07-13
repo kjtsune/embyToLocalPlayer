@@ -575,6 +575,7 @@ def sync_third_party_for_eps(eps, provider):
     for ep in eps:
         item_id = ep['item_id']
         if item_id in sync_third_party_done_ids[provider]:
+            logger.info(f"{provider}: skip, cuz updated previously. {ep['basename']}")
             continue
         if ep['_stop_sec'] / ep['total_sec'] > 0.9:
             sync_third_party_done_ids[provider].append(item_id)

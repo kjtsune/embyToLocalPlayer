@@ -219,9 +219,12 @@ def start_play(data):
     player_path_lower = player_path.lower()
     # 播放器特殊处理
     player_is_running = True if configs.raw.getboolean('dev', 'one_instance_mode', fallback=True) else False
-    player_name = [i for i in player_start_func_dict if i in player_path_lower]
+    player_alias_dict = {'ddplay': 'dandanplay'}
+    legal_player_name = list(player_start_func_dict) + list(player_alias_dict)
+    player_name = [i for i in legal_player_name if i in player_path_lower]
     if player_name:
         player_name = player_name[0]
+        player_name = player_alias_dict.get(player_name, player_name)
         if configs.check_str_match(_str=data['netloc'], section='playlist', option='enable_host') \
                 and player_name in ('mpv', 'vlc', 'mpc', 'potplayer', 'iina') \
                 or (player_name == 'dandanplay' and mount_disk_mode):
@@ -259,6 +262,7 @@ def start_play(data):
             logger.info('watched, delete cache')
             threading.Thread(target=dl_manager.delete, args=(data,), daemon=True).start()
     else:
+        logger.info('run as not support player mod')
         logger.info(cmd)
         player = subprocess.Popen(cmd)
         activate_window_by_pid(player.pid)

@@ -32,4 +32,4 @@ if __name__ == '__main__':
     clean_tmp_dir()
     configs.necessary_setting_when_server_start()
     threading.Thread(target=prefetch_resume_tv, daemon=True).start()
-    run_server()
+    run_server()  # 主要逻辑入口：utils.http_server.py

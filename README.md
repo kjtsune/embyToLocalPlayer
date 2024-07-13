@@ -245,7 +245,8 @@ https://github.com/kjtsune/embyToLocalPlayer#faq
 
 * mpv_embed 主要目的是方便排错与反馈，`mpv.conf` 是我个人的简易配置。
 * 相较原版 mpv，只修改了少部分快捷键和配置。  
-  并添加增强字幕选择规则脚本（`sub-select.lua` `sub-select.json`)
+  并添加增强字幕选择规则脚本（`sub-select.lua` `sub-select.json`)  
+  和加载同目录文件脚本 `autoload.lua`
 
 > mpv_embed 快捷键
 
@@ -257,45 +258,52 @@ https://github.com/kjtsune/embyToLocalPlayer#faq
 * 文件位置：`mpv_embed` > `portable_config` > `input.conf`
 
     ```
-     ## 中文文档 https://hooke007.github.io/official_man/mpv.html#id4
-     ## 英文文档 https://mpv.io/manual/master/#keyboard-control
+    ## 中文文档 https://hooke007.github.io/official_man/mpv.html#id4
+    ## 中文文档 https://hooke007.github.io/official_man/mpv.html#input-conf
+    ## 英文文档 https://mpv.io/manual/master/#keyboard-control
+    ## 默认按键 https://github.com/mpv-player/mpv/blob/master/etc/input.conf
     
-     MBTN_LEFT            ignore                       # <无操作> [左键-单击]
-     MBTN_LEFT_DBL        cycle fullscreen             # 切换 全屏状态 [左键-双击]
-     MBTN_RIGHT           cycle pause                  # 切换 暂停状态 [右键-单击]
-     MBTN_RIGHT_DBL       quit                         # 关闭MPV程序 [右键-双击]
-     WHEEL_UP             add volume  10               # 音量 + 10 [滚轮-向上]
-     WHEEL_DOWN           add volume -10               # 音量 - 10 [滚轮-向下]
+    ## 鼠标中键可以点击界面 OSD 按钮，会显示播放列表，字幕列表，音轨列表等的。
     
-     MBTN_MID             cycle fullscreen             # 切换 全屏状态 [中键（按压滚轮）]
-     f                    cycle fullscreen             # 切换 全屏状态
-     ENTER                cycle fullscreen             # 切换 全屏状态 [回车键]
     
-     LEFT                 seek -5                      # 后退05秒 [方向左键]
-     RIGHT                seek  5                      # 前进05秒 [方向右键]
-     UP                   seek  40                     # 后退40秒 [方向上键]
-     DOWN                 seek -40                     # 前进40秒 [方向下键]
+    MBTN_LEFT            ignore                       # <无操作> [左键-单击]
+    MBTN_LEFT_DBL        cycle fullscreen             # 切换 全屏状态 [左键-双击]
+    MBTN_RIGHT           cycle pause                  # 切换 暂停状态 [右键-单击]
+    MBTN_RIGHT_DBL       quit                         # 关闭MPV程序 [右键-双击]
+    WHEEL_UP             add volume  10               # 音量 + 10 [滚轮-向上]
+    WHEEL_DOWN           add volume -10               # 音量 - 10 [滚轮-向下]
     
-     [                    add speed -0.1               # 播放速度 -（最小0.01）
-     ]                    add speed  0.1               # 播放速度 +（最大100）
-     {                    multiply speed 0.5           # 播放速度 半减
-     }                    multiply speed 2.0           # 播放速度 倍增
+    MBTN_MID             cycle fullscreen             # 切换 全屏状态 [中键（按压滚轮）]
+    f                    cycle fullscreen             # 切换 全屏状态
+    ENTER                cycle fullscreen             # 切换 全屏状态 [回车键]
     
-     ;                    add chapter -1               # 章节 -
-     '                    add chapter  1               # 章节 +
-     q                    quit                         # 关闭MPV程序
-     Q                    quit-watch-later             # 关闭MPV程序 稍后观看（保存当前文件状态）
+    LEFT                 seek -5                      # 后退05秒 [方向左键]
+    RIGHT                seek  5                      # 前进05秒 [方向右键]
+    UP                   seek  40                     # 后退40秒 [方向上键]
+    DOWN                 seek -40                     # 前进40秒 [方向下键]
+    .                    frame-step                   # 下一帧
+    ,                    frame-back-step              # 上一帧
     
-     z                    add sub-delay -0.1           # 字幕同步 预载100ms
-     Z                    add sub-delay -1             # 字幕同步 预载1000ms
-     x                    add sub-delay +0.1           # 字幕同步 延迟100ms
-     X                    add sub-delay +1             # 字幕同步 延迟1000ms
+    [                    add speed -0.1               # 播放速度 -（最小0.01）
+    ]                    add speed  0.1               # 播放速度 +（最大100）
+    {                    multiply speed 0.5           # 播放速度 半减
+    }                    multiply speed 2.0           # 播放速度 倍增
     
-     i                    script-binding stats/display-stats           # 临时显示统计信息（此时12340翻页，2/4/0页可方向上下键滚动查看）
-     I                    script-binding stats/display-stats-toggle    # 开/关 常驻显示统计信息
-     TAB                  script-binding stats/display-stats-toggle    # 开/关 常驻显示统计信息
-     `                    script-binding console/enable                # 进入控制台（此时Esc退出）
-     DEL                  script-binding osc/visibility                # 切换 内置OSC的可见性
+    ;                    add chapter -1               # 章节 -
+    '                    add chapter  1               # 章节 +
+    q                    quit                         # 关闭MPV程序
+    Q                    quit-watch-later             # 关闭MPV程序 稍后观看（保存当前文件状态）
+    
+    z                    add sub-delay -0.1           # 字幕同步 预载100ms
+    Z                    add sub-delay -1             # 字幕同步 预载1000ms
+    x                    add sub-delay +0.1           # 字幕同步 延迟100ms
+    X                    add sub-delay +1             # 字幕同步 延迟1000ms
+    
+    i                    script-binding stats/display-stats           # 临时显示统计信息（此时12340翻页，2/4/0页可方向上下键滚动查看）
+    I                    script-binding stats/display-stats-toggle    # 开/关 常驻显示统计信息
+    TAB                  script-binding stats/display-stats-toggle    # 开/关 常驻显示统计信息
+    `                    script-binding console/enable                # 进入控制台（此时Esc退出）
+    DEL                  script-binding osc/visibility                # 切换 内置OSC的可见性
      ```
 
 </details>
@@ -579,7 +587,7 @@ https://github.com/kjtsune/embyToLocalPlayer#faq
     api_key =
     
     # 仅当服务端路径包含以下路径时使用弹弹播放，逗号隔开。全部文件都用弹弹播放就留空或删除。
-    enable_path = /disk/od/TV, /disk/e/anime
+    enable_path = /disk/od/TV, /disk/e/anime, 路径的部分字符也可以, anime
     
     # 通过 http 播放时，是否控制开始时间。需等待播放15秒。
     http_seek = yes

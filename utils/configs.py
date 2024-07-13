@@ -115,10 +115,10 @@ MyLogger.log_printer_thread_start()
 class Configs:
 
     def __init__(self):
-        self.platform = platform.system()
+        self.platform = 'Android' if hasattr(sys, 'getandroidapilevel') else platform.system()
         self.cwd = os.path.dirname(os.path.dirname(__file__))
         self.path = [os.path.join(self.cwd, 'embyToLocalPlayer' + ext) for ext in (
-            f'-{self.platform}.ini', '.ini', '_config.ini')]
+            f'-{self.platform}.ini', '.ini', '_config.ini') if ext]
         self.path = [i for i in self.path if os.path.exists(i)][0]
         MyLogger.log(MyLogger.mix_args_str(f'Python path: {sys.executable}'))
         MyLogger.log(MyLogger.mix_args_str(f'ini path: {self.path}'))

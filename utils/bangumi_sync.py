@@ -124,7 +124,8 @@ def search_and_sync(bgm, title, ori_title, premiere_date, season_num, ep_nums, e
     bgm_sea_id, bgm_ep_ids = bgm.get_target_season_episode_id(
         subject_id=subject_id, target_season=season_num, target_ep=ep_nums)
     if not bgm_ep_ids:
-        logger.info(f'bgm: {subject_id=} {season_num=} {ep_nums=}, not exists or too big, skip')
+        logger.info(f'bgm: {subject_id=} {season_num=} {ep_nums=}, not exists or too big, skip'
+                    f' | https://bgm.tv/subject/{bgm_sea_id}')
         return
 
     if max(ep_nums) < 12 or not bgm_data.get('rank'):
