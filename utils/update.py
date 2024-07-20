@@ -58,7 +58,7 @@ def main():
         for name in z.namelist():
             if name.startswith('embyToLocalPlayer_config'):
                 continue
-            if is_nt and name.startswith('emby_script_run'):
+            if is_nt and name.startswith('etlp_run'):
                 continue
             z.extract(name)
         print(f'\nnew example {ini_example}')

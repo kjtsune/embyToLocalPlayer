@@ -1,6 +1,7 @@
 embyToLocalPlayer-Windows.ini
 embyToLocalPlayer-Linux.ini
 embyToLocalPlayer-Darwin.ini
+embyToLocalPlayer-Android.ini
 embyToLocalPlayer.ini
 # _config.ini 还支持以上命名，前面优先级高。
 .tmp/

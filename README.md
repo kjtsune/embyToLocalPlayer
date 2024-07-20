@@ -1,6 +1,6 @@
 # etlp - embyToLocalPlayer
 
-Emby/Jellyfin 调用 PotPlayer mpv IINA MPC VLC 播放，并回传播放进度（可关）。适配 Plex。
+etlp - Emby/Jellyfin 调用 PotPlayer mpv IINA MPC VLC 播放，并回传播放进度（可关）。适配 Plex。
 
 **特性**
 
@@ -66,7 +66,7 @@ Emby/Jellyfin 调用 PotPlayer mpv IINA MPC VLC 播放，并回传播放进度�
 > macOS
 
 1. 刚才保存的文件夹 > 右击 > 新建位于文件夹的终端窗口 `chmod +x *.command` 回车。
-2. 双击 `emby_script_run.command`, 若无报错，可播放测试。
+2. 双击 `etlp_run.command`, 若无报错，可播放测试。
 3. 开机自启（无窗口运行）：
     1. 方案一：直接进入下一步，但估计只适用于 Monterey 12 及之前的老版本系统。  
        方案二：在终端使用 Homebrew 安装 screen。  
@@ -74,17 +74,17 @@ Emby/Jellyfin 调用 PotPlayer mpv IINA MPC VLC 播放，并回传播放进度�
        如果你没有安装 Homebrew，请先安装 Homebrew。  
        `/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install.sh)"`
     2. 启动台 > 自动操作 > 文件 > 新建 > 应用程序 > 运行 Shell 脚本 >   
-       把 `emby_script_run.command`（方案一）| `emby_script_run_via_screen.command`（方案二） 文件拖入 >
+       把 `etlp_run.command`（方案一）| `etlp_run_via_screen.command`（方案二） 文件拖入 >
        点击运行后测试播放 > 文件 > 存储 > 取名并保存到应用程序。
     3. 启动台 > 刚才的应用 > 双击后台运行后再次播放测试。
     4. 系统偏好设置 > 用户与群组 > 登录项 > 添加刚才的应用。
     5. 如果 Monterey 12.6.6 状态栏有齿轮，把文件拖入的操作替换成写以下内容，注意更改cd目录为你保存的目录。  
-       `cd ~/App/embyToLocalPlayer && nohup ./emby_script_run.command > run.log 2&>1 &`
+       `cd ~/App/embyToLocalPlayer && nohup ./etlp_run.command > run.log 2&>1 &`
 
 > Linux
 
 1. `apt install python3-tk`（没报错不装也行）
-2. 添加 `emby_script_run.command` 执行权限，并用终端打开。
+2. 添加 `etlp_run.command` 执行权限，并用终端打开。
 3. 正常播放后，加入开机启动项（无窗口运行）：  
    Debian_Xfce：设置 > 会话和启动 > 应用程序自启动。  
    注意：只能使用用图形界面的自启动功能。利用 systemd 自启弹不出播放器，应该是权限或者环境等问题。

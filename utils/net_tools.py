@@ -530,12 +530,25 @@ def list_episodes(data: dict):
         return result
 
     if playlist_info:
+        def chunk_list(lst, chunk_size):
+            for i in range(0, len(lst), chunk_size):
+                yield lst[i:i + chunk_size]
+
         ids = [ep['Id'] for ep in playlist_info]
-        params.update({'Fields': 'MediaSources,Path,ProviderIds',
-                       'Ids': ','.join(ids), })
-        episodes = requests_urllib(
-            f'{scheme}://{netloc}{extra_str}/Users/{user_id}/Items',
-            params=params, headers=headers, get_json=True)
+        _eps_parts = []
+        for _ids in chunk_list(ids, 500):
+            params.update({'Fields': 'MediaSources,Path,ProviderIds',
+                           'Ids': ','.join(_ids), })
+            _episodes = requests_urllib(
+                f'{scheme}://{netloc}{extra_str}/Users/{user_id}/Items',
+                params=params, headers=headers, get_json=True)
+            _eps_parts.append(_episodes)
+        episodes = _eps_parts[0]
+        if len(_eps_parts) > 1:
+            for _part in _eps_parts[1:]:
+                episodes['Items'].extend(_part['Items'])
+            logger.info(f'playlist_info items count: {len(ids)}, may too large')
+
     else:
         params.update({'Fields': 'MediaSources,Path,ProviderIds',
                        'SeasonId': season_id, })
