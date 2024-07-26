@@ -38,7 +38,11 @@ etlp - Emby/Jellyfin 调用 PotPlayer mpv IINA MPC VLC 播放，并回传播放�
    \[可选\]：改名为 `embyToLocalPlayer.ini`
 3. 安装 Python (勾选 add to path) [官网](https://www.python.org/downloads/)
    （若使用便携版，则无需安装。）
-4. 安装油猴脚本并刷新 Emby 页面。[发布页](https://greasyfork.org/zh-CN/scripts/448648-embytolocalplayer)
+4. 推荐油猴插件，装一个即可
+   [Tampermonkey](https://chromewebstore.google.com/detail/lcmhijbkigalmkeommnijlpobloojgfn) | 
+   [Violentmonkey](https://chrome.google.com/webstore/detail/violent-monkey/jinjaccalgkegednnccohejagnlnfdag) | 
+   [Tampermonkey v3(不推荐，需启用开发者模式)](https://chromewebstore.google.com/detail/dhdgffkkebhmkfjojejmpbldmpobfkfo)
+5. 安装油猴脚本并刷新 Emby 页面。[发布页](https://greasyfork.org/zh-CN/scripts/448648-embytolocalplayer)
 
 > 前置说明
 
@@ -134,7 +138,7 @@ https://github.com/kjtsune/embyToLocalPlayer#faq
 3. 截图或复制 `.bat` 窗口中的日志（选中后回车即复制）。
 4. 碰到什么问题及怎么复现。
 5. [可选] 关闭模糊日志。 `.ini` > `[dev]` > `mix_log = no`
-6. 若调用失败（仍在浏览器里播放），反馈时提供在 Emby 页面点击浏览器油猴插件图标后的截图。
+6. 若调用失败（仍在浏览器里播放，或点击播放后没有新增日志），反馈时提供在 Emby 页面点击浏览器油猴插件图标后的截图。
 
 > 字幕相关
 
