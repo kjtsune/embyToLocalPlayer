@@ -523,6 +523,9 @@ https://github.com/kjtsune/embyToLocalPlayer#faq
     # 缓存路径：NTFS 支持不很理想，解决方法详见 FAQ
     cache_path = D:\cache
     
+    # [可选] 在服务端文件路径包含指定关键词时才弹菜单，否则直接播放。关键词间逗号隔开。
+    enable_path = 
+    
     # 当播放进度超过 98% ，此时若关闭播放器，则删除缓存。禁用填 100
     delete_at = 98
     

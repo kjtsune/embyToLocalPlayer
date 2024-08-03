@@ -84,6 +84,10 @@ class UserScriptRequestHandler(BaseHTTPRequestHandler):
             thread_dict[gui_cmd].start()
         elif 'ToLocalPlayer' in self.path:
             if configs.gui_is_enable:
+                if configs.raw.get('gui', 'enable_path'):
+                    if not configs.check_str_match(data['file_path'], 'gui', 'enable_path', log_by=False):
+                        thread_dict['play'].start()
+                        return True
                 from utils.gui import show_ask_button
                 logger.info('show ask button')
                 if configs.platform != 'Darwin':

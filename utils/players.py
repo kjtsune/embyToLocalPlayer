@@ -355,7 +355,7 @@ def mpv_player_start(cmd, start_sec=None, sub_file=None, media_title=None, get_s
         cmd.append('--no-audio')
         # cmd.append('--no-video')
     cmd = ['--mpv-' + i.replace('--', '', 1) if is_darwin and is_iina and i.startswith('--') else i for i in cmd]
-    logger.info(cmd)
+    logger.info(f'{cmd[:2]}\nargs={cmd[2:]}')
     player = subprocess.Popen(cmd, env=os.environ)
     activate_window_by_pid(player.pid)
 

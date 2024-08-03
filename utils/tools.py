@@ -555,7 +555,7 @@ def parse_received_data_plex(received_data):
         res.update(other_info_dict)
         res_list.append(res)
 
-    result = res_list[0]
+    result = res_list[0].copy()
     result['list_eps'] = res_list
     return result
 
