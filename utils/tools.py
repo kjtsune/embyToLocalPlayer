@@ -497,7 +497,7 @@ def parse_received_data_plex(received_data):
         sub_key = None
         if _index == 0:
             if sub_selected := [i for i in sub_dict_list if i.get('selected')]:
-                sub_key = sub_selected
+                sub_key = sub_selected[0].get('key')
         if (_index == 0 and not sub_selected) or _index != 0:
             for _sub in sub_dict_list:
                 _sub['order'] = configs.check_str_match(
