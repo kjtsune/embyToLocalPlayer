@@ -11,8 +11,9 @@ from configparser import ConfigParser
 
 def mini_conf():
     cwd = os.path.dirname(os.path.dirname(__file__))
+    _platform = 'Android' if hasattr(sys, 'getandroidapilevel') else platform.system()
     path = [os.path.join(cwd, 'embyToLocalPlayer' + ext) for ext in (
-        f'-{platform.system()}.ini', '.ini', '_config.ini')]
+        f'-{_platform}.ini', '.ini', '_config.ini') if ext]
     path = [i for i in path if os.path.exists(i)][0]
     config = ConfigParser()
     config.read(path, encoding='utf-8-sig')

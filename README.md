@@ -308,6 +308,7 @@ https://github.com/kjtsune/embyToLocalPlayer#faq
     TAB                  script-binding stats/display-stats-toggle    # 开/关 常驻显示统计信息
     `                    script-binding console/enable                # 进入控制台（此时Esc退出）
     DEL                  script-binding osc/visibility                # 切换 内置OSC的可见性
+    r                    cycle_values video-rotate 90 180 270 0       # 旋转屏幕方向
      ```
 
 </details>

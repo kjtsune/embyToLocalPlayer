@@ -190,11 +190,19 @@ def change_emby_play_position(scheme, netloc, item_id, api_key, stop_sec, play_s
                     })
 
 
-def change_jellyfin_play_position(scheme, netloc, item_id, stop_sec, play_session_id, headers, **_):
+def change_jellyfin_play_position(scheme, netloc, item_id, stop_sec, play_session_id, headers, **kwargs):
     if stop_sec > 10 * 60 * 60:
         logger.error('stop_sec error, check it')
         return
     ticks = stop_sec * 10 ** 7
+    if not kwargs.get('update_success'):  # 由实时回传功能标记
+        # 若省略该请求，新版 Jellyfin 继续观看新增条目会跑到末端。
+        requests_urllib(f'{scheme}://{netloc}/Sessions/Playing',
+                        headers=headers,
+                        _json={
+                            'ItemId': item_id,
+                            'PlaySessionId': play_session_id,
+                        })
     requests_urllib(f'{scheme}://{netloc}/Sessions/Playing/Stopped',
                     headers=headers,
                     _json={
@@ -469,6 +477,7 @@ def list_episodes(data: dict):
         return _res
 
     title_data, start_data, end_data = title_intro_index_map()
+    pretty_title = configs.raw.getboolean('dev', 'pretty_title', fallback=True)
 
     def parse_item(item):
         source_info = item['MediaSources'][0]
@@ -485,7 +494,7 @@ def list_episodes(data: dict):
         index = item.get('IndexNumber', 0)
         unique_key = f"{item.get('ParentIndexNumber')}-{index}"
         emby_title = title_data.get(unique_key)
-        media_title = f'{emby_title}  |  {basename}' if emby_title else basename
+        media_title = f'{emby_title}  |  {basename}' if pretty_title and emby_title else basename
         media_basename = os.path.basename(media_path)
         total_sec = int(source_info['RunTimeTicks']) // 10 ** 7
 

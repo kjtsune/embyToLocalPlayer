@@ -412,7 +412,8 @@ def parse_received_data_emby(received_data):
     if '.m3u8' in file_path:
         media_path = stream_url = file_path
 
-    media_title = f'{emby_title}  |  {basename}' if emby_title else basename
+    pretty_title = configs.raw.getboolean('dev', 'pretty_title', fallback=True)
+    media_title = f'{emby_title}  |  {basename}' if pretty_title and emby_title else basename
 
     seek = query['StartTimeTicks']
     start_sec = int(seek) // (10 ** 7) if seek else 0
