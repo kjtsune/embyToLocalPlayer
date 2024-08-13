@@ -295,8 +295,8 @@ https://github.com/kjtsune/embyToLocalPlayer#faq
     
     ;                    add chapter -1               # 章节 -
     '                    add chapter  1               # 章节 +
-    q                    quit                         # 关闭MPV程序
-    Q                    quit-watch-later             # 关闭MPV程序 稍后观看（保存当前文件状态）
+    q                    quit-watch-later             # 关闭MPV程序 稍后观看（保存当前文件状态）
+    Q                    quit                         # 关闭MPV程序
     
     z                    add sub-delay -0.1           # 字幕同步 预载100ms
     Z                    add sub-delay -1             # 字幕同步 预载1000ms
@@ -375,8 +375,6 @@ https://github.com/kjtsune/embyToLocalPlayer#faq
 > Plex 相关
 
 * 可能 dns 污染，若无法播放。修改系统 DNS 或使用代理。
-* PotPlayer  
-  播放 http 时无法读取外挂字幕，读取硬盘模式却可以。（字幕手动上传的，本地硬盘没有，比较玄学）
 * 会提示回放错误，随便点一下就会消失。
 
 > 感谢
