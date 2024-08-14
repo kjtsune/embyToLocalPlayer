@@ -324,7 +324,7 @@ def parse_received_data_emby(received_data):
     api_client = received_data['ApiClient']
     mount_disk_mode = True if received_data['mountDiskEnable'] == 'true' else False
     url = urllib.parse.urlparse(received_data['playbackUrl'])
-    headers = received_data['request']['headers']
+    headers = received_data['request'].get('headers', {})
     is_emby = True if '/emby/' in url.path else False
     jellyfin_auth = headers.get('X-Emby-Authorization', headers.get('Authorization')) if not is_emby else ''
     jellyfin_auth = [i.replace('\'', '').replace('"', '').strip().split('=')
@@ -483,16 +483,22 @@ def parse_received_data_plex(received_data):
         server_version=f'?;front_end/{front_end_ver}'
     )
     res_list = []
+    meta_error = False
     for _index, meta in enumerate(metas):
         res = base_info_dict.copy()
         data = meta['Media'][0]
         item_id = data['id']
-        duration = data['duration']
+        duration = data.get('duration')
+        if not duration:
+            duration = 10 ** 12
+            if not meta_error:
+                meta_error = True
+                _logger.info('plex: some metadata missing, external subtitles and other functions may not work')
         file_path = data['Part'][0]['file']
         size = data['Part'][0]['size']
         stream_path = data['Part'][0]['key']
         stream_url = f'{scheme}://{netloc}{stream_path}?download=0&X-Plex-Token={api_key}'
-        sub_dict_list = [i for i in data['Part'][0]['Stream'] if i.get('streamType') == 3 and i.get('key')]
+        sub_dict_list = [i for i in data['Part'][0].get('Stream', []) if i.get('streamType') == 3 and i.get('key')]
         sub_selected = None
         sub_key = None
         if _index == 0:
@@ -519,7 +525,7 @@ def parse_received_data_plex(received_data):
         start_sec = int(seek) // (10 ** 3) if seek and not query.get('extrasPrefixCount') else 0
 
         fake_name = os.path.splitdrive(file_path)[1].replace('/', '__').replace('\\', '__')
-        total_sec = int(meta['duration']) // (10 ** 3)
+        total_sec = duration // (10 ** 3)
         position = start_sec / total_sec
 
         provider_ids = [tuple(i['id'].split('://')) for i in meta['Guid']] if meta.get('Guid') else []
