@@ -3,7 +3,7 @@
 // @name:zh-CN   embyToLocalPlayer
 // @name:en      embyToLocalPlayer
 // @namespace    https://github.com/kjtsune/embyToLocalPlayer
-// @version      2024.06.17
+// @version      2024.08.26
 // @description  Emby/Jellyfin 调用外部本地播放器，并回传播放记录。适配 Plex。
 // @description:zh-CN Emby/Jellyfin 调用外部本地播放器，并回传播放记录。适配 Plex。
 // @description:en  Play in an external player. Update watch history to Emby/Jellyfin server. Support Plex.
@@ -218,12 +218,17 @@
 
     const originFetch = fetch;
     unsafeWindow.fetch = async (url, request) => {
+        const raw_url = url;
+        let urlType = typeof url;
+        if (urlType != 'string') {
+            url = raw_url.url;
+        }
         if (serverName === null) {
             serverName = typeof ApiClient === 'undefined' ? null : ApiClient._appName.split(' ')[0].toLowerCase();
         }
         // 适配播放列表及媒体库的全部播放、随机播放。限电影及音乐视频。
         if (url.includes('Items?') && (url.includes('Limit=300') || url.includes('Limit=1000')) || url.includes('SpecialFeatures')) {
-            let _resp = await originFetch(url, request);
+            let _resp = await originFetch(raw_url, request);
             if (serverName == 'emby') {
                 await ApiClient._userViewsPromise.then(result => {
                     let viewsItems = result.Items;
@@ -263,7 +268,7 @@
         let _epMatch = url.match(episodesInfoRe);
         if (_epMatch) {
             _epMatch = _epMatch[0].split(['?'])[0].substring(1); // Episodes|NextUp|Items
-            let _resp = await originFetch(url, request);
+            let _resp = await originFetch(raw_url, request);
             episodesInfoCache = [_epMatch, _resp.clone()]
             logger.info('episodesInfoCache', episodesInfoCache);
             return _resp
@@ -275,7 +280,7 @@
                     let itemId = match ? match[1] : null;
                     let userId = ApiClient._serverInfo.UserId;
                     let [playbackResp, mainEpInfo] = await Promise.all([
-                        originFetch(url, request),
+                        originFetch(raw_url, request),
                         ApiClient.getItem(userId, itemId),
                     ]);
                     let playbackData = await playbackResp.clone().json();
@@ -293,7 +298,8 @@
                     playlistInfoCache = null;
                     logger.info(extraData);
                     if (playbackData.MediaSources[0].Path.search(/\Wbackdrop/i) == -1) {
-                        embyToLocalPlayer(url, request, playbackData, extraData);
+                        let _req = request ? request : raw_url;
+                        embyToLocalPlayer(url, _req, playbackData, extraData);
                         return
                     }
                 } else {
@@ -304,11 +310,11 @@
                 return
             }
         } catch (error) {
-            logger.error(error);
+            logger.error(error, raw_url, url);
             removeErrorWindowsMultiTimes();
             return
         }
-        return originFetch(url, request);
+        return originFetch(raw_url, request);
     }
 
     function initXMLHttpRequest() {
