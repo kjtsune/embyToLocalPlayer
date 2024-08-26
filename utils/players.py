@@ -364,8 +364,23 @@ def mpv_player_start(cmd, start_sec=None, sub_file=None, media_title=None, get_s
         _cmd = ['sub-add', sub_file]
         mpv.command(*_cmd)
     if mpv and intro_end:
-        chapter_list = [{'title': 'intro', 'time': intro_start}, {'title': 'main', 'time': intro_end}]
-        mpv.command('set_property', 'chapter-list', chapter_list)
+        chapter_list = [{'title': 'Opening', 'time': intro_start}, {'title': 'Main', 'time': intro_end}]
+        event_name = 'file-loaded'
+
+        @mpv.on_event(event_name)
+        def fist_ep_intro_adder(_event_data):
+            if media_title != mpv.command('get_property', 'media-title'):
+                logger.info('skip add opening scene chapters, cuz media_title not match')
+                return
+            mpv.command('set_property', 'chapter-list', chapter_list)
+            callbacks = mpv.event_bindings[event_name]
+            if len(callbacks) == 1:
+                del (mpv.event_bindings[event_name])
+            else:
+                callbacks = {i for i in callbacks if 'fist_intro_adder' not in str(i)}
+                mpv.event_bindings[event_name] = callbacks
+            logger.info('opening scene found, add to chapters')
+
     if speed := mpv_play_speed.get(media_title):
         mpv.command('set_property', 'speed', speed)
     if not get_stop_sec:
@@ -374,6 +389,28 @@ def mpv_player_start(cmd, start_sec=None, sub_file=None, media_title=None, get_s
         mpv.is_iina = is_iina
         mpv.is_mpvnet = is_mpvnet
     return dict(mpv=mpv)
+
+
+def mpv_intro_chapters_maker(start, end, file_name):
+    chapters_text = f''';FFMETADATA1
+[CHAPTER]
+TIMEBASE=1/1
+START={start}
+END={end}
+title=Opening
+[CHAPTER]
+TIMEBASE=1/1
+START={end}
+END=9999
+title=Main
+'''
+    _tmp = os.path.join(configs.cwd, '.tmp')
+    chap_path = os.path.join(_tmp, f'{file_name}-chapters.txt')
+    if not os.path.exists(_tmp):
+        os.mkdir(_tmp)
+    with open(chap_path, 'w', encoding='utf-8') as f:
+        f.write(chapters_text)
+    return chap_path
 
 
 def playlist_add_mpv(mpv: MPV, data, eps_data=None, limit=10):
@@ -406,6 +443,9 @@ def playlist_add_mpv(mpv: MPV, data, eps_data=None, limit=10):
             playlist_data[media_title] = ep
         if basename == data['basename']:
             append = True
+            if intro_end := ep.get('intro_end'):
+                chap_path = mpv_intro_chapters_maker(start=ep['intro_start'], end=intro_end, file_name=basename)
+                mpv.command('set_property', 'chapters-file', chap_path)
             continue
         # iina 添加不上
         if not append or limit <= 0 or is_iina:
@@ -423,27 +463,8 @@ def playlist_add_mpv(mpv: MPV, data, eps_data=None, limit=10):
                 sub_cmd = f',sub-file={sub_file}'
 
         if intro_end := ep.get('intro_end'):
-            # chapter_list = [{'title': 'intro', 'time': ep['intro_start']}, {'title': 'main', 'time': intro_end}]
-            # mpv.command('set_property', 'chapter-list', chapter_list)
-            chapters_text = f''';FFMETADATA1
-[CHAPTER]
-TIMEBASE=1/1
-START={ep['intro_start']}
-END={intro_end}
-title=intro
-[CHAPTER]
-TIMEBASE=1/1
-START={intro_end}
-END=9999
-title=main
-'''
-            _tmp = os.path.join(configs.cwd, '.tmp')
-            chap_path = os.path.join(_tmp, f'{basename}-chapters.txt')
+            chap_path = mpv_intro_chapters_maker(start=ep['intro_start'], end=intro_end, file_name=basename)
             chap_cmd = f',chapters-file="{chap_path}"'
-            if not os.path.exists(_tmp):
-                os.mkdir(_tmp)
-            with open(chap_path, 'w', encoding='utf-8') as f:
-                f.write(chapters_text)
         else:
             chap_cmd = ''
 
