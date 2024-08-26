@@ -11,7 +11,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Union
 
 from utils.configs import configs, MyLogger
-from utils.tools import translate_path_by_ini, debug_beep_win32, match_version_range
+from utils.tools import translate_path_by_ini, debug_beep_win32
 
 ssl_context = ssl.SSLContext() if configs.raw.getboolean('dev', 'skip_certificate_verify', fallback=False) else None
 bangumi_api_cache = {'cache_time': time.time(), 'bangumi': None}
@@ -495,6 +495,7 @@ def list_episodes(data: dict):
         unique_key = f"{item.get('ParentIndexNumber')}-{index}"
         emby_title = title_data.get(unique_key)
         media_title = f'{emby_title}  |  {basename}' if pretty_title and emby_title else basename
+        media_title = media_title.replace('"', '”')
         media_basename = os.path.basename(media_path)
         total_sec = int(source_info['RunTimeTicks']) // 10 ** 7
 

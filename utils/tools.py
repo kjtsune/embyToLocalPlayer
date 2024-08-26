@@ -414,6 +414,7 @@ def parse_received_data_emby(received_data):
 
     pretty_title = configs.raw.getboolean('dev', 'pretty_title', fallback=True)
     media_title = f'{emby_title}  |  {basename}' if pretty_title and emby_title else basename
+    media_title = media_title.replace('"', '”')
 
     seek = query['StartTimeTicks']
     start_sec = int(seek) // (10 ** 7) if seek else 0
@@ -519,6 +520,7 @@ def parse_received_data_plex(received_data):
         media_basename = os.path.basename(media_path)
         title = meta.get('title', basename)
         media_title = title if title == basename else f'{title} | {basename}'
+        media_title = media_title.replace('"', '”')
 
         seek = meta.get('viewOffset')
         rating_key = meta['ratingKey']
