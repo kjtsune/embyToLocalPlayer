@@ -27,6 +27,10 @@
 
 (function () {
     'use strict';
+    // 去除首页 Discover Emby Premiere 广告
+    let adEle = document.querySelector('div.verticalSection.verticalSection-cards.section-appinfo.emby-scrollbuttons-scroller');
+    if (adEle) adEle.style.display = 'none';
+    
     let _crackFullPath = Boolean(localStorage.getItem('crackFullPath'));
     let _disableOpenFolder = Boolean(localStorage.getItem('disableOpenFolder'));
     let fistTime = true;
