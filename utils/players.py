@@ -366,20 +366,24 @@ def mpv_player_start(cmd, start_sec=None, sub_file=None, media_title=None, get_s
     if mpv and intro_end:
         chapter_list = [{'title': 'Opening', 'time': intro_start}, {'title': 'Main', 'time': intro_end}]
         event_name = 'file-loaded'
+        mpv.command('set_property', 'chapter-list', chapter_list)  # 'file-loaded' 事件在起播快时会失效，此时本行则生效。
 
         @mpv.on_event(event_name)
         def fist_ep_intro_adder(_event_data):
-            if media_title != mpv.command('get_property', 'media-title'):
-                logger.info('skip add opening scene chapters, cuz media_title not match')
-                return
-            mpv.command('set_property', 'chapter-list', chapter_list)
-            callbacks = mpv.event_bindings[event_name]
-            if len(callbacks) == 1:
-                del (mpv.event_bindings[event_name])
+            has_chapters = mpv.command('get_property', 'chapter-list')
+            if not has_chapters:
+                if media_title != mpv.command('get_property', 'media-title'):
+                    logger.info('skip add opening scene chapters, cuz media_title not match')
+                    return
+                mpv.command('set_property', 'chapter-list', chapter_list)
+                logger.info('opening scene found, add to chapters')
             else:
-                callbacks = {i for i in callbacks if 'fist_intro_adder' not in str(i)}
-                mpv.event_bindings[event_name] = callbacks
-            logger.info('opening scene found, add to chapters')
+                callbacks = mpv.event_bindings[event_name]
+                if len(callbacks) == 1:
+                    del mpv.event_bindings[event_name]
+                else:
+                    callbacks = {i for i in callbacks if 'fist_ep_intro_adder' not in str(i)}
+                    mpv.event_bindings[event_name] = callbacks
 
     if speed := mpv_play_speed.get(media_title):
         mpv.command('set_property', 'speed', speed)
@@ -488,11 +492,25 @@ def stop_sec_mpv(mpv: MPV, stop_sec_only=True, **_):
         return None if stop_sec_only else {}
     stop_sec = None
     name_stop_sec_dict = {}
+
+    chapters_dict = {}
+    chapter_skipped = []
+    intro_settings = configs.ini_str_split('dev', 'skip_intro', fallback=[None] * 6)
+    dura_start, dura_end, jitter_sec, limit_start, limit_end, *intro_titles = intro_settings
+
+    @mpv.on_event('file-loaded')
+    def chapters_info_gen(_event_data):
+        chapters_dict.clear()
+
     while True:
         try:
             media_title = mpv.command('get_property', 'media-title')
             tmp_sec = mpv.command('get_property', 'time-pos')
             speed = mpv.command('get_property', 'speed')
+
+            chapters_raw = mpv.command('get_property', 'chapter-list') if dura_start else None
+            chapter_index = mpv.command('get_property', 'chapter') if dura_start else None
+            chapter_unique = f'{media_title}-{chapter_index}' if dura_start else None
             if not tmp_sec:
                 print('.', end='')
             else:
@@ -501,6 +519,33 @@ def stop_sec_mpv(mpv: MPV, stop_sec_only=True, **_):
                 if not stop_sec_only:
                     name_stop_sec_dict[media_title] = tmp_sec
                     prefetch_data['stop_sec_dict'][media_title] = tmp_sec
+
+                if not chapters_dict and dura_start and chapters_raw:
+                    dura_start, dura_end, jitter_sec = int(dura_start), int(dura_end), int(jitter_sec)
+                    limit_start, limit_end = int(limit_start) / 100, int(limit_end) / 100
+                    intro_titles = [_.lower() for _ in intro_titles if _]
+                    duration = mpv.command('get_property', 'duration') or 36000
+                    for i, c in enumerate(chapters_raw):
+                        key = f'{media_title}-{i}'
+                        if i == len(chapters_raw) - 1:
+                            c['end'] = duration
+                        else:
+                            n_c = chapters_raw[i + 1]
+                            c['end'] = n_c['time']
+                        c_start_pos, c_end_pos = c['time'], c['end']
+                        if (limit_start < c_end_pos < 0.5) or (0.5 < c_start_pos and c_end_pos < limit_end):
+                            continue
+                        dura_sec = dura_start if c_start_pos < 0.5 else dura_end
+                        if abs(c['end'] - c['time'] - dura_sec) < jitter_sec:
+                            chapters_dict[key] = c
+                        if c['title'].lower() in intro_titles:
+                            chapters_dict[key] = c
+                if chapter_unique in chapters_dict and chapter_unique not in chapter_skipped:
+                    mpv.command('show-text', 'Skip Intro: Jumped to next chapter', 1500)
+                    mpv.command('add', 'chapter', 1)
+                    chapter_skipped.append(chapter_unique)
+                    logger.info(f'intro found, go to next chapter, chapter={chapters_dict[chapter_unique]["title"]} '
+                                f'{media_title=}')
             time.sleep(0.5)
         except Exception:
             logger.info(f'mpv exit, return stop sec')
