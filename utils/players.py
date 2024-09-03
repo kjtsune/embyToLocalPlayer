@@ -495,7 +495,7 @@ def stop_sec_mpv(mpv: MPV, stop_sec_only=True, **_):
 
     chapters_dict = {}
     chapter_skipped = []
-    intro_settings = configs.ini_str_split('dev', 'skip_intro', fallback=[None] * 6)
+    intro_settings = configs.ini_str_split('dev', 'skip_intro', fallback='') or [None] * 6
     dura_start, dura_end, jitter_sec, limit_start, limit_end, *intro_titles = intro_settings
 
     @mpv.on_event('file-loaded')
@@ -524,6 +524,7 @@ def stop_sec_mpv(mpv: MPV, stop_sec_only=True, **_):
                     dura_start, dura_end, jitter_sec = int(dura_start), int(dura_end), int(jitter_sec)
                     limit_start, limit_end = int(limit_start) / 100, int(limit_end) / 100
                     intro_titles = [_.lower() for _ in intro_titles if _]
+                    hint_only = 'hint_only' in intro_titles
                     duration = mpv.command('get_property', 'duration') or 36000
                     for i, c in enumerate(chapters_raw):
                         key = f'{media_title}-{i}'
@@ -536,16 +537,23 @@ def stop_sec_mpv(mpv: MPV, stop_sec_only=True, **_):
                         if (limit_start < c_end_pos < 0.5) or (0.5 < c_start_pos and c_end_pos < limit_end):
                             continue
                         dura_sec = dura_start if c_start_pos < 0.5 else dura_end
+                        c['hint_only'] = hint_only
                         if abs(c['end'] - c['time'] - dura_sec) < jitter_sec:
                             chapters_dict[key] = c
                         if c['title'].lower() in intro_titles:
                             chapters_dict[key] = c
                 if chapter_unique in chapters_dict and chapter_unique not in chapter_skipped:
-                    mpv.command('show-text', 'Skip Intro: Jumped to next chapter', 1500)
-                    mpv.command('add', 'chapter', 1)
+                    msg_style = r'${osd-ass-cc/0}{\an3}${osd-ass-cc/1}'
+                    title_log = f'chapter={chapters_dict[chapter_unique]["title"]}, {media_title=}'
+                    if chapters_dict[chapter_unique].get('hint_only'):
+                        mpv.command('expand-properties', 'show-text', msg_style + 'Intro Chapter Found', 1500)
+                        logger.info(f'intro found, show hint message, {title_log}')
+                    else:
+                        mpv.command('expand-properties', 'show-text', msg_style +
+                                    'Skip Intro: Jumped to next chapter', 1500)
+                        mpv.command('add', 'chapter', 1)
+                        logger.info(f'intro found, go to next chapter, {title_log}')
                     chapter_skipped.append(chapter_unique)
-                    logger.info(f'intro found, go to next chapter, chapter={chapters_dict[chapter_unique]["title"]} '
-                                f'{media_title=}')
             time.sleep(0.5)
         except Exception:
             logger.info(f'mpv exit, return stop sec')

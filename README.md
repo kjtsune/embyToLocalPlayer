@@ -401,7 +401,8 @@ https://github.com/kjtsune/embyToLocalPlayer#faq
   ```
   # 片头有90秒，片尾有91秒，允许5秒钟的误差，片头在前30%里，片尾在70%以后，片头片尾可能的章节名称（逗号隔开，辅助判断，不分大小写）
   # 若要禁用就删除掉，或者在前面加 # 号注释掉。mpv 章节跳转快捷键是 ; ' Page Up Page Down
-  skip_intro = 90, 91, 5, 30, 70, opening, ending, op, ed
+  # 若含有特殊值 hint_only（可删除），为启用仅提示模式，不自动跳过。需要跳过就按章节跳转快捷键。
+  skip_intro = 90, 91, 5, 30, 70, opening, ending, op, ed, hint_only
   ```
 
 </details>
