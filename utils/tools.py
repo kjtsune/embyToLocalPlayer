@@ -312,6 +312,25 @@ def match_version_range(ver_str, ver_range='4.6.7.0-4.7.14.0'):
     return False
 
 
+def sub_via_other_media_version(media_sources):
+    if len(media_sources) == 1:
+        return
+    for source in media_sources:
+        media_streams = source['MediaStreams']
+        sub_dict_list = [s for s in media_streams
+                         if s['Type'] == 'Subtitle']
+        for _sub in sub_dict_list:
+            _sub['Order'] = configs.check_str_match(
+                f"{str(_sub.get('Title', '') + ',' + _sub['DisplayTitle']).lower()}",
+                'dev', 'sub_extract_priority', log=False, order_only=True)
+        sub_dict_list = [i for i in sub_dict_list if i['Order'] != 0]
+        sub_dict_list.sort(key=lambda s: s['Order'])
+        sub_dict = sub_dict_list[0] if sub_dict_list else {}
+        if sub_index := sub_dict.get('Index'):
+            _logger.info(f'sub_via_other_media_version success')
+            return source['Id'], sub_index, sub_dict['Codec']
+
+
 def parse_received_data_emby(received_data):
     extra_data = received_data['extraData']
     show_version_info(extra_data=extra_data)
@@ -393,9 +412,10 @@ def parse_received_data_emby(received_data):
         sub_dict_list.sort(key=lambda s: s['Order'])
         sub_dict = sub_dict_list[0] if sub_dict_list else {}
         sub_index = sub_dict.get('Index', sub_index)
+
+    sub_jellyfin_str = '' if is_emby \
+        else f'{item_id[:8]}-{item_id[8:12]}-{item_id[12:16]}-{item_id[16:20]}-{item_id[20:]}/'
     if not mount_disk_mode and sub_index >= 0:
-        sub_jellyfin_str = '' if is_emby \
-            else f'{item_id[:8]}-{item_id[8:12]}-{item_id[12:16]}-{item_id[16:20]}-{item_id[20:]}/'
         sub_emby_str = f'/{media_source_id}' if is_emby else ''
         # sub_data = media_source_info['MediaStreams'][sub_index]
         sub_data = [i for i in media_streams if i['Index'] == sub_index][0]
@@ -404,6 +424,14 @@ def parse_received_data_emby(received_data):
         sub_delivery_url = sub_data['Codec'] != 'sup' and sub_data.get('DeliveryUrl') or fallback_sub
     else:
         sub_delivery_url = None
+    if not sub_delivery_url and configs.raw.get('dev', 'sub_extract_priority', fallback='') and main_ep_info:
+        if other_version_sub := sub_via_other_media_version(main_ep_info['MediaSources']):
+            _sub_source_id, _sub_index, _sub_codec = other_version_sub
+            if not _sub_source_id == media_source_id:
+                sub_emby_str = f'/{_sub_source_id}' if is_emby else ''
+                sub_delivery_url = f'{extra_str}/videos/{sub_jellyfin_str}{item_id}{sub_emby_str}/Subtitles' \
+                                   f'/{_sub_index}/0/Stream.{_sub_codec}?api_key={api_key}'
+                _logger.info(f'other version sub found, url={sub_delivery_url}')
     sub_file = f'{scheme}://{netloc}{sub_delivery_url}' if sub_delivery_url else None
     mount_disk_mode = True if force_disk_mode_by_path(file_path) else mount_disk_mode
     media_path = translate_path_by_ini(file_path, debug=True) if mount_disk_mode else stream_url
