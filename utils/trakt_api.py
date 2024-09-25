@@ -42,6 +42,14 @@ class TraktApi:
         except Exception:
             raise PermissionError(f'error found, {res.status_code=} {url=}') from None
 
+    def ids_to_trakt_url(self, ids, _type: typing.Literal['movie', 'show'] = ''):
+        _type = _type or ids.get('type')
+        if not _type:
+            ids_item = self.id_lookup('trakt', _id=ids['slug'])
+            _type = ids_item.get('type')
+        url = f"https://trakt.tv/{_type}s/{ids['slug']}"
+        return url
+
     @functools.lru_cache
     def get_single_season(self, _id, season_num, translations=''):
         """
@@ -79,6 +87,20 @@ class TraktApi:
         path_type = path_type or 'episodes'
         trakt_id = ids_item[_type]['ids']['trakt'] if _type else ids_item['trakt']
         res = self.get(f'users/{self.user_id}/history/{path_type}/{trakt_id}')
+        return res
+
+    def get_watched_data(self, _type: typing.Literal['movies', 'shows'] = 'shows'):
+        res = self.get(f'sync/watched/{_type}')
+        return res
+
+    def get_playback_progress(self):
+        # 应该是精确到分钟的
+        res = self.get('sync/playback')
+        return res
+
+    def get_show_watched_progress(self, _id):
+        # 含有 aired 的数据，重置的 api 需要 vip
+        res = self.get(f'shows/{_id}/progress/watched')
         return res
 
     def add_ep_or_movie_to_history(self, ids_items, watched_at=''):

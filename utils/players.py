@@ -556,7 +556,7 @@ def stop_sec_mpv(mpv: MPV, stop_sec_only=True, **_):
                     chapter_skipped.append(chapter_unique)
             time.sleep(0.5)
         except Exception:
-            logger.info(f'mpv exit, return stop sec')
+            logger.info(f'mpv exit, return stop sec, {stop_sec=}')
             return stop_sec if stop_sec_only else name_stop_sec_dict
 
 
@@ -687,7 +687,7 @@ def stop_sec_vlc(vlc: VLCHttpApi, stop_sec_only=True, **_):
                     prefetch_data['stop_sec_dict'][file_name] = tmp_sec
                 time.sleep(0.3)
         except Exception:
-            logger.info('stop', stop_sec)
+            logger.info(f'vlc stop, {stop_sec=}')
             return stop_sec if stop_sec_only else name_stop_sec_dict
         time.sleep(0.2)
 
@@ -825,7 +825,7 @@ def stop_sec_mpc(mpc: MPCHttpApi, stop_sec_only=True, **_):
                 name_stop_sec_dict[path] = stop
                 prefetch_data['stop_sec_dict'][path] = stop
         except Exception:
-            logger.info('final stop', stop_stack[-2], stop_stack)
+            logger.info('mpc stop', stop_stack[-2], stop_stack)
             # 播放器关闭时，webui 可能返回 0
             name_stop_sec_dict = {k: v for k, v in name_stop_sec_dict.items() if k is not None}
             return stop_stack[-2] if stop_sec_only else name_stop_sec_dict
@@ -945,10 +945,11 @@ def stop_sec_pot(pid, stop_sec_only=True, check_only=False, **_):
         if check_only and stop_sec == 'check_only':
             return True
         potplayer_time_title_updater(pid)
-        logger.debug(f'pot {stop_sec=}')
+        logger.debug(f'pot stop, {stop_sec=}')
         time.sleep(0.3)
     if check_only:
         return False
+    logger.info(f'pot stop, {stop_sec=}')
     return stop_sec if stop_sec_only else name_stop_sec_dict
 
 

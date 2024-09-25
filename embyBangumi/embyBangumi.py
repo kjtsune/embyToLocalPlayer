@@ -3,9 +3,16 @@ import difflib
 import json
 import os.path
 import re
+import sys
 from configparser import ConfigParser
 
 import requests
+
+try:
+    sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+    from utils.emby_api import EmbyApi
+except Exception:
+    pass
 
 
 class Configs:
@@ -23,121 +30,6 @@ class Configs:
 
     def get_int(self, key, fallback=0):
         return self.raw.getint('emby', key, fallback=fallback)
-
-
-class EmbyApi:
-    def __init__(self, host, api_key, user_id, http_proxy=None):
-        self.host = host.rstrip('/')
-        self.api_key = api_key
-        self.user_id = user_id
-        self.req = requests.Session()
-        self.req.headers.update({'Accept': 'application/json',
-                                 'Connection': 'keep-alive', })
-        self.req.headers.update({'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
-                                               '(KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36',
-                                 'Referer': f'{self.host}/web/index.html'})
-        if http_proxy:
-            self.req.proxies = {'http': http_proxy, 'https': http_proxy}
-
-    def get(self, path, params=None):
-        params = params or {'X-Emby-Token': self.api_key}
-        params.update({'X-Emby-Token': self.api_key})
-        url = rf'{self.host}/emby/{path}'
-        return self.req.get(
-            url,
-            params=params,
-        )
-
-    def post(self, path, _json, params=None):
-        params = params or {'X-Emby-Token': self.api_key}
-        params.update({'X-Emby-Token': self.api_key})
-        url = rf'{self.host}/emby/{path}'
-        return self.req.post(
-            url,
-            json=_json,
-            params=params,
-        )
-
-    def get_genre_id(self, name):
-        try:
-            res = self.get(f'Genres/{name}').json()['Id']
-        except Exception:
-            raise KeyError(f'Genres: {name} not exists, check it') from None
-        return res
-
-    def get_library_id(self, name):
-        if not name:
-            return
-        res = self.get(f'Library/VirtualFolders')
-        lib_id = [i['ItemId'] for i in res.json() if i['Name'] == name]
-        if not lib_id:
-            raise KeyError(f'library: {name} not exists, check it')
-        return lib_id[0] if lib_id else None
-
-    def get_items(self, genre='', types='Movie,Series,Video', fields='CommunityRating,CriticRating', start_index=0,
-                  ids=None, limit=50, parent_id=None,
-                  sort_by='DateCreated,SortName',
-                  recursive=True):
-        params = {
-            'HasTmdbId': True,
-            'SortBy': sort_by,
-            'SortOrder': 'Descending',
-            'IncludeItemTypes': types,
-            'Recursive': recursive,
-            'Fields': fields,
-            'StartIndex': start_index,
-            'Limit': limit,
-            'X-Emby-Token': self.api_key,
-        }
-
-        if genre:
-            params.update({'GenreIds': self.get_genre_id(genre)})
-        if ids:
-            params.update({'Ids': ids})
-        if parent_id:
-            params.update({'ParentId': parent_id})
-
-        res = self.get('Items', params=params)
-        return res.json()
-
-    def yield_all_items(self, genre='', types='Movie,Series,Video', fields='CommunityRating,CriticRating',
-                        start_index=0, limit=200, parent_id=None):
-        fist = self.get_items(genre=genre, types=types, fields=fields, start_index=start_index, limit=limit,
-                              parent_id=parent_id)
-        total = fist['TotalRecordCount']
-        yield from fist['Items']
-        for i in range(1, (total - start_index) // limit + 1):
-            _start_index = i * limit + start_index
-            yield from self.get_items(genre=genre, types=types, fields=fields, start_index=_start_index,
-                                      limit=limit, parent_id=parent_id)['Items']
-
-    def update_critic_rating(self, item_id, rating):
-        get_path = f'/Users/{self.user_id}/Items/{item_id}'
-        post_path = f'Items/{item_id}'
-        old = self.get(path=get_path, params={'Fields': 'ChannelMappingInfo'}).json()
-
-        useful_key = ['Name', 'OriginalTitle', 'Id', 'DateCreated', 'SortName', 'ForcedSortName', 'PremiereDate',
-                      'OfficialRating', 'Overview', 'Taglines', 'Genres', 'CommunityRating', 'RunTimeTicks',
-                      'ProductionYear', 'ProviderIds', 'People', 'Studios', 'TagItems', 'Status', 'DisplayOrder',
-                      'LockedFields', 'LockData']
-        _not_require_key = ['ServerId', 'Etag', 'CanDelete', 'CanDownload', 'PresentationUniqueKey', 'ExternalUrls',
-                            'Path', 'FileName', 'PlayAccess', 'RemoteTrailers', 'IsFolder', 'ParentId', 'Type',
-                            'GenreItems', 'LocalTrailerCount', 'UserData', 'RecursiveItemCount', 'ChildCount',
-                            'DisplayPreferencesId', 'AirDays', 'PrimaryImageAspectRatio', 'ImageTags',
-                            'BackdropImageTags']
-        # useful_key.append('ExternalUrls') # 无法更改
-        new = {k: v for k, v in old.items() if k in useful_key}
-        new.update({'CriticRating': rating})
-        self.post(path=post_path,
-                  _json=new)
-
-    def refresh(self, item_id):
-        self.post(f'Items/{item_id}/Refresh',
-                  _json={
-                      'Recursive': False,
-                      'MetadataRefreshMode': 'FullRefresh',
-                      'ReplaceAllMetadata': False,
-                  })
 
 
 class BangumiApi:
@@ -203,7 +95,7 @@ class JsonDataBase:
         try:
             with open(self.file_path, encoding=encoding) as f:
                 _json = json.load(f)
-        except (FileNotFoundError, ValueError):
+        except FileNotFoundError:
             print(f'{self.file_name} not exist, return {self.db_type}')
             return dict(list=[], dict={})[self.db_type]
         else:

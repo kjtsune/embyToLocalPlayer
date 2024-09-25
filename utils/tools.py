@@ -315,6 +315,7 @@ def match_version_range(ver_str, ver_range='4.6.7.0-4.7.14.0'):
 def sub_via_other_media_version(media_sources):
     if len(media_sources) == 1:
         return
+    sub_match = {}
     for source in media_sources:
         media_streams = source['MediaStreams']
         sub_dict_list = [s for s in media_streams
@@ -327,8 +328,8 @@ def sub_via_other_media_version(media_sources):
         sub_dict_list.sort(key=lambda s: s['Order'])
         sub_dict = sub_dict_list[0] if sub_dict_list else {}
         if sub_index := sub_dict.get('Index'):
-            _logger.info(f'sub_via_other_media_version success')
-            return source['Id'], sub_index, sub_dict['Codec']
+            sub_match[f"{source['Id']}"] = source['Id'], sub_index, sub_dict['Codec']
+    return sub_match
 
 
 def parse_received_data_emby(received_data):
@@ -425,9 +426,9 @@ def parse_received_data_emby(received_data):
     else:
         sub_delivery_url = None
     if not sub_delivery_url and configs.raw.get('dev', 'sub_extract_priority', fallback='') and main_ep_info:
-        if other_version_sub := sub_via_other_media_version(main_ep_info['MediaSources']):
-            _sub_source_id, _sub_index, _sub_codec = other_version_sub
-            if not _sub_source_id == media_source_id:
+        if sub_all_match := sub_via_other_media_version(main_ep_info['MediaSources']):
+            _sub_source_id, _sub_index, _sub_codec = list(sub_all_match.values())[0]
+            if not sub_all_match.get(media_source_id):
                 sub_emby_str = f'/{_sub_source_id}' if is_emby else ''
                 sub_delivery_url = f'{extra_str}/videos/{sub_jellyfin_str}{item_id}{sub_emby_str}/Subtitles' \
                                    f'/{_sub_index}/0/Stream.{_sub_codec}?api_key={api_key}'

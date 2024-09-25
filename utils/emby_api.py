@@ -33,15 +33,16 @@ class EmbyApi:
             self.req.proxies = {'http': http_proxy, 'https': http_proxy}
         if socks_proxy:
             self.req.proxies = {'http': socks_proxy, 'https': socks_proxy}
+        self.system_info = None
+        self.server_id = None
 
-    def get(self, path, params=None):
+    def get(self, path, params=None, get_json=True) -> typing.Union[dict, list, requests.Response]:
         params = params or {'X-Emby-Token': self.api_key}
         params.update({'X-Emby-Token': self.api_key})
         url = rf'{self.host}/emby/{path}'
-        return self.req.get(
-            url,
-            params=params,
-        )
+        res = self.req.get(url, params=params, )
+        res.raise_for_status()
+        return res.json() if get_json else res
 
     def post(self, path, _json, params=None):
         params = params or {'X-Emby-Token': self.api_key}
@@ -55,37 +56,40 @@ class EmbyApi:
 
     def get_genre_id(self, name):
         try:
-            res = self.get(f'Genres/{name}').json()['Id']
+            res = self.get(f'Genres/{name}')['Id']
         except Exception:
             raise KeyError(f'Genres: {name} not exists, check it') from None
         return res
 
-    def get_library_id(self, name):
-        if not name:
+    def get_library_id(self, name='', get_all=False):
+        if not name and not get_all:
             return
         res = self.get(f'Library/VirtualFolders')
-        lib_id = [i['ItemId'] for i in res.json() if i['Name'] == name]
+        if get_all:
+            lib_dict = {i['Name']: i['ItemId'] for i in res}
+            return lib_dict
+        lib_id = [i['ItemId'] for i in res if i['Name'] == name]
         if not lib_id:
             raise KeyError(f'library: {name} not exists, check it')
         return lib_id[0] if lib_id else None
 
     def get_sessions(self, item_id):
         res = self.get(f'Shows/{item_id}/Seasons')
-        return res.json()
+        return res
 
     def get_episodes(self, item_id, session_id=None):
         params = {'SeasonId': session_id} if session_id else {}
         res = self.get(f'Shows/{item_id}/Episodes', params=params)
-        return res.json()
+        return res
 
     def get_playback_info(self, item_id):
         res = self.get(f'Items/{item_id}/PlaybackInfo')
-        return res.json()
+        return res
 
     def get_item(self, item_id):
         if self.user_id:
             res = self.get(f'Users/{self.user_id}/Items/{item_id}')
-            return res.json()
+            return res
 
         ext_fields = ','.join([
             'Genres'
@@ -130,7 +134,7 @@ class EmbyApi:
             params.update(ext_params)
 
         res = self.get('Items', params=params)
-        return res.json()
+        return res
 
     def yield_all_items(self, genre='', types='Movie,Series,Video', fields: typing.Union[list, str] = None,
                         start_index=0, piece=200, item_limit=0, parent_id=None, ext_params: dict = None):
@@ -153,7 +157,7 @@ class EmbyApi:
 
     def search_by_trakt(self, tk_ids: dict):
         """只能搜索主条目，集和季不行"""
-        ids_param = ','.join([k + '.' + str(v) for k, v in tk_ids.items()])
+        ids_param = ','.join([k + '.' + str(v) for k, v in tk_ids.items() if v and k != 'tmdb'])  # tmdb may TV or Movie
         ext_params = {'AnyProviderIdEquals': ids_param, }
         res = self.get_items(ext_params=ext_params)
         return res
@@ -161,7 +165,7 @@ class EmbyApi:
     def update_critic_rating(self, item_id, rating):
         get_path = f'/Users/{self.user_id}/Items/{item_id}'
         post_path = f'Items/{item_id}'
-        old = self.get(path=get_path, params={'Fields': 'ChannelMappingInfo'}).json()
+        old = self.get(path=get_path, params={'Fields': 'ChannelMappingInfo'})
 
         useful_key = ['Name', 'OriginalTitle', 'Id', 'DateCreated', 'SortName', 'ForcedSortName', 'PremiereDate',
                       'OfficialRating', 'Overview', 'Taglines', 'Genres', 'CommunityRating', 'RunTimeTicks',
@@ -185,3 +189,13 @@ class EmbyApi:
                       'MetadataRefreshMode': 'FullRefresh',
                       'ReplaceAllMetadata': False,
                   })
+
+    def mark_item_played(self, item_id):
+        self.post(f'Users/{self.user_id}/PlayedItems/{item_id}', _json=None)
+
+    def item_id_to_url(self, item_id):
+        if not self.server_id:
+            self.system_info = self.get('System/Info')
+            self.server_id = self.system_info['Id']
+        url = f'{self.host}/web/index.html#!/item?id={item_id}&serverId={self.server_id}'
+        return url
