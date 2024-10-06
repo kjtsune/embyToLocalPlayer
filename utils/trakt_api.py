@@ -8,7 +8,8 @@ import requests
 
 
 class TraktApi:
-    def __init__(self, user_id, client_id, client_secret, token_file=None, oauth_code=None, http_proxy=None):
+    def __init__(self, user_id, client_id, client_secret, token_file=None, oauth_code=None, http_proxy=None,
+                 code_received=False):
         self.base_url = 'https://api.trakt.tv'
         self.user_id = user_id
         self.client_id = client_id
@@ -22,6 +23,7 @@ class TraktApi:
         self.oauth_code = oauth_code
         self.access_token = {}
         self.token_file = token_file or 'trakt_token.json'
+        self.code_received = code_received
         self.init_token_workflow()
 
     def get(self, path, params=None):
@@ -78,9 +80,10 @@ class TraktApi:
         res = [i[i['type']]['ids'] for i in ids_items]
         return res if is_list else res[0]
 
-    def get_watch_history(self, ids_item):
+    def get_watch_history(self, ids_item) -> list:
         # id_lookup -> ids_item
         # get_single_season > ep_ids :not type field
+        # return 观看动作相关的历史列表。剧集无法判断是否完成观看。
         _type = ids_item.get('type')
         path_type = f'{_type}s' if _type else ''
         # 若没指定类型，返回的记录可能有误
@@ -99,9 +102,23 @@ class TraktApi:
         return res
 
     def get_show_watched_progress(self, _id):
+        # Trakt ID, Trakt slug, or IMDB ID
         # 含有 aired 的数据，重置的 api 需要 vip
         res = self.get(f'shows/{_id}/progress/watched')
         return res
+
+    def check_is_watched(self, ids_item):
+        # id_lookup -> ids_item
+        _type = ids_item.get('type')
+        if _type == 'movie':
+            res = self.get_watch_history(ids_item)
+            return res
+        trakt_id = ids_item[_type]['ids']['trakt'] if _type else ids_item['trakt']
+        res = self.get_show_watched_progress(trakt_id)
+        aired, completed = res['aired'], res['completed']
+        # 不严谨，分季情况未区分。
+        if completed >= aired:
+            return res
 
     def add_ep_or_movie_to_history(self, ids_items, watched_at=''):
         # id_lookup -> ids_item
@@ -136,15 +153,12 @@ class TraktApi:
             'code': oauth_code,
             'client_id': self.client_id,
             'client_secret': self.client_secret,
-            'redirect_uri': 'http://localhost/trakt',
+            'redirect_uri': 'http://localhost:58000/trakt_auth',
             'grant_type': 'authorization_code'
         })
         if not res.get('access_token'):
-            url = f'https://trakt.tv/oauth/authorize?client_id={self.client_id}' \
-                  f'&redirect_uri=http%3A%2F%2Flocalhost%2Ftrakt&response_type=code'
-            if os.name == 'nt':
-                os.startfile(url)
-            raise ValueError('oauth_token failed, may require new oauth_code')
+            print('trakt: oauth_token failed, may already succeed or require new oauth_code')
+            return
 
         with open(self.token_file, 'w', encoding='utf-8') as f:
             json.dump(res, f, indent=2)
@@ -188,19 +202,26 @@ class TraktApi:
             self.req.headers.update({'Authorization': f'Bearer {self.access_token["access_token"]}'})
             return True
 
-    def init_token_workflow(self, oauth_code=None):
-        oauth_code = oauth_code or self.oauth_code
+    def _open_browser(self):
+        url = f'https://trakt.tv/oauth/authorize?client_id={self.client_id}' \
+              f'&redirect_uri=http://localhost:58000/trakt_auth&response_type=code'
+        if os.name == 'nt':
+            os.startfile(url)
+        else:
+            raise ValueError(f'trakt: auth require, open url in browser\n{url}')
+
+    def init_token_workflow(self):
+        if self.code_received:
+            self.get_access_token(oauth_code=self.oauth_code)
+            return
         if self.is_token_saved() and self.is_token_work():
             return
         if not self.is_token_saved():
             if not all([self.user_id, self.client_id, self.client_secret]):
                 raise ValueError('require user_id, client_id, client_secret')
-            if not oauth_code:
-                url = f'https://trakt.tv/oauth/authorize?client_id={self.client_id}' \
-                      f'&redirect_uri=http%3A%2F%2Flocalhost%2Ftrakt&response_type=code'
-                if os.name == 'nt':
-                    os.startfile(url)
-                raise ValueError('require new oauth_code')
-            self.get_access_token(oauth_code=oauth_code)
+            if not self.oauth_code or not self.access_token:
+                self._open_browser()
+                return
+            self.get_access_token(oauth_code=self.oauth_code)
         if not self.is_token_work():
             self.refresh_access_token()

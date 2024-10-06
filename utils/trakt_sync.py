@@ -129,13 +129,17 @@ def sync_ep_or_movie_to_trakt(trakt, eps_data):
         return res
 
 
-def trakt_api_client():
+def trakt_api_client(received_code=None):
+    code_received = bool(received_code)
     from utils.trakt_api import TraktApi
     user_id = configs.raw.get('trakt', 'user_name', fallback='')
     client_id = configs.raw.get('trakt', 'client_id', fallback='')
     client_secret = configs.raw.get('trakt', 'client_secret', fallback='')
-    oauth_code = configs.raw.get('trakt', 'oauth_code', fallback='').split('code=')
-    oauth_code = oauth_code[1] if len(oauth_code) == 2 else oauth_code[0]
+    if received_code:
+        oauth_code = received_code
+    else:
+        oauth_code = configs.raw.get('trakt', 'oauth_code', fallback='').split('code=')
+        oauth_code = oauth_code[1] if len(oauth_code) == 2 else oauth_code[0]
     if not all([user_id, client_id, client_secret]):
         raise ValueError('trakt: require user_name, client_id, client_secret')
     trakt = TraktApi(
@@ -144,7 +148,8 @@ def trakt_api_client():
         client_secret=client_secret,
         oauth_code=oauth_code,
         token_file=os.path.join(configs.cwd, 'trakt_token.json'),
-        http_proxy=configs.script_proxy)
+        http_proxy=configs.script_proxy,
+        code_received=code_received)
     return trakt
 
 

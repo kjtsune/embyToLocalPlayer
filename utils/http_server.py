@@ -17,6 +17,7 @@ from utils.players import (player_start_func_dict, PlayerManager, stop_sec_funct
 from utils.tools import (configs, MyLogger, open_local_folder, play_media_file,
                          activate_window_by_pid, parse_received_data_emby, parse_received_data_plex,
                          get_player_cmd, ThreadWithReturnValue)
+from utils.trakt_sync import trakt_api_client
 
 player_is_running = False
 logger = MyLogger()
@@ -49,6 +50,7 @@ def run_server(ip='127.0.0.1', port=58000):
 
 
 class UserScriptRequestHandler(BaseHTTPRequestHandler):
+
     def _set_headers(self):
         self.send_response(200)
         self.send_header('Content-type', 'application/json')
@@ -108,13 +110,23 @@ class UserScriptRequestHandler(BaseHTTPRequestHandler):
         pass
 
     def do_GET(self):
-        if self.path == '/':
+        if self.path in ['/', '/favicon.ico']:
             self.send_response(200)
             self.end_headers()
             self.wfile.write(b'Server is running')
             return
         if self.path.startswith('/play_media_file'):
             self.play_media_file()
+            return
+        if self.path.startswith('/trakt_auth'):
+            parsed_path = urllib.parse.urlparse(self.path)
+            query = dict(urllib.parse.parse_qsl(parsed_path.query))
+            if received_code := query.get('code'):
+                trakt_api_client(received_code)
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(b'etlp: trakt auth success')
+            logger.info(f'trakt: auth success')
             return
         logger.info(f'path invalid {self.path=}')
 

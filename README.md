@@ -224,14 +224,13 @@ https://github.com/kjtsune/embyToLocalPlayer#faq
     4. 配置和使用都麻烦。
 * 使用说明：
     1. [点击访问：Trakt app 管理页面](https://trakt.tv/oauth/applications)：   
-       创建 app，名字任意，Redirect uri 填写: `http://localhost/trakt` ，然后保存。
+       创建 app，名字任意，Redirect uri 填写: `http://localhost:58000/trakt_auth` ，然后保存。
     2. ini 配置文件`[trakt]` 填写 `enable_host` `user_name` `client_id` `client_secret` 这四项。
-    3. 点击 app 详情页面的 `Authorize` 按钮，二次同意后，复制网址并填到配置文件 `oauth_code` 里。
-    4. 启动脚本，播放一个视频，拖到最后，关闭播放器。看日志是否同步成功。
+    3. 启动脚本，会自动跳验证页面。或者自行点击 app 详情页面的 `Authorize`
+       按钮，二次同意后，网页会显示 `etlp: trakt auth success`。etlp 目录下会自动生成 `trakt_token.json`
+    4. 播放一个视频，拖到最后，关闭播放器。看日志是否同步成功。
 * 常见问题：
     1. 若同步失败。电影看是否缺失IMDb，剧集看单集下方是否有 IMDb 或 TheTVDB。
-    2. 目录下`trakt_token.json`可以复制给新电脑用。然后删除原来的，并填写新的 `oauth_code` 来重新生成。   
-       如果只是复制到新电脑，重复使用 token 的话，有效期只有三个月。
 
 </details>
 
@@ -334,9 +333,11 @@ https://github.com/kjtsune/embyToLocalPlayer#faq
 * Pot 自身问题：`.bat` 日志可能提示`KeyError: 'stream.mkv'`。  
   解决方案：三选一（若前两个方法失败换版本估计也不行）。1. 本地用户使用读盘模式；2. 把 `.ini` 文件里`多集回传` 部分删除。3. 换
   pot版本；  
-  [PotPlayerSetup64-230208.exe](https://www.videohelp.com/download/PotPlayerSetup64-230208.exe)
-  可以换这个版本，文件与官网一致。   
-  sha1sum `fcd6404e32e6d28769365d9493627f15a0a302d5`
+  建议换 240618 版本，文件 sha256 与 ScoopInstaller / winget-pkgs 一致。  
+  [potplayer-1-7-22286.exe (v240618)](https://potplayer.en.uptodown.com/windows/download/1018490678)    
+  sha256sum `66d03fc13f4949948890675cf62b839b704b542a34a13a180466f93be20d5bc6`  
+  [github.com/ScoopInstaller/Extras -> potplayer.json](https://github.com/ScoopInstaller/Extras/blob/108f0c0d42347a1cb9a16d8effdad09a7059c22b/bucket/potplayer.json#L11-L12)  
+  [github.com/microsoft/winget-pkgs -> Daum.PotPlayer.installer.yaml](https://github.com/microsoft/winget-pkgs/blob/d7aa02cfe97624c51a005b3c7ac42f05f205aff5/manifests/d/Daum/PotPlayer/240618/Daum.PotPlayer.installer.yaml#L84-L85)
 * Pot 自身问题：若使用 http 播放，可能提示地址关闭。Win8 32bit 碰到。  
   解决方案：本地用户使用读盘模式，或者换 pot 便携版。  
   安全性未知：[PotPlayerPortable-220914.zip](https://www.videohelp.com/download/PotPlayerPortable-220914.zip)  
