@@ -186,7 +186,7 @@ class MyStorage {
 }
 
 function scriptSettingsSaver(key, value, force = false) {
-    let overwrite = config.settings || force;
+    let overwrite = config.saveSettigs || force;
     let settsingDb = new MyStorage('script|saveStings', undefined, undefined, true);
     if (overwrite && myBool(value)) {
         settsingDb.set(key, value);
