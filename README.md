@@ -90,9 +90,26 @@ etlp - Emby/Jellyfin 调用 PotPlayer mpv IINA MPC VLC 播放，并回传播放�
 
 1. `apt install python3-tk`（没报错不装也行）
 2. 添加 `etlp_run.command` 执行权限，并用终端打开。
-3. 正常播放后，加入开机启动项（无窗口运行）：  
-   Debian_Xfce：设置 > 会话和启动 > 应用程序自启动。  
-   注意：只能使用用图形界面的自启动功能。利用 systemd 自启弹不出播放器，应该是权限或者环境等问题。
+3. 正常播放后，加入开机启动项（无窗口运行）：
+    * 图形界面: Debian_Xfce：设置 > 会话和启动 > 应用程序自启动。
+    * systemd 服务自启参考。若失败请用图形界面的自启动。
+    <details>
+    <summary>systemd service</summary>
+   
+    ```
+    [Unit]
+    Description=embyToLocalPlayer
+    After=graphical-session.target
+
+    [Service]
+    ExecStart=/root/etlp/etlp_run.command
+    ExecStartPre=/bin/bash -c "until loginctl show-session $(loginctl | grep $USER | awk '{print $1}') -p Type | grep -q -e 'x11\|wayland'; do sleep 1; done; sleep 2"
+    TimeoutStartSec=infinity
+    
+    [Install]
+    WantedBy=graphical-session.target
+    ```
+    </details>
 
 ### FAQ
 
