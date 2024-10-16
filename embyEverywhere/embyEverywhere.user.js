@@ -963,11 +963,12 @@ async function googleTitlePage() {
     let yearElement = document.querySelector('div[data-attrid="subtitle"][role="heading"]');
     if (![titleElement, yearElement].every(v => v)) { return; }
     let videoTitle = titleElement.textContent;
-    let videoYear = yearElement.textContent.match(/\d\d\d\d/)[0]
-    let typeSelector = `div[data-eas][data-fhs][data-maindata*="${videoTitle}"]`
+    let videoYear = yearElement.textContent.match(/\d\d\d\d/)[0];
+    let _cleanTitle = videoTitle.split('&').at(-1);
+    let typeSelector = `div[data-eas][data-fhs][data-maindata*="${_cleanTitle}"]`;
     let typeElement = document.querySelector(typeSelector);
-    let videoType = JSON.parse(typeElement.getAttribute('data-maindata'))[4][0]
-    let allowTypes = ['FILM', 'TV']
+    let videoType = JSON.parse(typeElement.getAttribute('data-maindata'))[4][0];
+    let allowTypes = ['FILM', 'TV'];
     if (!allowTypes.includes(videoType)) {
         logger.error(videoType, 'not allow');
         return;

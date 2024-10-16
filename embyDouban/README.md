@@ -3,8 +3,8 @@
 emby 里增加：豆瓣 Bangumi bgm.tv 评分 链接
 
 - 豆瓣评论：点击油猴插件后能看到开关。
-- 豆瓣链接：在 IMDb 前面。
-- 番组链接：在 TMDB 前面。
+- 豆瓣链接：评分可点击，或在底部 IMDb 链接前面。
+- 番组链接：评分可点击，或在底部 在 TMDB 链接前面。
 
 ![](https://github.com/kjtsune/embyToLocalPlayer/raw/main/embyDouban/embyDouban.jpg)
 
