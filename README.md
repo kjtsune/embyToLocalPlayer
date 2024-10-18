@@ -58,8 +58,8 @@ etlp - Emby/Jellyfin 调用 PotPlayer mpv IINA MPC VLC 播放，并回传播放�
 3. 按 2 则创建开机启动项并后台运行。（隐藏窗口运行）
 
 * 问题排查：
-    * 若双击 `.bat` 就提示找不到 Python，请使用便携版。
-    * 若碰到播放器无法播放，请使用包含 mpv 的便携版测试。
+    * 若双击 `.bat` 就提示找不到 Python，  
+      或者播放器无法播放，请使用包含 mpv 的便携版测试。
     * 若自启失败，检查启动项是否被禁用：任务管理器 > 启动。  
       `.bat` 按 3 查看开机文件夹里面`embyToLocalPlayer.vbs`是否被杀毒软件删了。  
       若被删，可以自己创建 vbs，然后双击测试是否正常后台运行。 `.vbs` 模板:
@@ -95,7 +95,7 @@ etlp - Emby/Jellyfin 调用 PotPlayer mpv IINA MPC VLC 播放，并回传播放�
     * systemd 服务自启参考。若失败请用图形界面的自启动。
     <details>
     <summary>systemd service</summary>
-   
+
     ```
     [Unit]
     Description=embyToLocalPlayer

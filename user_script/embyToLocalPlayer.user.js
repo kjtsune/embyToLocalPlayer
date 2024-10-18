@@ -3,7 +3,7 @@
 // @name:zh-CN   embyToLocalPlayer
 // @name:en      embyToLocalPlayer
 // @namespace    https://github.com/kjtsune/embyToLocalPlayer
-// @version      2024.08.26
+// @version      2024.10.18
 // @description  Emby/Jellyfin 调用外部本地播放器，并回传播放记录。适配 Plex。
 // @description:zh-CN Emby/Jellyfin 调用外部本地播放器，并回传播放记录。适配 Plex。
 // @description:en  Play in an external player. Update watch history to Emby/Jellyfin server. Support Plex.
@@ -19,6 +19,9 @@
 // @grant        GM_xmlhttpRequest
 // @grant        GM_registerMenuCommand
 // @grant        GM_unregisterMenuCommand
+// @grant        GM_getValue
+// @grant        GM_setValue
+// @grant        GM_deleteValue
 // @run-at       document-start
 // @connect      127.0.0.1
 // @license MIT
@@ -27,13 +30,11 @@
 
 (function () {
     'use strict';
-    let _crackFullPath = Boolean(localStorage.getItem('crackFullPath'));
-    let _disableOpenFolder = Boolean(localStorage.getItem('disableOpenFolder'));
     let fistTime = true;
     let config = {
         logLevel: 2,
-        disableOpenFolder: _disableOpenFolder, // _disableOpenFolder 改为 true 则禁用打开文件夹的按钮。
-        crackFullPath: _crackFullPath,
+        disableOpenFolder: undefined, // undefined 改为 true 则禁用打开文件夹的按钮。
+        crackFullPath: undefined,
     };
 
     let logger = {
@@ -56,6 +57,22 @@
 
     async function sleep(ms) {
         return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    function _init_config_main() {
+        function _init_config_by_key(confKey) {
+            let confLocal = localStorage.getItem(confKey);
+            if (confLocal == null) return;
+            if (confLocal == 'true') {
+                GM_setValue(confKey, true);
+
+            } else if (confLocal == 'false') {
+                GM_setValue(confKey, false);
+            }
+            let confGM = GM_getValue(confKey, null);
+            if (confGM !== null) { config[confKey] = confGM };
+        }
+        _init_config_by_key('crackFullPath');
     }
 
     function removeErrorWindows() {
@@ -279,11 +296,10 @@
                     let match = url.match(/\/Items\/(\w+)\/PlaybackInfo/);
                     let itemId = match ? match[1] : null;
                     let userId = ApiClient._serverInfo.UserId;
-                    let [playbackResp, mainEpInfo] = await Promise.all([
-                        originFetch(raw_url, request),
+                    let [playbackData, mainEpInfo] = await Promise.all([
+                        ApiClient.getPlaybackInfo(itemId), // originFetch(raw_url, request), 可能会 NoCompatibleStream
                         ApiClient.getItem(userId, itemId),
                     ]);
-                    let playbackData = await playbackResp.clone().json();
                     let episodesInfoData = episodesInfoCache[0] ? await episodesInfoCache[1].clone().json() : null;
                     episodesInfoData = (episodesInfoData && episodesInfoData.Items) ? episodesInfoData.Items : null;
                     let playlistData = (playlistInfoCache && playlistInfoCache.Items) ? playlistInfoCache.Items : null;
@@ -356,8 +372,10 @@
     }
 
     // 初始化请求并拦截 plex
-    initXMLHttpRequest()
+    initXMLHttpRequest();
 
-    setModeSwitchMenu('webPlayerEnable', '脚本在当前服务器 已', '', '启用', '禁用', '启用')
-    setModeSwitchMenu('mountDiskEnable', '读取硬盘模式已经 ')
+    setModeSwitchMenu('webPlayerEnable', '脚本在当前服务器 已', '', '启用', '禁用', '启用');
+    setModeSwitchMenu('mountDiskEnable', '读取硬盘模式已经 ');
+
+    _init_config_main();
 })();
