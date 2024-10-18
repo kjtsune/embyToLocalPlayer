@@ -348,6 +348,7 @@ def mpv_player_start(cmd, start_sec=None, sub_file=None, media_title=None, get_s
     if is_darwin:
         cmd.append('--focus-on-open')
     cmd.append(fr'--input-ipc-server={cmd_pipe}')
+    cmd.append('--force-window=immediate')
     cmd.append('--script-opts-append=autoload-disabled=yes')
     if configs.fullscreen:
         cmd.append('--fullscreen=yes')
