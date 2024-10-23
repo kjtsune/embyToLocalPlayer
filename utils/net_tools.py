@@ -241,7 +241,7 @@ def change_plex_play_position(scheme, netloc, api_key, stop_sec, rating_key, cli
                     })
 
 
-def updating_playing_progress(data, cur_sec, method='playing'):
+def realtime_playing_request_sender(data, cur_sec, method='playing'):
     is_emby = (data['server'] == 'emby')
     emby_str = '/emby' if is_emby else ''
     ticks = int(cur_sec * 10 ** 7)

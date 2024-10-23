@@ -10,7 +10,7 @@ from html.parser import HTMLParser
 from utils.configs import configs, MyLogger
 from utils.downloader import Downloader
 from utils.net_tools import (requests_urllib, update_server_playback_progress, sync_third_party_for_eps, list_episodes,
-                             save_sub_file, get_redirect_url, updating_playing_progress)
+                             save_sub_file, get_redirect_url, realtime_playing_request_sender)
 from utils.python_mpv_jsonipc import MPV
 from utils.tools import activate_window_by_pid
 
@@ -61,9 +61,9 @@ class PlayerManager:
 
         threading.Thread(target=self.prefetch_next_ep_loop, daemon=True).start()
         threading.Thread(target=self.redirect_next_ep_loop, daemon=True).start()
-        threading.Thread(target=self.playing_feedback_loop, daemon=True).start()
+        threading.Thread(target=self.realtime_playing_feedback_loop, daemon=True).start()
 
-    def playing_feedback_loop(self):
+    def realtime_playing_feedback_loop(self):
         mpv = self.player_kwargs.get('mpv')
         if not mpv or not configs.check_str_match(self.data['netloc'], 'dev', 'playing_feedback_host', log=True):
             return
@@ -95,9 +95,9 @@ class PlayerManager:
                 if last_ep:
                     last_sec = stop_sec_dict[last_key]
                     logger.debug(f'updating end {last_sec=} {last_ep["basename"]}')
-                    updating_playing_progress(data=last_ep, cur_sec=last_sec, method='end')
+                    realtime_playing_request_sender(data=last_ep, cur_sec=last_sec, method='end')
                     last_ep['update_success'] = True
-                updating_playing_progress(data=ep, cur_sec=cur_sec, method='start')
+                realtime_playing_request_sender(data=ep, cur_sec=cur_sec, method='start')
                 last_ep = ep
                 last_key = key
                 req_sec = cur_sec
@@ -108,7 +108,7 @@ class PlayerManager:
             if 180 < pause_sec or 0 < after_sec < 30 * speed:  # 尽量增加汇报间隔
                 time.sleep(interval)
                 continue
-            updating_playing_progress(data=ep, cur_sec=cur_sec)
+            realtime_playing_request_sender(data=ep, cur_sec=cur_sec)
             req_sec = cur_sec
             time.sleep(interval)
 
@@ -337,6 +337,7 @@ def mpv_player_start(cmd, start_sec=None, sub_file=None, media_title=None, get_s
         cmd.append(f'--force-media-title={media_title}')
         cmd.append(f'--osd-playing-msg={osd_title}')
     if not mount_disk_mode:
+        cmd.append('--force-window=immediate')
         if proxy := configs.player_proxy:
             cmd.append(f'--http-proxy=http://{proxy}')
     if start_sec is not None:
@@ -348,7 +349,6 @@ def mpv_player_start(cmd, start_sec=None, sub_file=None, media_title=None, get_s
     if is_darwin:
         cmd.append('--focus-on-open')
     cmd.append(fr'--input-ipc-server={cmd_pipe}')
-    cmd.append('--force-window=immediate')
     cmd.append('--script-opts-append=autoload-disabled=yes')
     if configs.fullscreen:
         cmd.append('--fullscreen=yes')
