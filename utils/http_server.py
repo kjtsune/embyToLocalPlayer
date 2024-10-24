@@ -11,9 +11,9 @@ from http.server import HTTPServer
 from socketserver import ThreadingMixIn
 
 from utils.downloader import DownloadManager
-from utils.net_tools import update_server_playback_progress
-from utils.players import (player_start_func_dict, PlayerManager, stop_sec_function_dict, list_episodes,
-                           sync_third_party_for_eps)
+from utils.net_tools import update_server_playback_progress, sync_third_party_for_eps
+from utils.player_manager import PlayerManager
+from utils.players import start_player_func_dict, stop_sec_func_dict, list_episodes
 from utils.tools import (configs, MyLogger, open_local_folder, play_media_file,
                          activate_window_by_pid, parse_received_data_emby, parse_received_data_plex,
                          get_player_cmd, ThreadWithReturnValue)
@@ -236,7 +236,7 @@ def start_play(data):
     # 播放器特殊处理
     player_is_running = True if configs.raw.getboolean('dev', 'one_instance_mode', fallback=True) else False
     player_alias_dict = {'ddplay': 'dandanplay'}
-    legal_player_name = list(player_start_func_dict) + list(player_alias_dict)
+    legal_player_name = list(start_player_func_dict) + list(player_alias_dict)
     player_name = [i for i in legal_player_name if i in player_path_lower]
     if player_name:
         player_name = player_name[0]
@@ -254,10 +254,10 @@ def start_play(data):
             player_is_running = False
             return
 
-        player_function = player_start_func_dict[player_name]
+        player_function = start_player_func_dict[player_name]
         stop_sec_kwargs = player_function(cmd=cmd, start_sec=start_sec, sub_file=sub_file, media_title=media_title,
                                           mount_disk_mode=mount_disk_mode, data=data)
-        stop_sec = stop_sec_function_dict[player_name](**stop_sec_kwargs)
+        stop_sec = stop_sec_func_dict[player_name](**stop_sec_kwargs)
         logger.info('stop_sec', stop_sec)
         if stop_sec is None:
             player_is_running = False
