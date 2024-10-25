@@ -371,6 +371,9 @@ https://github.com/kjtsune/embyToLocalPlayer#faq
   打勾 仅允许从 localhost 访问
 * MPC 播放 http 具有加载和拖动慢，视频总时长可能有误的缺点。  
   以及点击关闭播放器后，进程可能残留在后台。
+* MPC 播放 http 无外挂字幕：  
+  MPC-HC 设置 > 回放 > 输出 > 字幕渲染器 > 内部字幕渲染器  
+  MPC-BE 设置 > 字幕 > 字幕渲染器 > 内部字幕渲染器
 
 > IINA
 

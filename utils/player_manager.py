@@ -223,7 +223,12 @@ class PrefetchManager(BaseInit):  # 未兼容播放器多开，暂不处理
                     logger.info('redirect_next_ep: mpv next filename not match playlist_data, may need check')
                     continue
                 mpv_cmd = next_ep['mpv_cmd']
-                ne_re_url = get_redirect_url(ne_url, follow_redirect=True)
+                if configs.check_str_match(self.data['netloc'], 'dev', 'stream_prefix'):
+                    stream_prefix = configs.ini_str_split('dev', 'stream_prefix')[0].strip('/')
+                    ne_re_url = get_redirect_url(ne_url.replace(stream_prefix, ''), follow_redirect=True)
+                    ne_re_url = f'{stream_prefix}{ne_re_url}'
+                else:
+                    ne_re_url = get_redirect_url(ne_url, follow_redirect=True)
                 mpv_cmd[1] = ne_re_url
                 try:
                     mpv.command(*mpv_cmd)

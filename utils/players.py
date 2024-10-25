@@ -8,7 +8,8 @@ import urllib.parse
 from html.parser import HTMLParser
 
 from utils.configs import configs, MyLogger
-from utils.net_tools import requests_urllib, list_episodes, save_sub_file
+from utils.data_parser import list_episodes
+from utils.net_tools import requests_urllib, save_sub_file
 from utils.python_mpv_jsonipc import MPV
 from utils.tools import activate_window_by_pid
 

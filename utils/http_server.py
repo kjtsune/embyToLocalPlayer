@@ -10,11 +10,11 @@ from http.server import BaseHTTPRequestHandler
 from http.server import HTTPServer
 from socketserver import ThreadingMixIn
 
+from utils.data_parser import parse_received_data_emby, parse_received_data_plex, list_episodes
 from utils.downloader import DownloadManager
 from utils.net_tools import update_server_playback_progress, sync_third_party_for_eps
-from utils.data_parser import parse_received_data_emby, parse_received_data_plex
 from utils.player_manager import PlayerManager
-from utils.players import start_player_func_dict, stop_sec_func_dict, list_episodes
+from utils.players import start_player_func_dict, stop_sec_func_dict
 from utils.tools import (configs, MyLogger, open_local_folder, play_media_file,
                          activate_window_by_pid, get_player_cmd, ThreadWithReturnValue)
 from utils.trakt_sync import trakt_api_client
