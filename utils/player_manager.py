@@ -94,6 +94,8 @@ class BaseManager(BaseInit):
             ep['_stop_sec'] = _stop_sec
             need_update_eps.append(ep)
         for provider in 'trakt', 'bangumi':
+            if self.data.get('eps_error'):
+                break
             if configs.raw.get(provider, 'enable_host', fallback=''):
                 threading.Thread(target=sync_third_party_for_eps,
                                  kwargs={'eps': need_update_eps, 'provider': provider}, daemon=True).start()

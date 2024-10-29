@@ -545,10 +545,13 @@ def list_episodes(data: dict):
     # dump_json_file(episodes, 'z_playlist_movie.json')
     eps_error = [i for i in episodes['Items'] if 'Path' not in i or 'RunTimeTicks' not in i]
     if eps_error:
+        ids_error = [i['MediaSources'][0]['Id'] for i in eps_error]
         eps_error = [f"{i['Name']}-{i['Id']}" for i in eps_error]
-        logger.error(f'some ep miss path or runtime data, may leak error\n'
-                     f'disable playlist and sync third party\n{eps_error}')  # total_sec 没有，不方便判断进度。
-        return [data]
+        logger.error(f'some ep miss path or runtime data, may leak error\n{eps_error}')
+        if data['media_source_id'] in ids_error:
+            logger.error(f'disable playlist and sync third party')  # total_sec 没有，不方便判断进度。
+            data['eps_error'] = True
+            return [data]
     episodes = [i for i in episodes['Items'] if 'Path' in i and 'RunTimeTicks' in i]
     episodes = version_filter(data['file_path'], episodes) if data['server'] == 'emby' else episodes
     episodes = [parse_item(i) for i in episodes]

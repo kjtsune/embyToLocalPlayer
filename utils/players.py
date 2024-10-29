@@ -289,6 +289,7 @@ def stop_sec_mpv(mpv: MPV, stop_sec_only=True, **_):
                     chapter_skipped.append(chapter_unique)
             time.sleep(0.5)
         except Exception:
+            stop_sec = stop_sec and int(stop_sec)
             logger.info(f'mpv exit, return stop sec, {stop_sec=}')
             return stop_sec if stop_sec_only else name_stop_sec_dict
 
