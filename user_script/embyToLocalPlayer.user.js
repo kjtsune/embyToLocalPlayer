@@ -3,7 +3,7 @@
 // @name:zh-CN   embyToLocalPlayer
 // @name:en      embyToLocalPlayer
 // @namespace    https://github.com/kjtsune/embyToLocalPlayer
-// @version      2024.10.19
+// @version      2024.10.30
 // @description  Emby/Jellyfin 调用外部本地播放器，并回传播放记录。适配 Plex。
 // @description:zh-CN Emby/Jellyfin 调用外部本地播放器，并回传播放记录。适配 Plex。
 // @description:en  Play in an external player. Update watch history to Emby/Jellyfin server. Support Plex.
@@ -27,6 +27,7 @@
 // @license MIT
 // ==/UserScript==
 'use strict';
+/*global ApiClient*/
 
 (function () {
     'use strict';
@@ -36,6 +37,8 @@
         disableOpenFolder: undefined, // undefined 改为 true 则禁用打开文件夹的按钮。
         crackFullPath: undefined,
     };
+
+    const originFetch = fetch;
 
     let logger = {
         error: function (...args) {
@@ -59,6 +62,23 @@
         return new Promise(resolve => setTimeout(resolve, ms));
     }
 
+    function isHidden(el) {
+        return (el.offsetParent === null);
+    }
+
+    function getVisibleElement(elList) {
+        if (!elList) return;
+        if (Object.prototype.isPrototypeOf.call(NodeList.prototype, elList)) {
+            for (let i = 0; i < elList.length; i++) {
+                if (!isHidden(elList[i])) {
+                    return elList[i];
+                }
+            }
+        } else {
+            return elList;
+        }
+    }
+
     function _init_config_main() {
         function _init_config_by_key(confKey) {
             let confLocal = localStorage.getItem(confKey);
@@ -73,26 +93,6 @@
             if (confGM !== null) { config[confKey] = confGM };
         }
         _init_config_by_key('crackFullPath');
-    }
-
-    function removeErrorWindows() {
-        let okButtonList = document.querySelectorAll('button[data-id="ok"]');
-        let state = false;
-        for (let index = 0; index < okButtonList.length; index++) {
-            const element = okButtonList[index];
-            if (element.textContent.search(/(了解|好的|知道|Got It)/) != -1) {
-                element.click();
-                state = true;
-            }
-        }
-
-        let jellyfinSpinner = document.querySelector('div.docspinner');
-        if (jellyfinSpinner) {
-            jellyfinSpinner.remove();
-            state = true;
-        };
-
-        return state;
     }
 
     function switchLocalStorage(key, defaultValue = 'true', trueValue = 'true', falseValue = 'false') {
@@ -117,17 +117,24 @@
 
     }
 
-    function sendDataToLocalServer(data, path) {
-        let url = `http://127.0.0.1:58000/${path}/`;
-        GM_xmlhttpRequest({
-            method: 'POST',
-            url: url,
-            data: JSON.stringify(data),
-            headers: {
-                'Content-Type': 'application/json'
-            },
-        });
-        logger.info(path, data);
+    function removeErrorWindows() {
+        let okButtonList = document.querySelectorAll('button[data-id="ok"]');
+        let state = false;
+        for (let index = 0; index < okButtonList.length; index++) {
+            const element = okButtonList[index];
+            if (element.textContent.search(/(了解|好的|知道|Got It)/) != -1) {
+                element.click();
+                state = true;
+            }
+        }
+
+        let jellyfinSpinner = document.querySelector('div.docspinner');
+        if (jellyfinSpinner) {
+            jellyfinSpinner.remove();
+            state = true;
+        };
+
+        return state;
     }
 
     async function removeErrorWindowsMultiTimes() {
@@ -140,36 +147,17 @@
         }
     }
 
-    async function embyToLocalPlayer(playbackUrl, request, playbackData, extraData) {
-        let data = {
-            ApiClient: ApiClient,
-            playbackData: playbackData,
-            playbackUrl: playbackUrl,
-            request: request,
-            mountDiskEnable: localStorage.getItem('mountDiskEnable'),
-            extraData: extraData,
-            fistTime: fistTime,
-        };
-        sendDataToLocalServer(data, 'embyToLocalPlayer');
-        removeErrorWindowsMultiTimes();
-        fistTime = false;
-    }
-
-    function isHidden(el) {
-        return (el.offsetParent === null);
-    }
-
-    function getVisibleElement(elList) {
-        if (!elList) return;
-        if (NodeList.prototype.isPrototypeOf(elList)) {
-            for (let i = 0; i < elList.length; i++) {
-                if (!isHidden(elList[i])) {
-                    return elList[i];
-                }
-            }
-        } else {
-            return elList;
-        }
+    function sendDataToLocalServer(data, path) {
+        let url = `http://127.0.0.1:58000/${path}/`;
+        GM_xmlhttpRequest({
+            method: 'POST',
+            url: url,
+            data: JSON.stringify(data),
+            headers: {
+                'Content-Type': 'application/json'
+            },
+        });
+        logger.info(path, data);
     }
 
     async function addOpenFolderElement() {
@@ -191,7 +179,7 @@
         nobackdropfilter emby-button" ><i class="md-icon button-icon button-icon-left">link</i>Open Folder</a>`
         pathDiv.insertAdjacentHTML('beforebegin', openButtonHtml);
         let btn = mediaSources.querySelector('a#openFolderButton');
-        btn.addEventListener("click", () => {
+        btn.addEventListener('click', () => {
             logger.info(full_path);
             sendDataToLocalServer({ full_path: full_path }, 'openFolder');
         });
@@ -226,7 +214,6 @@
         }
     }
 
-
     let serverName = null;
     let episodesInfoCache = []; // ['type:[Episodes|NextUp|Items]', resp]
     let episodesInfoRe = /\/Episodes\?IsVirtual|\/NextUp\?Series|\/Items\?ParentId=\w+&Filters=IsNotFolder&Recursive=true/; // Items已排除播放列表
@@ -234,8 +221,90 @@
     let playlistInfoCache = null;
     let resumeInfoCache = null;
 
-    const originFetch = fetch;
-    unsafeWindow.fetch = async (url, request) => {
+    function makeItemIdCorrect(itemId) {
+        if (serverName !== 'emby') { return itemId; }
+        if (!resumeInfoCache || !episodesInfoCache) { return itemId; }
+        let resumeIds = resumeInfoCache.map(item => item.Id);
+        if (resumeIds.includes(itemId)) { return itemId; }
+        let pageId = window.location.href.match(/\/item\?id=(\d+)/)?.[1];
+        if (resumeIds.includes(pageId) && itemId == episodesInfoCache[0].Id) {
+            // 解决从继续观看进入集详情页时，并非播放第一集，却请求首集视频文件信息导致无法播放。
+            // 手动解决方法：从下方集卡片点击播放，或从集卡片再次进入集详情页后播放。
+            // 本函数的副作用：集详情页底部的第一集卡片点播放按钮会播放当前集。
+            // 副作用解决办法：再点击一次，或者点第一集卡片进入详情页后再播放。不过一般也不怎么会回头看第一集。
+            return pageId;
+
+        } else if (window.location.href.match(/serverId=/)) {
+            return itemId; // 仅处理首页继续观看和集详情页，其他页面忽略。
+        }
+        let correctSeaId = episodesInfoCache.find(item => item.Id == itemId)?.SeasonId;
+        let correctItemId = resumeInfoCache.find(item => item.SeasonId == correctSeaId)?.Id;
+        if (correctSeaId && correctItemId) {
+            logger.info(`makeItemIdCorrect, old=${itemId}, new=${correctItemId}`)
+            return correctItemId;
+        }
+        return itemId;
+    }
+
+    async function embyToLocalPlayer(playbackUrl, request, playbackData, extraData) {
+        let data = {
+            ApiClient: ApiClient,
+            playbackData: playbackData,
+            playbackUrl: playbackUrl,
+            request: request,
+            mountDiskEnable: localStorage.getItem('mountDiskEnable'),
+            extraData: extraData,
+            fistTime: fistTime,
+        };
+        sendDataToLocalServer(data, 'embyToLocalPlayer');
+        removeErrorWindowsMultiTimes();
+        fistTime = false;
+    }
+
+    async function dealWithPlaybakInfo(raw_url, url, options) {
+        let rawId = url.match(/\/Items\/(\w+)\/PlaybackInfo/)[1];
+        let userId = ApiClient._serverInfo.UserId;
+        episodesInfoCache = episodesInfoCache[0] ? episodesInfoCache[1].clone() : null;
+        let itemId = rawId;
+        let [playbackData, mainEpInfo, episodesInfoData] = await Promise.all([
+            ApiClient.getPlaybackInfo(itemId), // originFetch(raw_url, request), 可能会 NoCompatibleStream
+            ApiClient.getItem(userId, itemId),
+            episodesInfoCache?.json(),
+        ]);
+        episodesInfoData = (episodesInfoData && episodesInfoData.Items) ? episodesInfoData.Items : null;
+        episodesInfoCache = episodesInfoData;
+        let correctId = makeItemIdCorrect(itemId);
+        url = url.replace(`/${rawId}/`, `/${correctId}/`)
+        if (itemId != correctId) {
+            itemId = correctId;
+            [playbackData, mainEpInfo] = await Promise.all([
+                ApiClient.getPlaybackInfo(itemId),
+                ApiClient.getItem(userId, itemId),
+            ]);
+            let startPos = mainEpInfo.UserData.PlaybackPositionTicks;
+            url = url.replace('StartTimeTicks=0', `StartTimeTicks=${startPos}`);
+        }
+        let playlistData = (playlistInfoCache && playlistInfoCache.Items) ? playlistInfoCache.Items : null;
+        episodesInfoCache = []
+        let extraData = {
+            mainEpInfo: mainEpInfo,
+            episodesInfo: episodesInfoData,
+            playlistInfo: playlistData,
+            gmInfo: GM_info,
+            userAgent: navigator.userAgent,
+        }
+        playlistInfoCache = null;
+        // resumeInfoCache = null;
+        logger.info(extraData);
+        if (playbackData.MediaSources[0].Path.search(/\Wbackdrop/i) == -1) {
+            let _req = options ? options : raw_url;
+            embyToLocalPlayer(url, _req, playbackData, extraData);
+            return true;
+        }
+        return false;
+    }
+
+    unsafeWindow.fetch = async (url, options) => {
         const raw_url = url;
         let urlType = typeof url;
         if (urlType != 'string') {
@@ -246,7 +315,7 @@
         }
         // 适配播放列表及媒体库的全部播放、随机播放。限电影及音乐视频。
         if (url.includes('Items?') && (url.includes('Limit=300') || url.includes('Limit=1000')) || url.includes('SpecialFeatures')) {
-            let _resp = await originFetch(raw_url, request);
+            let _resp = await originFetch(raw_url, options);
             if (serverName == 'emby') {
                 await ApiClient._userViewsPromise.then(result => {
                     let viewsItems = result.Items;
@@ -256,14 +325,14 @@
                     });
                     let viewsRegex = viewsIds.join('|');
                     viewsRegex = `ParentId=(${viewsRegex})`
-                    if (!RegExp(viewsRegex).test(url)) {  // 点击季播放美化标题所需，并非媒体库随机播放。
+                    if (!RegExp(viewsRegex).test(url)) { // 点击季播放美化标题所需，并非媒体库随机播放。
                         episodesInfoCache = ['Items', _resp.clone()]
                         logger.info('episodesInfoCache', episodesInfoCache);
                         logger.info('viewsRegex', viewsRegex);
                         return _resp;
                     }
                 }).catch(error => {
-                    console.error("Error occurred: ", error);
+                    console.error('Error occurred: ', error);
                 });
             }
 
@@ -286,13 +355,13 @@
         let _epMatch = url.match(episodesInfoRe);
         if (_epMatch) {
             _epMatch = _epMatch[0].split(['?'])[0].substring(1); // Episodes|NextUp|Items
-            let _resp = await originFetch(raw_url, request);
+            let _resp = await originFetch(raw_url, options);
             episodesInfoCache = [_epMatch, _resp.clone()]
             logger.info('episodesInfoCache', episodesInfoCache);
             return _resp
         }
         if (url.includes('Items/Resume') && url.includes('MediaTypes=Video')) {
-            let _resp = await originFetch(raw_url, request);
+            let _resp = await originFetch(raw_url, options);
             let _resd = await _resp.clone().json();
             resumeInfoCache = _resd.Items;
             logger.info('resumeInfoCache', resumeInfoCache);
@@ -301,48 +370,10 @@
         try {
             if (url.indexOf('/PlaybackInfo?UserId') != -1) {
                 if (url.indexOf('IsPlayback=true') != -1 && localStorage.getItem('webPlayerEnable') != 'true') {
-                    let rawId = url.match(/\/Items\/(\w+)\/PlaybackInfo/)[1];
-                    let userId = ApiClient._serverInfo.UserId;
-                    episodesInfoCache = episodesInfoCache[0] ? episodesInfoCache[1].clone() : null;
-                    let itemId = rawId;
-                    let [playbackData, mainEpInfo, episodesInfoData] = await Promise.all([
-                        ApiClient.getPlaybackInfo(itemId), // originFetch(raw_url, request), 可能会 NoCompatibleStream
-                        ApiClient.getItem(userId, itemId),
-                        episodesInfoCache?.json(),
-                    ]);
-                    episodesInfoData = (episodesInfoData && episodesInfoData.Items) ? episodesInfoData.Items : null;
-                    episodesInfoCache = episodesInfoData;
-                    let correctId = makeItemIdCorrect(itemId);
-                    url = url.replace(`/${rawId}/`, `/${correctId}/`)
-                    if (itemId != correctId) {
-                        itemId = correctId;
-                        [playbackData, mainEpInfo] = await Promise.all([
-                            ApiClient.getPlaybackInfo(itemId),
-                            ApiClient.getItem(userId, itemId),
-                        ]);
-                        let startPos = mainEpInfo.UserData.PlaybackPositionTicks;
-                        url = url.replace('StartTimeTicks=0', `StartTimeTicks=${startPos}`);
-                    }
-                    let playlistData = (playlistInfoCache && playlistInfoCache.Items) ? playlistInfoCache.Items : null;
-                    episodesInfoCache = []
-                    let extraData = {
-                        mainEpInfo: mainEpInfo,
-                        episodesInfo: episodesInfoData,
-                        playlistInfo: playlistData,
-                        gmInfo: GM_info,
-                        userAgent: navigator.userAgent,
-                    }
-                    playlistInfoCache = null;
-                    // resumeInfoCache = null;
-                    logger.info(extraData);
-                    if (playbackData.MediaSources[0].Path.search(/\Wbackdrop/i) == -1) {
-                        let _req = request ? request : raw_url;
-                        embyToLocalPlayer(url, _req, playbackData, extraData);
-                        return
-                    }
+                    if (dealWithPlaybakInfo(raw_url, url, options)) { return; } // Emby
                 } else {
                     addOpenFolderElement();
-                    addFileNameElement(url, request);
+                    addFileNameElement(url, options);
                 }
             } else if (url.indexOf('/Playing/Stopped') != -1 && localStorage.getItem('webPlayerEnable') != 'true') {
                 return
@@ -352,48 +383,30 @@
             removeErrorWindowsMultiTimes();
             return
         }
-        return originFetch(raw_url, request);
-    }
-
-    function makeItemIdCorrect(itemId) {
-        if (serverName !== 'emby') { return itemId; }
-        if (!resumeInfoCache || !episodesInfoCache) { return itemId; }
-        let resumeIds = resumeInfoCache.map(item => item.Id);
-        if (resumeIds.includes(itemId)) { return itemId; }
-        let pageId = window.location.href.match(/\/item\?id=(\d+)/)?.[1];
-        if (resumeIds.includes(pageId) && itemId == episodesInfoCache[0].Id) {
-            // 解决从继续观看进入集详情页时，并非播放第一集，却请求首集视频文件信息导致无法播放。
-            // 手动解决方法：从下方集卡片点击播放，或从集卡片再次进入集详情页后播放。
-            // 本函数的副作用：集详情页底部的第一集卡片点播放按钮会播放当前集。
-            // 副作用解决办法：再点击一次，或者点第一集卡片进入详情页后再播放。不过一般也不怎么会回头看第一集。
-            return pageId;
-
-        } else if (window.location.href.match(/serverId=/)) {
-            return itemId;  // 仅处理首页继续观看和集详情页，其他页面忽略。
-        }
-        let correctSeaId = episodesInfoCache.find(item => item.Id == itemId)?.SeasonId;
-        let correctItemId = resumeInfoCache.find(item => item.SeasonId == correctSeaId)?.Id;
-        if (correctSeaId && correctItemId) {
-            logger.info(`makeItemIdCorrect, old=${itemId}, new=${correctItemId}`)
-            return correctItemId;
-        }
-        return itemId;
+        return originFetch(raw_url, options);
     }
 
     function initXMLHttpRequest() {
-        const open = XMLHttpRequest.prototype.open;
-        XMLHttpRequest.prototype.open = function (...args) {
-            let url = args[1]
-            if (serverName === null && url.indexOf('X-Plex-Product') != -1) { serverName = 'plex' };
-            // 正常请求不匹配的网址
-            if (url.indexOf('playQueues?type=video') == -1) {
-                return open.apply(this, args);
-            }
-            // 请求前拦截
-            if (url.indexOf('playQueues?type=video') != -1
-                && localStorage.getItem('webPlayerEnable') != 'true') {
-                fetch(url, {
-                    method: args[0],
+
+        const originOpen = XMLHttpRequest.prototype.open;
+        const originSend = XMLHttpRequest.prototype.send;
+        const originSetHeader = XMLHttpRequest.prototype.setRequestHeader;
+
+        XMLHttpRequest.prototype.setRequestHeader = function (header, value) {
+            this._headers[header] = value;
+            return originSetHeader.apply(this, arguments);
+        }
+
+        XMLHttpRequest.prototype.open = function (method, url) {
+            this._method = method;
+            this._url = url;
+            this._headers = {};
+
+            if (serverName === null && this._url.indexOf('X-Plex-Product') != -1) { serverName = 'plex' };
+            let catchPlex = (serverName == 'plex' && this._url.indexOf('playQueues?type=video') != -1)
+            if (catchPlex && localStorage.getItem('webPlayerEnable') != 'true') { // Plex
+                fetch(this._url, {
+                    method: this._method,
                     headers: {
                         'Accept': 'application/json',
                     }
@@ -406,7 +419,7 @@
                         };
                         let data = {
                             playbackData: res,
-                            playbackUrl: url,
+                            playbackUrl: this._url,
                             mountDiskEnable: localStorage.getItem('mountDiskEnable'),
                             extraData: extraData,
                         };
@@ -414,11 +427,31 @@
                     });
                 return;
             }
-            return open.apply(this, args);
+            return originOpen.apply(this, arguments);
+        }
+
+        XMLHttpRequest.prototype.send = function (body) {
+
+            let catchJellyfin = (this._method === 'POST' && this._url.endsWith('PlaybackInfo'))
+            if (catchJellyfin && localStorage.getItem('webPlayerEnable') != 'true') { // Jellyfin
+                let pbUrl = this._url;
+                body = JSON.parse(body);
+                let _body = {};
+                ['MediaSourceId', 'StartTimeTicks', 'UserId'].forEach(key => {
+                    _body[key] = body[key]
+                });
+                let query = new URLSearchParams(_body).toString();
+                pbUrl = `${pbUrl}?${query}`
+                let options = {
+                    headers: this._headers,
+                };
+                dealWithPlaybakInfo(pbUrl, pbUrl, options);
+                return;
+            }
+            originSend.apply(this, arguments);
         }
     }
 
-    // 初始化请求并拦截 plex
     initXMLHttpRequest();
 
     setModeSwitchMenu('webPlayerEnable', '脚本在当前服务器 已', '', '启用', '禁用', '启用');
