@@ -3,7 +3,7 @@
 // @name:zh-CN   embyToLocalPlayer
 // @name:en      embyToLocalPlayer
 // @namespace    https://github.com/kjtsune/embyToLocalPlayer
-// @version      2024.10.18
+// @version      2024.10.19
 // @description  Emby/Jellyfin 调用外部本地播放器，并回传播放记录。适配 Plex。
 // @description:zh-CN Emby/Jellyfin 调用外部本地播放器，并回传播放记录。适配 Plex。
 // @description:en  Play in an external player. Update watch history to Emby/Jellyfin server. Support Plex.
@@ -232,6 +232,7 @@
     let episodesInfoRe = /\/Episodes\?IsVirtual|\/NextUp\?Series|\/Items\?ParentId=\w+&Filters=IsNotFolder&Recursive=true/; // Items已排除播放列表
     // 点击位置：Episodes 继续观看，如果是即将观看，可能只有一集的信息 | NextUp 新播放或媒体库播放 | Items 季播放。 只有 Episodes 返回所有集的数据。
     let playlistInfoCache = null;
+    let resumeInfoCache = null;
 
     const originFetch = fetch;
     unsafeWindow.fetch = async (url, request) => {
@@ -290,18 +291,38 @@
             logger.info('episodesInfoCache', episodesInfoCache);
             return _resp
         }
+        if (url.includes('Items/Resume') && url.includes('MediaTypes=Video')) {
+            let _resp = await originFetch(raw_url, request);
+            let _resd = await _resp.clone().json();
+            resumeInfoCache = _resd.Items;
+            logger.info('resumeInfoCache', resumeInfoCache);
+            return _resp
+        }
         try {
             if (url.indexOf('/PlaybackInfo?UserId') != -1) {
                 if (url.indexOf('IsPlayback=true') != -1 && localStorage.getItem('webPlayerEnable') != 'true') {
-                    let match = url.match(/\/Items\/(\w+)\/PlaybackInfo/);
-                    let itemId = match ? match[1] : null;
+                    let rawId = url.match(/\/Items\/(\w+)\/PlaybackInfo/)[1];
                     let userId = ApiClient._serverInfo.UserId;
-                    let [playbackData, mainEpInfo] = await Promise.all([
+                    episodesInfoCache = episodesInfoCache[0] ? episodesInfoCache[1].clone() : null;
+                    let itemId = rawId;
+                    let [playbackData, mainEpInfo, episodesInfoData] = await Promise.all([
                         ApiClient.getPlaybackInfo(itemId), // originFetch(raw_url, request), 可能会 NoCompatibleStream
                         ApiClient.getItem(userId, itemId),
+                        episodesInfoCache?.json(),
                     ]);
-                    let episodesInfoData = episodesInfoCache[0] ? await episodesInfoCache[1].clone().json() : null;
                     episodesInfoData = (episodesInfoData && episodesInfoData.Items) ? episodesInfoData.Items : null;
+                    episodesInfoCache = episodesInfoData;
+                    let correctId = makeItemIdCorrect(itemId);
+                    url = url.replace(`/${rawId}/`, `/${correctId}/`)
+                    if (itemId != correctId) {
+                        itemId = correctId;
+                        [playbackData, mainEpInfo] = await Promise.all([
+                            ApiClient.getPlaybackInfo(itemId),
+                            ApiClient.getItem(userId, itemId),
+                        ]);
+                        let startPos = mainEpInfo.UserData.PlaybackPositionTicks;
+                        url = url.replace('StartTimeTicks=0', `StartTimeTicks=${startPos}`);
+                    }
                     let playlistData = (playlistInfoCache && playlistInfoCache.Items) ? playlistInfoCache.Items : null;
                     episodesInfoCache = []
                     let extraData = {
@@ -312,6 +333,7 @@
                         userAgent: navigator.userAgent,
                     }
                     playlistInfoCache = null;
+                    // resumeInfoCache = null;
                     logger.info(extraData);
                     if (playbackData.MediaSources[0].Path.search(/\Wbackdrop/i) == -1) {
                         let _req = request ? request : raw_url;
@@ -331,6 +353,31 @@
             return
         }
         return originFetch(raw_url, request);
+    }
+
+    function makeItemIdCorrect(itemId) {
+        if (serverName !== 'emby') { return itemId; }
+        if (!resumeInfoCache || !episodesInfoCache) { return itemId; }
+        let resumeIds = resumeInfoCache.map(item => item.Id);
+        if (resumeIds.includes(itemId)) { return itemId; }
+        let pageId = window.location.href.match(/\/item\?id=(\d+)/)?.[1];
+        if (resumeIds.includes(pageId) && itemId == episodesInfoCache[0].Id) {
+            // 解决从继续观看进入集详情页时，并非播放第一集，却请求首集视频文件信息导致无法播放。
+            // 手动解决方法：从下方集卡片点击播放，或从集卡片再次进入集详情页后播放。
+            // 本函数的副作用：集详情页底部的第一集卡片点播放按钮会播放当前集。
+            // 副作用解决办法：再点击一次，或者点第一集卡片进入详情页后再播放。不过一般也不怎么会回头看第一集。
+            return pageId;
+
+        } else if (window.location.href.match(/serverId=/)) {
+            return itemId;  // 仅处理首页继续观看和集详情页，其他页面忽略。
+        }
+        let correctSeaId = episodesInfoCache.find(item => item.Id == itemId)?.SeasonId;
+        let correctItemId = resumeInfoCache.find(item => item.SeasonId == correctSeaId)?.Id;
+        if (correctSeaId && correctItemId) {
+            logger.info(`makeItemIdCorrect, old=${itemId}, new=${correctItemId}`)
+            return correctItemId;
+        }
+        return itemId;
     }
 
     function initXMLHttpRequest() {

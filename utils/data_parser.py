@@ -73,7 +73,7 @@ def parse_received_data_emby(received_data):
             stream_url = _stream_url
             logger.info(f'url redirect to {stream_url}')
 
-    if configs.check_str_match(netloc, 'dev', 'stream_prefix'):
+    if configs.check_str_match(netloc, 'dev', 'stream_prefix', log=False):
         stream_prefix = configs.ini_str_split('dev', 'stream_prefix')[0].strip('/')
         stream_url = f'{stream_prefix}{stream_url}'
 
@@ -543,6 +543,12 @@ def list_episodes(data: dict):
         url = f'{scheme}://{netloc}{extra_str}/Shows/{series_id}/Episodes'
         episodes = requests_urllib(url, params=params, headers=headers, get_json=True)
     # dump_json_file(episodes, 'z_playlist_movie.json')
+    eps_error = [i for i in episodes['Items'] if 'Path' not in i or 'RunTimeTicks' not in i]
+    if eps_error:
+        eps_error = [f"{i['Name']}-{i['Id']}" for i in eps_error]
+        logger.error(f'some ep miss path or runtime data, may leak error\n'
+                     f'disable playlist and sync third party\n{eps_error}')  # total_sec 没有，不方便判断进度。
+        return [data]
     episodes = [i for i in episodes['Items'] if 'Path' in i and 'RunTimeTicks' in i]
     episodes = version_filter(data['file_path'], episodes) if data['server'] == 'emby' else episodes
     episodes = [parse_item(i) for i in episodes]
@@ -564,7 +570,7 @@ def list_episodes(data: dict):
                         i['media_path'] = i['stream_url']
                 break
 
-    if configs.check_str_match(netloc, 'dev', 'stream_prefix'):
+    if configs.check_str_match(netloc, 'dev', 'stream_prefix', log=False):
         stream_prefix = configs.ini_str_split('dev', 'stream_prefix')[0].strip('/')
         for i in episodes:
             if i['stream_url'].startswith(stream_prefix):
