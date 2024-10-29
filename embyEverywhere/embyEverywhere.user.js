@@ -131,6 +131,7 @@ class MyStorage {
         this.splitStr = splitStr;
         this.expireDay = expireDay;
         this.expireMs = expireDay * 864E5;
+        this.useGM = useGM;
         this._getItem = (useGM) ? GM_getValue : localStorage.getItem.bind(localStorage);
         this._setItem = (useGM) ? GM_setValue : localStorage.setItem.bind(localStorage);
         this._removeItem = (useGM) ? GM_deleteValue : localStorage.removeItem.bind(localStorage);
@@ -152,12 +153,18 @@ class MyStorage {
         key = this._keyGenerator(key);
         let res = this._getItem(key);
         if (this.expireMs && res) {
-            let data = JSON.parse(res);
+            let data = (this.useGM) ? res : JSON.parse(res);
             let timestamp = data.timestamp;
             if (timestamp + this.expireMs < Date.now()) {
                 res = null;
             } else {
                 res = data.value;
+            }
+        } else if (!this.useGM && res) {
+            try {
+                res = JSON.parse(res);
+            } catch (_error) {
+                // pass
             }
         }
         res = res || defalut;
@@ -167,9 +174,9 @@ class MyStorage {
     set(key, value) {
         key = this._keyGenerator(key);
         if (this.expireMs) {
-            value = JSON.stringify({ timestamp: Date.now(), value: value })
+            value = { timestamp: Date.now(), value: value };
         }
-        if (typeof (value) == 'object') {
+        if (!this.useGM && typeof (value) == 'object') {
             value = JSON.stringify(value)
         }
         this._setItem(key, value)
@@ -185,7 +192,7 @@ class MyStorage {
     }
 }
 
-function scriptSettingsSaver(key, value, force = false) {
+function settingsSaverBase(key, value, force = false) {
     let overwrite = config.saveSettigs || force;
     let settsingDb = new MyStorage('script|saveStings', undefined, undefined, true);
     if (overwrite && myBool(value)) {
@@ -197,12 +204,6 @@ function scriptSettingsSaver(key, value, force = false) {
         }
     }
     return value;
-}
-
-function embyServerDataSaver() {
-    let res = scriptSettingsSaver('embyServerDatas', embyServerDatas);
-    res = (typeof (res) == 'string') ? JSON.parse(res) : res;
-    embyServerDatas = res;
 }
 
 class BaseApi {
@@ -248,29 +249,49 @@ class BaseApi {
             headers = headers || {}
             headers = { ...headers, ...{ 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8', } }
         }
-        let res = new Promise(resolve => GM_xmlhttpRequest({
-            method: method,
-            url: url,
-            headers: headers,
-            data: data,
-            onload: function (response) {
-                if (response.status >= 200 && response.status < 400) {
-                    let _res = JSON.parse(response.responseText)
-                    resolve(_res);
-                    console.info(`xmlhttp getting ${url}:`, response.status, response.statusText, _res);
-                } else if (response.status > 400) {
-                    console.error(`Error getting ${url}:`, response.status, response.statusText);
+        let res = new Promise((resolve) => {
+            let isResolved = false;
+            const timeout = setTimeout(() => {
+                if (!isResolved) {
+                    console.error(`Request to ${url} timed out after 8 seconds.`);
                     resolve();
-                } else {
-                    console.error(`Error getting ${url}:`, response.status, response.statusText, response.responseText);
-                    resolve();
+                    isResolved = true;
                 }
-            },
-            onerror: function (response) {
-                console.error(`Error during GM_xmlhttpRequest to ${url}:`, response.statusText);
-                resolve();
-            }
-        }));
+            }, 8000);
+
+            GM_xmlhttpRequest({
+                method: method,
+                url: url,
+                headers: headers,
+                data: data,
+                onload: function (response) {
+                    if (!isResolved) {
+                        clearTimeout(timeout);
+                        if (response.status >= 200 && response.status < 400) {
+                            let _res = JSON.parse(response.responseText);
+                            resolve(_res);
+                            console.info(`xmlhttp getting ${url}:`, response.status, response.statusText, _res);
+                        } else if (response.status > 400) {
+                            console.error(`Error getting ${url}:`, response.status, response.statusText);
+                            resolve();
+                        } else {
+                            console.error(`Error getting ${url}:`, response.status, response.statusText, response.responseText);
+                            resolve();
+                        }
+                        isResolved = true;
+                    }
+                },
+                onerror: function (response) {
+                    if (!isResolved) {
+                        clearTimeout(timeout);
+                        console.error(`Error during GM_xmlhttpRequest to ${url}:`, response.statusText);
+                        resolve();
+                        isResolved = true;
+                    }
+                }
+            });
+        });
+
         return res;
     }
 
@@ -625,7 +646,7 @@ class TraktApi extends BaseApi {
 async function doubanPlayedByTrakt() {
     if (window.location.host != 'movie.douban.com') { return; }
 
-    traktSettings = scriptSettingsSaver('traktSettings', traktSettings, true);
+    traktSettings = settingsSaverBase('traktSettings', traktSettings, true);
     traktSettings = (typeof (traktSettings) == 'string') ? JSON.parse(traktSettings) : traktSettings;
 
     if (!traktSettings) { return; }
@@ -637,7 +658,7 @@ async function doubanPlayedByTrakt() {
     let newToken = await traktApi.refreshToken();
     if (newToken) {
         traktSettings.traktTkoenObj = newToken;
-        scriptSettingsSaver('traktSettings', traktSettings, true);
+        settingsSaverBase('traktSettings', traktSettings, true);
     }
 
     let imdbA = document.querySelector('#info > a[href*="imdb.com/title"]');
@@ -868,7 +889,8 @@ async function imdbTitlePage() {
     let imdbId = document.querySelector('meta[property="imdb:pageConst"]')?.getAttribute('content');
     let metaTitle = document.querySelector('meta[property="imdb:pageType"]')?.getAttribute('content');
     let metaMain = document.querySelector('meta[property="imdb:subPageType"]')?.getAttribute('content');
-    if (!(imdbId && metaTitle === 'title' && metaMain === 'main')) { return; }
+    let allEpsButton = document.querySelector('a.subnav__all-episodes-button');
+    if (allEpsButton || !(imdbId && metaTitle === 'title' && metaMain === 'main')) { return; }
 
     let titleSelector = 'h1[data-testid="hero__pageTitle"]';
     let adder = new EmbyLinkAdder({
@@ -1019,7 +1041,7 @@ async function googleTitlePage() {
 
 async function main() {
     storageUndefinedClear();
-    embyServerDataSaver();
+    embyServerDatas = settingsSaverBase('embyServerDatas', embyServerDatas);
     await Promise.all([
         doubanPlayedByTrakt(),
         bgmSubjectPage(),
