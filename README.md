@@ -11,6 +11,7 @@ etlp - Emby/Jellyfin 调用 PotPlayer mpv IINA MPC VLC 播放，并回传播放�
 * 未适配的播放器一般也能用，只是不会回传进度。
 * 可在 qBittorrent WebUI 里直接播放或者跳转到路径对应挂载文件夹。
   [配套脚本](https://greasyfork.org/zh-CN/scripts/450015-qbittorrent-webui-open-file)
+* 伪 • 聚合搜索。[配套脚本](https://github.com/kjtsune/embyToLocalPlayer/tree/main/embyEverywhere)
 
 **以下播放器支持回传进度**
 
@@ -429,10 +430,11 @@ https://github.com/kjtsune/embyToLocalPlayer#faq
 <details>
 <summary>mpv 自动跳过片头片尾</summary>
 
-* 播放时检查视频章节时长与标题，符合条件时跳过该章节，无二次确认。
+* 播放时检查视频章节时长与标题，符合条件时自动跳过该章节或仅提示。
 * 前提：
-    * Emby 成功扫描片头。（测试：禁用脚本，用网页播放时有跳过片头按钮）。视频文件本身无章节时，脚本会自动给 mpv 加片头章节。
+    * Emby 成功扫描片头。（测试：禁用脚本，用网页播放时有跳过片头按钮）
     * 或者视频文件自带片头片尾章节。（若章节的标题标准会更准确，例如 "Opening"）
+* 原理：视频文件本身无章节时，脚本会自动给 mpv 加片头章节。并在播放时候检测。
 * 填写位置：`.ini` > `[dev]`
   ```
   # 片头有90秒，片尾有91秒，允许5秒钟的误差，片头在前30%里，片尾在70%以后，片头片尾可能的章节名称（逗号隔开，辅助判断，不分大小写）
