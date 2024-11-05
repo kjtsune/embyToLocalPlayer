@@ -3,7 +3,7 @@
 // @name:zh-CN   embyToLocalPlayer
 // @name:en      embyToLocalPlayer
 // @namespace    https://github.com/kjtsune/embyToLocalPlayer
-// @version      2024.11.04
+// @version      2024.11.05
 // @description  Emby/Jellyfin 调用外部本地播放器，并回传播放记录。适配 Plex。
 // @description:zh-CN Emby/Jellyfin 调用外部本地播放器，并回传播放记录。适配 Plex。
 // @description:en  Play in an external player. Update watch history to Emby/Jellyfin server. Support Plex.
@@ -56,6 +56,12 @@
                 console.log('%cdebug', 'color: yellow; font-style: italic; background-color: blue;', ...args);
             }
         },
+    }
+
+    function myBool(value) {
+        if (Array.isArray(value) && value.length === 0) return false;
+        if (value !== null && typeof value === 'object' && Object.keys(value).length === 0) return false;
+        return Boolean(value);
     }
 
     async function sleep(ms) {
@@ -219,12 +225,16 @@
     let episodesInfoRe = /\/Episodes\?IsVirtual|\/NextUp\?Series|\/Items\?ParentId=\w+&Filters=IsNotFolder&Recursive=true/; // Items已排除播放列表
     // 点击位置：Episodes 继续观看，如果是即将观看，可能只有一集的信息 | NextUp 新播放或媒体库播放 | Items 季播放。 只有 Episodes 返回所有集的数据。
     let playlistInfoCache = null;
-    let resumeInfoCache = null;
+    let resumeRawInfoCache = null;
+    let resumePlaybakCache = {};
+    let resumeItemDataCache = {};
+    let allPlaybackCache = {};
+    let allItemDataCache = {};
 
     function makeItemIdCorrect(itemId) {
         if (serverName !== 'emby') { return itemId; }
-        if (!resumeInfoCache || !episodesInfoCache) { return itemId; }
-        let resumeIds = resumeInfoCache.map(item => item.Id);
+        if (!resumeRawInfoCache || !episodesInfoCache) { return itemId; }
+        let resumeIds = resumeRawInfoCache.map(item => item.Id);
         if (resumeIds.includes(itemId)) { return itemId; }
         let pageId = window.location.href.match(/\/item\?id=(\d+)/)?.[1];
         if (resumeIds.includes(pageId) && itemId == episodesInfoCache[0].Id) {
@@ -238,7 +248,7 @@
             return itemId; // 仅处理首页继续观看和集详情页，其他页面忽略。
         }
         let correctSeaId = episodesInfoCache.find(item => item.Id == itemId)?.SeasonId;
-        let correctItemId = resumeInfoCache.find(item => item.SeasonId == correctSeaId)?.Id;
+        let correctItemId = resumeRawInfoCache.find(item => item.SeasonId == correctSeaId)?.Id;
         if (correctSeaId && correctItemId) {
             logger.info(`makeItemIdCorrect, old=${itemId}, new=${correctItemId}`)
             return correctItemId;
@@ -261,16 +271,51 @@
         fistTime = false;
     }
 
+    async function apiClientGetWithCache(itemId, cacheList, funName) {
+        for (const cache of cacheList) {
+            if (itemId in cache) {
+                logger.info(`HIT ${funName} itemId=${itemId}`)
+                return cache[itemId];
+            }
+        }
+        logger.info(`MISS ${funName} itemId=${itemId}`)
+        let resInfo;
+        switch (funName) {
+            case 'getPlaybackInfo':
+                resInfo = await ApiClient.getPlaybackInfo(itemId);
+                break;
+            case 'getItem':
+                resInfo = await ApiClient.getItem(ApiClient._serverInfo.UserId, itemId);
+                break;
+            default:
+                break;
+        }
+        for (const cache of cacheList) {
+            cache[itemId] = resInfo;
+        }
+        return resInfo;
+    }
+
+    async function getPlaybackWithCace(itemId) {
+        return apiClientGetWithCache(itemId, [resumePlaybakCache, allPlaybackCache], 'getPlaybackInfo');
+    }
+
+    async function getItemInfoWithCace(itemId) {
+        return apiClientGetWithCache(itemId, [resumeItemDataCache, allItemDataCache], 'getItem');
+    }
+
     async function dealWithPlaybakInfo(raw_url, url, options) {
+        logger.info('dealWithPlaybakInfo');
+        console.time('dealWithPlaybakInfo');
         let rawId = url.match(/\/Items\/(\w+)\/PlaybackInfo/)[1];
-        let userId = ApiClient._serverInfo.UserId;
         episodesInfoCache = episodesInfoCache[0] ? episodesInfoCache[1].clone() : null;
         let itemId = rawId;
         let [playbackData, mainEpInfo, episodesInfoData] = await Promise.all([
-            ApiClient.getPlaybackInfo(itemId), // originFetch(raw_url, request), 可能会 NoCompatibleStream
-            ApiClient.getItem(userId, itemId),
+            getPlaybackWithCace(itemId), // originFetch(raw_url, request), 可能会 NoCompatibleStream
+            getItemInfoWithCace(itemId),
             episodesInfoCache?.json(),
         ]);
+        console.timeEnd('dealWithPlaybakInfo');
         episodesInfoData = (episodesInfoData && episodesInfoData.Items) ? episodesInfoData.Items : null;
         episodesInfoCache = episodesInfoData;
         let correctId = makeItemIdCorrect(itemId);
@@ -278,8 +323,8 @@
         if (itemId != correctId) {
             itemId = correctId;
             [playbackData, mainEpInfo] = await Promise.all([
-                ApiClient.getPlaybackInfo(itemId),
-                ApiClient.getItem(userId, itemId),
+                getPlaybackWithCace(itemId),
+                getItemInfoWithCace(itemId),
             ]);
             let startPos = mainEpInfo.UserData.PlaybackPositionTicks;
             url = url.replace('StartTimeTicks=0', `StartTimeTicks=${startPos}`);
@@ -303,6 +348,37 @@
         }
         return false;
     }
+
+    async function cacheResumeItemInfo() {
+        for (let [globalCache, getFun] of [[resumePlaybakCache, getPlaybackWithCace], [resumeItemDataCache, getItemInfoWithCace]]) {
+
+            if (!myBool(resumeRawInfoCache)) { return; }
+            let resumeIds = resumeRawInfoCache.slice(0, 5).map(item => item.Id);
+            let cacheDataAcc = {};
+
+            if (myBool(globalCache)) {
+                cacheDataAcc = globalCache;
+                resumeIds = resumeIds.filter(id => !(id in globalCache));
+                if (resumeIds.length == 0) { return; }
+
+            }
+            let itemInfoList = await Promise.all(
+                resumeIds.map(id => getFun(id))
+            )
+            globalCache = itemInfoList.reduce((acc, result, index) => {
+                acc[resumeIds[index]] = result;
+                return acc;
+            }, cacheDataAcc);
+        }
+
+    }
+
+    async function cloneAndCacheFetch(resp, key, cache) {
+        const data = await resp.clone().json();
+        cache[key] = data;
+    }
+
+    let itemInfoRe = /Items\/(\w+)\?/;
 
     unsafeWindow.fetch = async (url, options) => {
         const raw_url = url;
@@ -368,17 +444,29 @@
         if (url.includes('Items/Resume') && url.includes('MediaTypes=Video')) {
             let _resp = await originFetch(raw_url, options);
             let _resd = await _resp.clone().json();
-            resumeInfoCache = _resd.Items;
-            logger.info('resumeInfoCache', resumeInfoCache);
+            resumeRawInfoCache = _resd.Items;
+            cacheResumeItemInfo();
+            logger.info('resumeRawInfoCache', resumeRawInfoCache);
             return _resp
+        }
+        // 缓存 itemInfo ，可能匹配到 Items/Resume，故放后面。
+        if (url.match(itemInfoRe)) {
+            let itemId = url.match(itemInfoRe)[1];
+            let resp = await originFetch(raw_url, options);
+            cloneAndCacheFetch(resp, itemId, allItemDataCache);
+            return resp;
         }
         try {
             if (url.indexOf('/PlaybackInfo?UserId') != -1) {
                 if (url.indexOf('IsPlayback=true') != -1 && localStorage.getItem('webPlayerEnable') != 'true') {
-                    if (dealWithPlaybakInfo(raw_url, url, options)) { return; } // Emby
+                    if (await dealWithPlaybakInfo(raw_url, url, options)) { return; } // Emby
                 } else {
+                    let itemId = url.match(/\/Items\/(\w+)\/PlaybackInfo/)[1];
                     addOpenFolderElement();
                     addFileNameElement(url, options);
+                    let resp = await originFetch(raw_url, options);
+                    cloneAndCacheFetch(resp, itemId, allPlaybackCache)
+                    return resp;
                 }
             } else if (url.indexOf('/Playing/Stopped') != -1 && localStorage.getItem('webPlayerEnable') != 'true') {
                 return
