@@ -93,7 +93,7 @@ class MyLogger:
     def log(*args, end=None, silence=False):
         if silence:
             return
-        t = f"[{datetime.datetime.now().strftime('%D %H:%M:%S.%f')[:19]}] "
+        t = f"[{datetime.datetime.now().strftime('%m-%d %H:%M:%S.%f')[:16]}] "
         args = ' '.join(str(i) for i in args)
         MyLogger._log_queue.put((t + args, end))
 

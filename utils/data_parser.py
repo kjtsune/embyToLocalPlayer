@@ -365,8 +365,11 @@ def list_episodes(data: dict):
         if not ver_re:
             return episodes_data
         try:
+            def ep_to_key(_ep):
+                return f"{_ep['ParentIndexNumber']}-{_ep['IndexNumber']}"
+
             ep_seq_cur_list = list(
-                dict.fromkeys([f"{i['ParentIndexNumber']}-{i['IndexNumber']}" for i in episodes_data]))
+                dict.fromkeys([ep_to_key(i) for i in episodes_data]))
             ep_num = len(ep_seq_cur_list)
         except KeyError:
             logger.error('version_filter: KeyError: some ep not IndexNumber')
@@ -375,19 +378,43 @@ def list_episodes(data: dict):
         if ep_num == len(episodes_data):
             return episodes_data
 
+        _ep_current = [i for i in episodes_data if i['Path'] == file_path][0]
+        _current_key = ep_to_key(_ep_current)
+        _cut_cur_list = ep_seq_cur_list[ep_seq_cur_list.index(_current_key):]
+        _eps_after = [i for i in episodes_data if ep_to_key(i) in _cut_cur_list]
+        _ep_index_list = sorted(list({i['IndexNumber'] for i in episodes_data}))
         official_rule = file_path.rsplit(' - ', 1)
         official_rule = official_rule[-1] if len(official_rule) == 2 else None
-        if official_rule:
-            _ep_data = [i for i in episodes_data if official_rule in i['Path']]
-            if len(_ep_data) == ep_num:
-                logger.info(f'version_filter: success with {official_rule=}')
-                return _ep_data
-            else:
-                logger.info(f'version_filter: fail, {official_rule=}, pass {len(_ep_data)}, not equal {ep_num=}')
+        clean_path = re.split(r'E\d\d?', file_path, maxsplit=1)[-1].strip()
+
+        def check_with_sequence(__ep_data):
+            __ep_success = []
+            _cut_ep_data = __ep_data[__ep_data.index(_ep_current):]
+            if len(_cut_cur_list) == 1:
+                return [_ep_current]
+            for _ep, _ep_cur in zip(_cut_ep_data, _cut_cur_list):
+                if ep_to_key(_ep) == _ep_cur:
+                    __ep_success.append(_ep)
+            return __ep_success
+
+        for _eps_data in (episodes_data, _eps_after):
+            _cur_list = ep_seq_cur_list if _eps_data == episodes_data else _cut_cur_list
+            for rule in (official_rule, clean_path):
+                if not rule:
+                    continue
+                _ep_data = [i for i in _eps_data if rule in i['Path']]
+                if len(_ep_data) == len(_cur_list):
+                    logger.info(f'version_filter: success with {rule=}, pass {len(_cur_list)}')
+                    return _ep_data
+                else:
+                    _success = check_with_sequence(_ep_data)
+                    if len(_success) > 1:
+                        logger.info(f'version_filter: success with {rule=}, seq pass {len(_success)}')
+                        return _success
+                    logger.info(f'version_filter: fail, {rule=}, pass {len(_ep_data)}, not equal {len(_cur_list)}')
 
         ini_re = re.findall(ver_re, file_path, re.I)
         ver_re = re.compile('|'.join(ini_re))
-        _ep_current = [i for i in episodes_data if i['Path'] == file_path][0]
         _ep_data = [i for i in episodes_data if len(ver_re.findall(i['Path'])) == len(ini_re)]
         _ep_data_num = len(_ep_data)
         if _ep_data_num == ep_num:
@@ -397,22 +424,14 @@ def list_episodes(data: dict):
             logger.info(f'disable playlist, cuz version_filter: fail, ini regex match nothing. \n{file_path=}')
             return [_ep_current]
         else:
-            _ep_success = []
-            _current_key = f"{_ep_current['ParentIndexNumber']}-{_ep_current['IndexNumber']}"
-            _cut_ep_data = _ep_data[_ep_data.index(_ep_current):]
-            _cut_cur_list = ep_seq_cur_list[ep_seq_cur_list.index(_current_key):]
-            if len(_cut_cur_list) == 1:
-                return [_ep_current]
-            for _ep, _ep_cur in zip(_cut_ep_data, _cut_cur_list):
-                if f"{_ep['ParentIndexNumber']}-{_ep['IndexNumber']}" == _ep_cur:
-                    _ep_success.append(_ep)
-
+            _ep_success = check_with_sequence(_ep_data)
             _success = True if len(_ep_success) > 1 else False
             if _success:
                 logger.info(f'version_filter: success with {ini_re=}, pass {len(_ep_success)} ep')
                 return _ep_success
             else:
-                logger.info(f'disable playlist, cuz version_filter: fail, {ini_re=}')
+                if len(_cut_cur_list) > 1:
+                    logger.info(f'disable playlist, cuz version_filter: fail, {ini_re=}')
                 return [_ep_current]
 
     title_intro_map_fail = False
