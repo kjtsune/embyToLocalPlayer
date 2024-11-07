@@ -89,8 +89,11 @@ class BaseManager(BaseInit):
                 continue
             if not _stop_sec:
                 continue
-            update_server_playback_progress(stop_sec=_stop_sec, data=ep)
-
+            start_sec = ep.get('start_sec')
+            if start_sec is not None and abs(_stop_sec - int(start_sec)) < 20:
+                logger.info(f"skip update progress, {ep['basename']} start_sec stop_sec too close")
+            else:
+                update_server_playback_progress(stop_sec=_stop_sec, data=ep)
             ep['_stop_sec'] = _stop_sec
             need_update_eps.append(ep)
         for provider in 'trakt', 'bangumi':
@@ -199,7 +202,13 @@ class PrefetchManager(BaseInit):  # 未兼容播放器多开，暂不处理
                 list_playlist_data = list(self.playlist_data.values())
                 if ep == list_playlist_data[-1]:
                     break
+                start_file_index = list_playlist_data.index(
+                    [e for e in list_playlist_data if e.get('is_start_file')][0])
                 next_ep_index = list_playlist_data.index(ep) + 1
+                if next_ep_index <= start_file_index:
+                    logger.info(f'redirect_next_ep: not support pre ep, skip {next_ep_index}')
+                    done_list.append(key)
+                    continue
                 next_ep_key = list(self.playlist_data.keys())[next_ep_index]
                 next_ep = list_playlist_data[next_ep_index]
                 try:

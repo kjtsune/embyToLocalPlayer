@@ -156,7 +156,6 @@ def playlist_add_mpv(mpv: MPV, data, eps_data=None, limit=10):
         logger.error('mpv not found skip playlist_add_mpv')
         return {}
     episodes = eps_data or list_episodes(data)
-    append = False
     is_iina = getattr(mpv, 'is_iina')
     mount_disk_mode = data['mount_disk_mode']
     # 检查是否是新版loadfile命令
@@ -171,51 +170,72 @@ def playlist_add_mpv(mpv: MPV, data, eps_data=None, limit=10):
                             new_loadfile_cmd = True
         except Exception:
             pass
-    for ep in episodes:
-        basename = ep['basename']
-        media_title = ep['media_title']
-        if is_iina and mount_disk_mode:
-            playlist_data[basename] = ep
-        else:
-            playlist_data[media_title] = ep
-        if basename == data['basename']:
-            append = True
+
+    def loop_episodes(eps, insert=False):
+        for ep in eps:
+            basename = ep['basename']
+            media_title = ep['media_title']
+            if basename == data['basename']:
+                if intro_end := ep.get('intro_end'):
+                    chap_path = mpv_intro_chapters_maker(start=ep['intro_start'], end=intro_end, file_name=basename)
+                    mpv.command('set_property', 'chapters-file', chap_path)
+                continue
+            if is_iina:
+                continue
+
+            sub_cmd = ''
+            main_ep_sub = data.get('sub_file', '')
+            if sub_file := ep['sub_file']:
+                # mpvnet 不支持 sub-files-toggle
+                if main_ep_sub and not getattr(mpv, 'is_mpvnet'):
+                    sub_cmd = f',sub-files-remove={main_ep_sub},sub-files-append={main_ep_sub}'
+                    sub_cmd = sub_cmd + f',sub-files-append={sub_file}'
+                else:
+                    sub_cmd = f',sub-file={sub_file}'
+
             if intro_end := ep.get('intro_end'):
                 chap_path = mpv_intro_chapters_maker(start=ep['intro_start'], end=intro_end, file_name=basename)
-                mpv.command('set_property', 'chapters-file', chap_path)
-            continue
-        # iina 添加不上
-        if not append or limit <= 0 or is_iina:
-            continue
-        limit -= 1
-
-        sub_cmd = ''
-        main_ep_sub = data.get('sub_file', '')
-        if sub_file := ep['sub_file']:
-            # mpvnet 不支持 sub-files-toggle
-            if main_ep_sub and not getattr(mpv, 'is_mpvnet'):
-                sub_cmd = f',sub-files-remove={main_ep_sub},sub-files-append={main_ep_sub}'
-                sub_cmd = sub_cmd + f',sub-files-append={sub_file}'
+                chap_cmd = f',chapters-file="{chap_path}"'
             else:
-                sub_cmd = f',sub-file={sub_file}'
+                chap_cmd = ''
 
-        if intro_end := ep.get('intro_end'):
-            chap_path = mpv_intro_chapters_maker(start=ep['intro_start'], end=intro_end, file_name=basename)
-            chap_cmd = f',chapters-file="{chap_path}"'
+            try:
+                options = (f'title="{media_title}",force-media-title="{media_title}"'
+                           f',osd-playing-msg="{media_title}",start=0{sub_cmd}{chap_cmd}')
+                if insert:
+                    mpv_cmd = ['loadfile', ep['media_path'], 'insert-at', '0', options]
+                else:
+                    mpv_cmd = ['loadfile', ep['media_path'], 'append', '-1', options]
+                if not new_loadfile_cmd:
+                    del mpv_cmd[-2]
+                    if insert:
+                        logger.info('playlist insert disabled, require mpv version >= 0.38')
+                        break
+                mpv.command(*mpv_cmd)
+                ep['mpv_cmd'] = mpv_cmd
+            except OSError:
+                logger.error('mpv exit: by playlist_add_mpv: except OSError')
+                return {}
+
+    cur_index = None
+    for _index, _ep in enumerate(episodes):
+        _basename = _ep['basename']
+        _media_title = _ep['media_title']
+        if is_iina and mount_disk_mode:
+            playlist_data[_basename] = _ep
         else:
-            chap_cmd = ''
+            playlist_data[_media_title] = _ep
+        if _basename == data['basename']:
+            _ep['is_start_file'] = True
+            cur_index = _index
+    pre_index = cur_index - limit
+    pre_index = 0 if pre_index < 0 else pre_index
+    pre_list = episodes[pre_index:cur_index]
+    suf_list = episodes[cur_index:cur_index + limit]
 
-        try:
-            options = (f'title="{media_title}",force-media-title="{media_title}"'
-                       f',osd-playing-msg="{media_title}",start=0{sub_cmd}{chap_cmd}')
-            mpv_cmd = ['loadfile', ep['media_path'], 'append', '-1', options]
-            if not new_loadfile_cmd:
-                del mpv_cmd[-2]
-            mpv.command(*mpv_cmd)
-            ep['mpv_cmd'] = mpv_cmd
-        except OSError:
-            logger.error('mpv exit: by playlist_add_mpv: except OSError')
-            return {}
+    threading.Thread(target=loop_episodes, args=(suf_list,)).start()
+    threading.Thread(target=loop_episodes, args=(reversed(pre_list), True)).start()
+    # loop_episodes -> ep['mpv_cmd'] = mpv_cmd 貌似没被多线程运行影响
     return playlist_data
 
 
