@@ -281,7 +281,8 @@ def _prefetch_resume_tv(host, user_id, api_key, startswith):
     if configs.raw.getboolean('tg_notify', 'get_chat_id', fallback=False):
         tg_notify('_get_chat_id')
 
-    done_list = []
+    item_done_stat = {}  # {item_id:[source_id,]}
+    sleep_again = False
     while True:
         try:
             items = requests_urllib(f'{host}/Users/{user_id}/Items/Resume',
@@ -293,12 +294,24 @@ def _prefetch_resume_tv(host, user_id, api_key, startswith):
         items = items['Items']
         items = [i for i in items if i.get('SeriesName') and i.get('PremiereDate')
                  and time.mktime(time.strptime(i['PremiereDate'][:10], '%Y-%m-%d')) > time.time() - 86400 * 7]
+        resume_ids = [i['Id'] for i in items]
+        item_done_stat = {k: v for k, v in item_done_stat.items() if k in resume_ids}
+        fresh_item_list = []
         for ep in items:
             item_id = ep['Id']
             source_info = ep['MediaSources'][0] if 'MediaSources' in ep else ep
             file_path = source_info['Path']
-            if item_id in done_list or (not file_path.startswith(startswith) and '/' not in startswith):
+            if not file_path.startswith(startswith) and '/' not in startswith:
                 continue
+            if item_id in item_done_stat.keys():
+                if sleep_again:
+                    sleep_again = False
+                    continue
+                else:
+                    sleep_again = True
+            else:
+                item_done_stat[item_id] = []
+                fresh_item_list.append(item_id)
             # if ep['UserData'].get('LastPlayedDate'):
             #     continue
             try:
@@ -313,10 +326,15 @@ def _prefetch_resume_tv(host, user_id, api_key, startswith):
                 for source_info in playback_info['MediaSources']:
                     file_path = source_info['Path']
                     container = os.path.splitext(file_path)[-1]
+                    source_id = source_info['Id']
+                    if source_id in item_done_stat[item_id]:
+                        continue
+                    else:
+                        item_done_stat[item_id].append(source_id)
                     # stream_url = f'{host}/videos/{ep["Id"]}/stream{container}' \
                     #              f'?MediaSourceId={source_info["Id"]}&Static=true&api_key={api_key}'
                     stream_url = f'{host}/emby/videos/{item_id}/stream{container}' \
-                                 f'?DeviceId=embyToLocalPlayer&MediaSourceId={source_info["Id"]}&Static=true' \
+                                 f'?DeviceId=embyToLocalPlayer&MediaSourceId={source_id}&Static=true' \
                                  f'&PlaySessionId={play_session_id}&api_key={api_key}'
                     if stream_redirect := configs.ini_str_split('dev', 'stream_redirect'):
                         stream_redirect = zip(stream_redirect[0::2], stream_redirect[1::2])
@@ -330,14 +348,20 @@ def _prefetch_resume_tv(host, user_id, api_key, startswith):
                     if configs.raw.getboolean('tg_notify', 'disable_prefetch', fallback=False):
                         logger.info(f'tg_notify, {relative_path}')
                         continue
+                    if configs.check_str_match(host, 'dev', 'stream_prefix', log=False):
+                        stream_prefix = configs.ini_str_split('dev', 'stream_prefix')[0].strip('/')
+                        stream_url = f'{stream_prefix}{stream_url}'
                     logger.info(f'prefetch {relative_path} \n{stream_url[:100]}')
                     dl = Downloader(url=stream_url, _id=os.path.basename(file_path), save_path=null_file)
-                    dl.percent_download(0, 0.05)
-                    dl.percent_download(0.98, 1)
+                    try:
+                        dl.percent_download(0, 0.05)
+                        dl.percent_download(0.98, 1)
+                    except Exception:
+                        logger.error(f'prefetch error on download connection, skip\n{stream_url}')
                     print()
-                tg_notify(notify_msg)
+                if item_id in fresh_item_list:
+                    tg_notify(notify_msg)
             except Exception as e:
                 logger.error(f'_prefetch_resume_tv error found {str(e)[:100]}')
                 break
-            done_list.append(item_id)
         time.sleep(600)
