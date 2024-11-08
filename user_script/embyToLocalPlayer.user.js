@@ -3,7 +3,7 @@
 // @name:zh-CN   embyToLocalPlayer
 // @name:en      embyToLocalPlayer
 // @namespace    https://github.com/kjtsune/embyToLocalPlayer
-// @version      2024.11.05
+// @version      2024.11.08
 // @description  Emby/Jellyfin 调用外部本地播放器，并回传播放记录。适配 Plex。
 // @description:zh-CN Emby/Jellyfin 调用外部本地播放器，并回传播放记录。适配 Plex。
 // @description:en  Play in an external player. Update watch history to Emby/Jellyfin server. Support Plex.
@@ -305,7 +305,6 @@
     }
 
     async function dealWithPlaybakInfo(raw_url, url, options) {
-        logger.info('dealWithPlaybakInfo');
         console.time('dealWithPlaybakInfo');
         let rawId = url.match(/\/Items\/(\w+)\/PlaybackInfo/)[1];
         episodesInfoCache = episodesInfoCache[0] ? episodesInfoCache[1].clone() : null;
@@ -350,17 +349,27 @@
     }
 
     async function cacheResumeItemInfo() {
+        let inInit = !myBool(resumeRawInfoCache);
+        let resumeIds;
+        let storageKey = 'etlpResumeIds'
+        if (inInit) {
+            resumeIds = localStorage.getItem(storageKey)
+            if (resumeIds) {
+                resumeIds = JSON.parse(resumeIds);
+            } else {
+                return
+            }
+        } else {
+            resumeIds = resumeRawInfoCache.slice(0, 5).map(item => item.Id);
+            localStorage.setItem(storageKey, JSON.stringify(resumeIds));
+        }
+
         for (let [globalCache, getFun] of [[resumePlaybakCache, getPlaybackWithCace], [resumeItemDataCache, getItemInfoWithCace]]) {
-
-            if (!myBool(resumeRawInfoCache)) { return; }
-            let resumeIds = resumeRawInfoCache.slice(0, 5).map(item => item.Id);
             let cacheDataAcc = {};
-
             if (myBool(globalCache)) {
                 cacheDataAcc = globalCache;
                 resumeIds = resumeIds.filter(id => !(id in globalCache));
                 if (resumeIds.length == 0) { return; }
-
             }
             let itemInfoList = await Promise.all(
                 resumeIds.map(id => getFun(id))
@@ -391,6 +400,7 @@
         } else {
             if (typeof ApiClient != 'undefined' && ApiClient._deviceName != 'embyToLocalPlayer' && localStorage.getItem('webPlayerEnable') != 'true') {
                 ApiClient._deviceName = 'embyToLocalPlayer'
+                cacheResumeItemInfo();
             }
         }
 
