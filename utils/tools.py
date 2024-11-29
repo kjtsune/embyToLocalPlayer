@@ -268,6 +268,8 @@ def main_ep_to_title(main_ep_info):
 
 def main_ep_intro_time(main_ep_info):
     res = {}
+    if not main_ep_info.get('Chapters'):
+        return res
     chapters = [i for i in main_ep_info['Chapters'][:5] if i.get('MarkerType')
                 and not str(i['StartPositionTicks']).endswith('000000000')
                 and not (i['StartPositionTicks'] == 0 and i['MarkerType'] == 'Chapter')]

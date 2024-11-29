@@ -39,21 +39,21 @@ def bangumi_sync_emby(emby, bgm, emby_eps: list = None, emby_ids: list = None):
     item_infos = emby_eps if emby_eps else [emby.get_item(i) for i in emby_ids]
     item_info = item_infos[0]
     if item_info['Type'] != 'Episode':
-        logger.info('bgm: episode support only, skip')
+        logger.info('bgm: skip, episode support only')
         return
 
     season_num = item_info['ParentIndexNumber']
     index_key = 'index' if emby_eps else 'IndexNumber'
     ep_nums = [i[index_key] for i in item_infos]
     if not season_num or season_num == 0 or 0 in ep_nums:
-        logger.error(f'bgm: {season_num=} {ep_nums=} contain zero, skip')
+        logger.error(f'bgm: skip, {season_num=} {ep_nums=} contain zero')
         return
     series_id = item_info['SeriesId']
     series_info = emby.get_item(series_id)
     genres = series_info['Genres']
     gen_re = configs.raw.get('bangumi', 'genres', fallback='动画|anime')
     if not re.search(gen_re, ''.join(genres), flags=re.I):
-        logger.error(f'bgm: {genres=} not match {gen_re=}, skip')
+        logger.error(f'bgm: skip, {genres=} not match {gen_re=}')
         return
 
     premiere_date = series_info['PremiereDate']
@@ -85,21 +85,21 @@ def bangumi_sync_plex(plex, bgm, plex_eps: list = None, rating_keys: list = None
         plex.get_metadata(i) for i in rating_keys]
     item_info = item_infos[0]
     if item_info.get('type') != 'episode':
-        logger.info('bgm: episode support only, skip')
+        logger.info('bgm: skip, episode support only')
         return
 
     season_num = item_info['parentIndex']
     index_key = 'index'
     ep_nums = [i[index_key] for i in item_infos]
     if not season_num or season_num == 0 or 0 in ep_nums:
-        logger.error(f'bgm: {season_num=} {ep_nums=} contain zero, skip')
+        logger.error(f'bgm: skip, {season_num=} {ep_nums=} contain zero')
         return
     series_id = item_info['grandparentRatingKey']
     series_info = plex.get_metadata(series_id)
     genres = [i['tag'] for i in series_info['Genre']]
     gen_re = configs.raw.get('bangumi', 'genres', fallback='动画|anime')
     if not re.search(gen_re, ''.join(genres), flags=re.I):
-        logger.error(f'bgm: {genres=} not match {gen_re=}, skip')
+        logger.error(f'bgm: skip, {genres=} not match {gen_re=}')
         return
 
     premiere_date = series_info['originallyAvailableAt']
@@ -124,7 +124,7 @@ def search_and_sync(bgm, title, ori_title, premiere_date, season_num, ep_nums, e
     bgm_sea_id, bgm_ep_ids = bgm.get_target_season_episode_id(
         subject_id=subject_id, target_season=season_num, target_ep=ep_nums)
     if not bgm_ep_ids:
-        logger.info(f'bgm: {subject_id=} {season_num=} {ep_nums=}, not exists or too big, skip'
+        logger.info(f'bgm: skip, {subject_id=} {season_num=} {ep_nums=}, not exists or too big'
                     f' | https://bgm.tv/subject/{bgm_sea_id}')
         return
 
@@ -133,11 +133,11 @@ def search_and_sync(bgm, title, ori_title, premiere_date, season_num, ep_nums, e
         if is_emby:
             season_date = emby_season_thread.join().get('PremiereDate', '')[:10]
             if not bgm_season_date_check(season_date, bgm_sea_info, diff_day=15):
-                logger.info(f'bgm: season date check failed, skip | https://bgm.tv/subject/{bgm_sea_id}')
+                logger.info(f'bgm: skip, season date check failed | https://bgm.tv/subject/{bgm_sea_id}')
                 return
         else:
             if not bgm_season_date_check(premiere_date, bgm_sea_info, diff_day=180):
-                logger.info(f'bgm: episode date check failed, skip | https://bgm.tv/subject/{bgm_sea_id}')
+                logger.info(f'bgm: skip, episode date check failed | https://bgm.tv/subject/{bgm_sea_id}')
                 return
 
     logger.info(f'bgm: get {bgm_data["name"]} S0{season_num}E{ep_nums} https://bgm.tv/subject/{bgm_sea_id}')

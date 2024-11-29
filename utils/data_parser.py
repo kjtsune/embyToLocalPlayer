@@ -70,8 +70,8 @@ def parse_received_data_emby(received_data):
     if configs.check_str_match(netloc, 'dev', 'redirect_check_host'):
         _stream_url = get_redirect_url(stream_url)
         if stream_url != _stream_url:
+            logger.info(f'url redirect found {stream_url}')
             stream_url = _stream_url
-            logger.info(f'url redirect to {stream_url}')
 
     if configs.check_str_match(netloc, 'dev', 'stream_prefix', log=False):
         stream_prefix = configs.ini_str_split('dev', 'stream_prefix')[0].strip('/')
