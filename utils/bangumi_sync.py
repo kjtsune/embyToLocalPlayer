@@ -71,7 +71,8 @@ def bangumi_sync_emby(emby, bgm, emby_eps: list = None, emby_ids: list = None):
 
     emby_season_thread = ThreadWithReturnValue(target=emby.get_item, args=(item_info['SeasonId'],))
     search_and_sync(bgm=bgm, title=emby_title, ori_title=ori_title, premiere_date=premiere_date,
-                    season_num=season_num, ep_nums=ep_nums, emby_season_thread=emby_season_thread)
+                    season_num=season_num, ep_nums=ep_nums, emby_season_thread=emby_season_thread,
+                    emby=emby, eps_data=item_infos)
 
 
 def bangumi_sync_plex(plex, bgm, plex_eps: list = None, rating_keys: list = None):
@@ -109,7 +110,8 @@ def bangumi_sync_plex(plex, bgm, plex_eps: list = None, rating_keys: list = None
                     season_num=season_num, ep_nums=ep_nums)
 
 
-def search_and_sync(bgm, title, ori_title, premiere_date, season_num, ep_nums, emby_season_thread=None):
+def search_and_sync(bgm, title, ori_title, premiere_date, season_num, ep_nums, emby_season_thread=None,
+                    emby=None, eps_data=None):
     bgm_data = bgm.emby_search(title=title, ori_title=ori_title, premiere_date=premiere_date)
     # 旧 api 可能返回第二季的数据，下面有 season_date_check，偷懒暂不处理
     if not bgm_data:
@@ -125,7 +127,7 @@ def search_and_sync(bgm, title, ori_title, premiere_date, season_num, ep_nums, e
         subject_id=subject_id, target_season=season_num, target_ep=ep_nums)
     if not bgm_ep_ids:
         logger.info(f'bgm: skip, {subject_id=} {season_num=} {ep_nums=}, not exists or too big'
-                    f' | https://bgm.tv/subject/{bgm_sea_id}')
+                    f' | https://bgm.tv/subject/{bgm_sea_id or subject_id}')
         return
 
     if max(ep_nums) < 12 or not bgm_data.get('rank'):
@@ -141,9 +143,58 @@ def search_and_sync(bgm, title, ori_title, premiere_date, season_num, ep_nums, e
                 return
 
     logger.info(f'bgm: get {bgm_data["name"]} S0{season_num}E{ep_nums} https://bgm.tv/subject/{bgm_sea_id}')
+    bgm.mark_episode_watched(subject_id=bgm_sea_id, ep_id=bgm_ep_ids)
+    log = f'bgm: sync {ori_title} S0{season_num}E{ep_nums}'
     for bgm_ep_id, ep_num in zip(bgm_ep_ids, ep_nums):
-        bgm.mark_episode_watched(subject_id=bgm_sea_id, ep_id=bgm_ep_id)
-        logger.info(f'bgm: sync {ori_title} S0{season_num}E{ep_num} https://bgm.tv/ep/{bgm_ep_id}')
+        log += f'\nS0{season_num}E{ep_num} https://bgm.tv/ep/{bgm_ep_id}'
+    logger.info(log)
+    bgm_check_ep_miss_mark(bgm=bgm, emby=emby, eps_data=eps_data, bgm_sea_id=bgm_sea_id)
+
+
+def get_emby_season_watched_ep_key(emby, eps_data):
+    # emby.user_id = '' sync_via_stream_url 没有 user_id，故不支持。
+    from utils.emby_api import EmbyApi
+    emby: EmbyApi
+    fist_ep = eps_data[0]
+    ser_id, sea_id = fist_ep.get('SeriesId'), fist_ep.get('SeasonId')
+    if not sea_id:
+        return
+    try:
+        eps_data = emby.get_episodes(item_id=ser_id, season_id=sea_id, get_user_data=True)['Items']
+    except ValueError as e:
+        logger.error(f'skip get_emby_season_watched_ep_key: {str(e)[:50]}')
+        return
+    watched = []
+    for ep in eps_data:
+        if not ep['UserData']['Played']:
+            continue
+        ep_num, sea_num = ep.get('IndexNumber'), ep.get('ParentIndexNumber')
+        if not all([ep_num, sea_num]):
+            continue
+        key = f'{sea_num}-{ep_num}'
+        watched.append(key)
+    return watched
+
+
+def bgm_check_ep_miss_mark(bgm, emby, eps_data, bgm_sea_id):
+    # 不支持 Plex。
+    if not emby:
+        return
+    em_keys = get_emby_season_watched_ep_key(emby=emby, eps_data=eps_data)
+    if not em_keys:
+        return
+    sea_num = int(em_keys[0].split('-')[0])
+    bgm_eps_map = bgm.get_user_eps_collection(bgm_sea_id, map_state=True)
+    bgm_keys = [f'{sea_num}-{ep_num}' for ep_num, stat in bgm_eps_map.items() if stat['watched']]
+    miss_keys = set(em_keys) - set(bgm_keys)
+    miss_keys = [int(i.split('-')[1]) for i in miss_keys]
+    miss_ids = [bgm_eps_map.get(k)['id'] for k in miss_keys if bgm_eps_map.get(k)]
+    if miss_ids:
+        logger.info(f'bgm: miss sync {miss_keys}, re sync {len(miss_ids)} item')
+        bgm.mark_episode_watched(subject_id=bgm_sea_id, ep_id=miss_ids)
+        if len(miss_keys) != len(miss_ids):
+            loss_keys = [k for k in miss_keys if not bgm_eps_map.get(k)]
+            logger.info(f'bgm: loss sync {loss_keys}, may need check it manually')
 
 
 def bangumi_sync_main(bangumi=None, eps_data: list = None, test=False, use_ini=False):

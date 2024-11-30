@@ -9,12 +9,12 @@ except Exception:
     pass
 
 from utils.configs import configs, MyLogger
-from utils.bangumi_sync import api_client_via_stream_url
+from utils.bangumi_sync import api_client_via_stream_url, get_emby_season_watched_ep_key
 
 logger = MyLogger()
 
 
-def fill_trakt_ep_ids_by_series(trakt, eps_data, force=False):
+def fill_trakt_ep_ids_by_series(trakt, emby, eps_data, force=False):
     from utils.trakt_api import TraktApi
     trakt: TraktApi
     eps_data = eps_data if isinstance(eps_data, list) else [eps_data]
@@ -29,13 +29,6 @@ def fill_trakt_ep_ids_by_series(trakt, eps_data, force=False):
     if len(all_pvd_ids) == len(eps_data) and not force:
         return eps_data
 
-    from utils.emby_api import EmbyApi
-    emby = EmbyApi(host=f"{fist_ep['scheme']}://{fist_ep['netloc']}",
-                   api_key=fist_ep['api_key'],
-                   user_id=fist_ep['user_id'],
-                   http_proxy=configs.script_proxy,
-                   cert_verify=(not configs.raw.getboolean('dev', 'skip_certificate_verify', fallback=False))
-                   )
     series_info = emby.get_item(fist_ep['SeriesId'])
     season_num = fist_ep['ParentIndexNumber']
     series_pvd_ids = {k.lower(): v for k, v in series_info['ProviderIds'].items() if k.lower() in providers}
@@ -44,14 +37,14 @@ def fill_trakt_ep_ids_by_series(trakt, eps_data, force=False):
         return eps_data
     tk_eps_ids = []
     if s_imdb_id := series_pvd_ids.get('imdb'):
-        tk_eps_ids = trakt.get_single_season(_id=s_imdb_id, season_num=season_num)
+        tk_eps_ids = trakt.get_series_single_season(ser_id=s_imdb_id, season_num=season_num)
     if not tk_eps_ids:
         tk_sr_id = None
         if tvdb_sr_id := series_pvd_ids.get('tvdb'):
             tk_sr_id = trakt.id_lookup(provider='tvdb', _id=tvdb_sr_id, _type='show')
         if tk_sr_id and tk_sr_id[0]['show']['ids']['tvdb'] == int(series_pvd_ids['tvdb']):
             tk_sr_id = tk_sr_id[0]['show']['ids']['trakt']
-            tk_eps_ids = trakt.get_single_season(_id=tk_sr_id, season_num=season_num)
+            tk_eps_ids = trakt.get_series_single_season(ser_id=tk_sr_id, season_num=season_num)
         else:
             logger.info(f'trakt: trakt series id not found via tvdb id')
             return eps_data
@@ -65,11 +58,11 @@ def fill_trakt_ep_ids_by_series(trakt, eps_data, force=False):
     return eps_data
 
 
-def sync_ep_or_movie_to_trakt(trakt, eps_data):
-    eps_data = eps_data if isinstance(eps_data, list) else [eps_data]
+def sync_ep_or_movie_to_trakt(trakt, eps_data, emby=None):
     trakt_ids_list = []
     allow = ['episode', 'movie']
-    eps_data = fill_trakt_ep_ids_by_series(trakt=trakt, eps_data=eps_data)
+    eps_data = fill_trakt_ep_ids_by_series(trakt=trakt, emby=emby, eps_data=eps_data)
+    trakt_ids = None
     for ep in eps_data:
         trakt_ids_via_series = ep.get('trakt_ids')
         name = ep.get('basename', ep.get('Name'))
@@ -105,7 +98,7 @@ def sync_ep_or_movie_to_trakt(trakt, eps_data):
 
         if provider_ids and not trakt_ids and not trakt_ids_via_series:
             # 刚上映的剧集，trakt ep 的 tvdb id 可能缺失
-            eps_data = fill_trakt_ep_ids_by_series(trakt=trakt, eps_data=eps_data, force=True)
+            eps_data = fill_trakt_ep_ids_by_series(trakt=trakt, emby=emby, eps_data=eps_data, force=True)
             ep = [i for i in eps_data if ep['basename'] == i['basename']][0]
             trakt_ids_via_series = ep.get('trakt_ids')
             logger.info('trakt: force fill_trakt_ep_ids_by_series')
@@ -126,7 +119,27 @@ def sync_ep_or_movie_to_trakt(trakt, eps_data):
         trakt_ids_list.append(trakt_ids)
     if trakt_ids_list:
         res = trakt.add_ep_or_movie_to_history(trakt_ids_list)
-        return res
+        logger.info('trakt:', res)
+    trakt_check_ep_miss_mark(trakt=trakt, emby=emby, eps_data=eps_data, trakt_ids=trakt_ids)
+
+
+def trakt_check_ep_miss_mark(trakt, emby, eps_data, trakt_ids):
+    # 不支持 Plex。
+    if not emby:
+        return
+    em_keys = get_emby_season_watched_ep_key(emby=emby, eps_data=eps_data)
+    if not em_keys:
+        return
+    tr_keys = trakt.get_season_watched_via_ep_ids(trakt_ids, get_keys=True)
+    tr_ids_map = trakt.get_season_via_ep_ids(trakt_ids, get_key_map=True)
+    miss_keys = set(em_keys) - set(tr_keys)
+    miss_ids = [tr_ids_map.get(k) for k in miss_keys if tr_ids_map.get(k)]
+    if miss_ids:
+        logger.info(f'trakt: miss sync {miss_keys}, re sync {len(miss_ids)} item')
+        trakt.add_ep_or_movie_to_history(miss_ids)
+        if len(miss_keys) != len(miss_ids):
+            loss_keys = [k for k in miss_keys if not tr_ids_map.get(k)]
+            logger.info(f'trakt: loss sync {loss_keys}, may need check it manually')
 
 
 def trakt_api_client(received_code=None):
@@ -153,14 +166,25 @@ def trakt_api_client(received_code=None):
     return trakt
 
 
-def trakt_sync_main(trakt=None, eps_data=None, test=False):
+def trakt_sync_main(trakt=None, emby=None, eps_data=None, test=False):
     trakt = trakt or trakt_api_client()
     if test:
         trakt.test()
         return trakt
     else:
-        res = sync_ep_or_movie_to_trakt(trakt=trakt, eps_data=eps_data)
-        res and logger.info('trakt:', res)
+        if not emby:
+            from utils.emby_api import EmbyApi
+            eps_data = eps_data if isinstance(eps_data, list) else [eps_data]
+            fist_ep = eps_data[0]
+            if fist_ep['server'] != 'plex':
+                emby = EmbyApi(host=f"{fist_ep['scheme']}://{fist_ep['netloc']}",
+                               api_key=fist_ep['api_key'],
+                               user_id=fist_ep['user_id'],
+                               http_proxy=configs.script_proxy,
+                               cert_verify=(not configs.raw.getboolean('dev', 'skip_certificate_verify',
+                                                                       fallback=False))
+                               )
+        sync_ep_or_movie_to_trakt(trakt=trakt, emby=emby, eps_data=eps_data)
     return trakt
 
 
@@ -188,7 +212,7 @@ def trakt_sync_via_stream_url(url):
         return
     eps_data = emby_eps_data_generator(emby=emby, item_id=item_id)
     trakt = trakt_api_client()
-    trakt_sync_main(trakt=trakt, eps_data=eps_data, test=False)
+    trakt_sync_main(trakt=trakt, emby=emby, eps_data=eps_data, test=False)
     time.sleep(1)
 
 

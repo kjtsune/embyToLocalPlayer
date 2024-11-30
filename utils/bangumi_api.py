@@ -158,11 +158,22 @@ class BangumiApi:
                 return current_id, _target_ep[0]['id']
         return None, None if target_ep else None
 
-    def get_subject_collection(self, subject_id):
-        res = self.get(f'users/{self.username}/collections/{subject_id}')
+    def get_subject_collection(self, subject_id, get_eps=False):
+        extra = '/episodes' if get_eps else ''
+        user = '-' if get_eps else self.username
+        res = self.get(f'users/{user}/collections/{subject_id}{extra}')
         if res.status_code == 404:
             return {}
         return res.json()
+
+    def get_user_eps_collection(self, subject_id, map_state=False):
+        # map_state=true return { ep_num: {'watched': bool, 'id': ep_id}}
+        eps = self.get_subject_collection(subject_id, get_eps=True)
+        if not map_state:
+            return eps
+        eps = eps['data']
+        state = {ep['episode']['ep']: {'watched': bool(ep['type'] == 2), 'id': ep['episode']['id']} for ep in eps}
+        return state
 
     def mark_episode_watched(self, subject_id, ep_id):
         data = self.get_subject_collection(subject_id)
@@ -170,9 +181,10 @@ class BangumiApi:
             return
         if not data:
             self.add_collection_subject(subject_id=subject_id)
+        if isinstance(ep_id, list):
+            self.change_episode_state(ep_id=ep_id, subject_id=subject_id)
+        else:
             self.change_episode_state(ep_id=ep_id, state=2)
-            return
-        self.change_episode_state(ep_id=ep_id, state=2)
 
     def add_collection_subject(self, subject_id, private=None, state=3):
         private = self.private if private is None else private
@@ -180,9 +192,18 @@ class BangumiApi:
                   _json={'type': state,
                          'private': bool(private)})
 
-    def change_episode_state(self, ep_id, state=2):
-        res = self.put(f'users/-/collections/-/episodes/{ep_id}',
-                       _json={'type': state})
+    def change_episode_state(self, ep_id, state=2, subject_id=None):
+        if isinstance(ep_id, list):
+            if not subject_id:
+                raise ValueError('update eps require subject_id')
+            res = self.patch(f'users/-/collections/{subject_id}/episodes',
+                             _json={
+                                 'episode_id': ep_id,
+                                 'type': 2
+                             })
+        else:
+            res = self.put(f'users/-/collections/-/episodes/{ep_id}',
+                           _json={'type': state})
         if 333 < res.status_code < 444:
             raise ValueError(f'{res.status_code=} {res.text}')
         return res

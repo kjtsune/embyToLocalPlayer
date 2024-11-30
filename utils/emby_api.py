@@ -73,12 +73,16 @@ class EmbyApi:
             raise KeyError(f'library: {name} not exists, check it')
         return lib_id[0] if lib_id else None
 
-    def get_sessions(self, item_id):
+    def get_seasons(self, item_id):
         res = self.get(f'Shows/{item_id}/Seasons')
         return res
 
-    def get_episodes(self, item_id, session_id=None):
-        params = {'SeasonId': session_id} if session_id else {}
+    def get_episodes(self, item_id, season_id=None, get_user_data=False):
+        params = {'SeasonId': season_id} if season_id else {}
+        if get_user_data:
+            if not self.user_id:
+                raise ValueError('get_user_data require user id')
+            params.update({'UserId': self.user_id})
         res = self.get(f'Shows/{item_id}/Episodes', params=params)
         return res
 

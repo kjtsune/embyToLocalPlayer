@@ -52,15 +52,43 @@ class TraktApi:
         url = f"https://trakt.tv/{_type}s/{ids['slug']}"
         return url
 
+    def get_season_watched_via_ep_ids(self, ep_ids, get_keys=False):
+        # return { 'number': sea_num, 'episodes': {'number': ep_num, 'completed': Bool} }
+        # get_keys return { '1-1', '1-2' ..}
+        ser_id = ep_ids['show']['ids']['slug']
+        season_num = ep_ids['episode']['season']
+        show_data = self.get_show_watched_progress(ser_id)
+        sea_data = [i for i in show_data['seasons'] if i['number'] == season_num]
+        if not sea_data:
+            return None
+        sea_data = sea_data[0]
+        if get_keys:
+            sea_data = [f'{season_num}-{ep["number"]}' for ep in sea_data['episodes'] if ep['completed']]
+        return sea_data
+
+    def get_season_via_ep_ids(self, ep_ids, info_only=False, get_key_map=False):
+        # get_key_map => {f'{sea_num}-{ep_num}': ep_ids, '1-2': ep_ids, ..}
+        ser_id = ep_ids['show']['ids']['slug']
+        season_num = ep_ids['episode']['season']
+        res = self.get_series_single_season(ser_id=ser_id, season_num=season_num, info_only=info_only)
+        if get_key_map:
+            if info_only:
+                raise ValueError('get_key_map require disable info_only')
+            map_dict = {f'{season_num}-{ep["number"]}': ep['ids'] for ep in res}
+            return map_dict
+        return res
+
     @functools.lru_cache
-    def get_single_season(self, _id, season_num, translations=''):
+    def get_series_single_season(self, ser_id, season_num, translations='', info_only=False):
         """
-        _id: Trakt ID, Trakt slug, or IMDB ID
+        ser_id: Trakt ID, Trakt slug, or IMDB ID
         translations: specific 2 digit country language code
         return: [{.., ids:ep_ids}, ..] not standard ids_item, not type field
         """
-        trans = f'?translations={translations}' if translations else ''
-        res = self.get(f'shows/{_id}/seasons/{season_num}{trans}') or []
+        trans = f'?translations={translations}' if translations and not info_only else ''
+        if info_only:
+            trans = '/info'
+        res = self.get(f'shows/{ser_id}/seasons/{season_num}{trans}') or []
         return res
 
     @functools.lru_cache
