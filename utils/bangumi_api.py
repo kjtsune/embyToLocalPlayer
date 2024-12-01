@@ -57,6 +57,7 @@ class BangumiApi:
 
     @functools.lru_cache
     def search(self, title, start_date, end_date, limit=5, list_only=True):
+        title = title.replace('-', '')
         res = self._req_not_auth.post(f'{self.host}/search/subjects',
                                       json={'keyword': title,
                                             'filter': {'type': [2],
@@ -133,6 +134,8 @@ class BangumiApi:
         while True:
             related = self.get_related_subjects(current_id)
             next_id = [i for i in related if i['relation'] == '续集']
+            remake = [i for i in related if i['relation'] == '不同演绎']
+            next_id = next_id or remake
             if not next_id:
                 break
             current_id = next_id[0]['id']
@@ -172,7 +175,8 @@ class BangumiApi:
         if not map_state:
             return eps
         eps = eps['data']
-        state = {ep['episode']['ep']: {'watched': bool(ep['type'] == 2), 'id': ep['episode']['id']} for ep in eps}
+        # ep['episode']['ep'] 会导致分批放送匹配失败。
+        state = {ep['episode']['sort']: {'watched': bool(ep['type'] == 2), 'id': ep['episode']['id']} for ep in eps}
         return state
 
     def mark_episode_watched(self, subject_id, ep_id):

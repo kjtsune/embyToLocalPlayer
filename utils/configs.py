@@ -191,11 +191,15 @@ class Configs:
         return config
 
     def check_str_match(self, _str, section, option, return_value=False, log=True,
-                        log_by: typing.Literal[True, False] = None, order_only=False):
+                        log_by: typing.Literal[True, False] = None, order_only=False, get_next=False):
         # 注意 order_only 在匹配失败时返回 0
         ini_list = self.ini_str_split(section, option, fallback='')
         match_list = [i for i in ini_list if i in _str]
         match_order = ini_list.index(match_list[0]) + 1 if match_list else 0
+        if get_next:
+            if match_list and match_order:
+                return ini_list[match_order]
+            return
         if ini_list and any(match_list):
             result = match_list[0] if return_value else True
             if order_only:

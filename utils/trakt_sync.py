@@ -134,6 +134,9 @@ def trakt_check_ep_miss_mark(trakt, emby, eps_data, trakt_ids):
     tr_ids_map = trakt.get_season_via_ep_ids(trakt_ids, get_key_map=True)
     miss_keys = set(em_keys) - set(tr_keys)
     miss_ids = [tr_ids_map.get(k) for k in miss_keys if tr_ids_map.get(k)]
+    for miss_id in miss_ids:  # 若遇到未上映却实际看过时（个别平台提前播放），该数据会有误，故再次检查。
+        if trakt.check_is_watched(miss_id, _type='episode'):
+            miss_ids.remove(miss_id)
     if miss_ids:
         logger.info(f'trakt: miss sync {miss_keys}, re sync {len(miss_ids)} item')
         trakt.add_ep_or_movie_to_history(miss_ids)

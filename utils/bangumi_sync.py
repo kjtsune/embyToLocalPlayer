@@ -152,7 +152,8 @@ def search_and_sync(bgm, title, ori_title, premiere_date, season_num, ep_nums, e
 
 
 def get_emby_season_watched_ep_key(emby, eps_data):
-    # emby.user_id = '' sync_via_stream_url 没有 user_id，故不支持。
+    if not emby.user_id:  # sync_via_stream_url 没有 user_id
+        emby.user_id = configs.check_str_match(emby.host, 'dev', 'stream_userid', get_next=True)
     from utils.emby_api import EmbyApi
     emby: EmbyApi
     fist_ep = eps_data[0]

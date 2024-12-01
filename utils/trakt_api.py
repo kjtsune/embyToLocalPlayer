@@ -53,6 +53,7 @@ class TraktApi:
         return url
 
     def get_season_watched_via_ep_ids(self, ep_ids, get_keys=False):
+        # 若遇到未上映却实际看过时（个别平台提前播放），该数据会遗漏。
         # return { 'number': sea_num, 'episodes': {'number': ep_num, 'completed': Bool} }
         # get_keys return { '1-1', '1-2' ..}
         ser_id = ep_ids['show']['ids']['slug']
@@ -108,15 +109,15 @@ class TraktApi:
         res = [i[i['type']]['ids'] for i in ids_items]
         return res if is_list else res[0]
 
-    def get_watch_history(self, ids_item) -> list:
+    def get_watch_history(self, ids_item, _type: typing.Literal['show', 'movie', 'episode'] = None) -> list:
         # id_lookup -> ids_item
         # get_single_season > ep_ids :not type field
         # return 观看动作相关的历史列表。剧集无法判断是否完成观看。
-        _type = ids_item.get('type')
+        _type = ids_item.get('type') or _type
         path_type = f'{_type}s' if _type else ''
         # 若没指定类型，返回的记录可能有误
         path_type = path_type or 'episodes'
-        trakt_id = ids_item[_type]['ids']['trakt'] if _type else ids_item['trakt']
+        trakt_id = ids_item[_type]['ids']['trakt'] if ids_item.get(_type) else ids_item['trakt']
         res = self.get(f'users/{self.user_id}/history/{path_type}/{trakt_id}')
         return res
 
@@ -135,13 +136,15 @@ class TraktApi:
         res = self.get(f'shows/{_id}/progress/watched')
         return res
 
-    def check_is_watched(self, ids_item):
+    def check_is_watched(self, ids_item, _type: typing.Literal['show', 'movie', 'episode'] = None):
         # id_lookup -> ids_item
-        _type = ids_item.get('type')
-        if _type == 'movie':
-            res = self.get_watch_history(ids_item)
+        _type = ids_item.get('type') or _type
+        if _type in ['movie', 'episode']:
+            res = self.get_watch_history(ids_item, _type=_type)
             return res
-        trakt_id = ids_item[_type]['ids']['trakt'] if _type else ids_item['trakt']
+        if not _type:
+            raise ValueError('ids not contain type, input it manually')
+        trakt_id = ids_item[_type]['ids']['trakt'] if ids_item.get(_type) else ids_item['trakt']
         res = self.get_show_watched_progress(trakt_id)
         aired, completed = res['aired'], res['completed']
         # 不严谨，分季情况未区分。
