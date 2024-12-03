@@ -130,7 +130,7 @@ def search_and_sync(bgm, title, ori_title, premiere_date, season_num, ep_nums, e
                     f' | https://bgm.tv/subject/{bgm_sea_id or subject_id}')
         return
 
-    if max(ep_nums) < 12 or not bgm_data.get('rank'):
+    if max(ep_nums) < 12 or not bgm_data.get('is_v0'):
         bgm_sea_info = bgm.get_subject(bgm_sea_id)
         if is_emby:
             season_date = emby_season_thread.join().get('PremiereDate', '')[:10]

@@ -216,23 +216,39 @@ class BangumiApi:
 class BangumiApiEmbyVer(BangumiApi):
     @staticmethod
     def _emby_filter(bgm_data):
-        useful_key = ['date', 'id', 'name', 'name_cn', 'rank', 'score', ]
+        # common_keys = ['id', 'name', 'name_cn', 'summary', 'rating', 'collection', 'images']
+        # v0_subject_unique_keys = ['type', 'nsfw', 'locked', 'date', 'platform', 'series', 'infobox', 'volumes',
+        #                           'total_episodes', 'meta_tags', 'tags']
+        # legacy_subject_small_unique_keys = ['url', 'type', 'air_date', 'air_weekday', 'eps', 'eps_count', 'rank']
         update_date = str(datetime.date.today())
-        if isinstance(bgm_data, list):
-            res = []
-            for data in bgm_data:
-                d = {k: v for k, v in data.items() if k in useful_key}
-                d['update_date'] = update_date
-                res.append(d)
-            return res
-        else:
-            d = {k: v for k, v in bgm_data.items() if k in useful_key}
+        return_list = isinstance(bgm_data, list)
+        bgm_data = bgm_data if return_list else [bgm_data]
+        is_v0 = bool(bgm_data[0].get('date'))
+
+        common_key = ['id', 'name', 'name_cn']
+        useful_key = common_key + ['date', 'score', 'rank']
+        v0_key_map = common_key + ['date', ('rating', 'score'), ('rating', 'rank')]
+        legacy_key_map = common_key + ['air_date', ('rating', 'score'), 'rank']
+        key_map = v0_key_map if is_v0 else legacy_key_map
+
+        res = []
+        for data in bgm_data:
+            d = {}
+            for (k, m) in zip(useful_key, key_map):
+                if isinstance(m, str):
+                    d[k] = data[m]
+                    continue
+                v = data  # data.copy() 会更稳妥。
+                for _m in m:
+                    v = v[_m]
+                d[k] = v
             d['update_date'] = update_date
-            return d
+            d['is_v0'] = is_v0
+            res.append(d)
+        return res if return_list else res[0]
 
     def emby_search(self, title, ori_title, premiere_date: str, is_movie=False):
-        # 旧 api 没有 ['date', 'rank', 'score']
-        # 只有 ['id', 'name', 'name_cn'] 键
+        # 新 api 通过 _emby_filter() => {is_v0 : True} 判断
         air_date = datetime.datetime.fromisoformat(premiere_date[:10])
         start_date = air_date - datetime.timedelta(days=2)
         end_date = air_date + datetime.timedelta(days=2)
