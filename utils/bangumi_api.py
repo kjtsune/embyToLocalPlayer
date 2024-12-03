@@ -70,7 +70,7 @@ class BangumiApi:
 
     @functools.lru_cache
     def search_old(self, title, list_only=True):
-        res = self.req.get(f'{self.host[:-2]}/search/subject/{title}', params={'type': 2})
+        res = self.req.get(f'{self.host[:-2]}/search/subject/{title}', params={'type': 2, 'responseGroup': 'large'})
         try:
             res = res.json()
         except Exception:
@@ -216,6 +216,7 @@ class BangumiApi:
 class BangumiApiEmbyVer(BangumiApi):
     @staticmethod
     def _emby_filter(bgm_data):
+        # 旧 api 由返回数据内容受到大小参数的影响。
         # common_keys = ['id', 'name', 'name_cn', 'summary', 'rating', 'collection', 'images']
         # v0_subject_unique_keys = ['type', 'nsfw', 'locked', 'date', 'platform', 'series', 'infobox', 'volumes',
         #                           'total_episodes', 'meta_tags', 'tags']
