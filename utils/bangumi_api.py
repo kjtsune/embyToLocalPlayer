@@ -111,8 +111,8 @@ class BangumiApi:
             while True:
                 if not fist_part:
                     current_info = self.get_subject(current_id)
-                    if current_info['platform'] != 'TV':
-                        continue
+                    if current_info['platform'] not in ('TV', 'WEB'):
+                        break
                 episodes = self.get_episodes(current_id)
                 ep_info = episodes['data']
                 _target_ep = [i for i in ep_info if i['sort'] == target_ep]

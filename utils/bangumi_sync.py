@@ -21,13 +21,15 @@ def bgm_season_date_check(media_server_date, bgm_info, diff_day):
     if not media_server_date:
         logger.info(f'bgm: media_server_date not found')
         return False
-    media_server_date = datetime.date.fromisoformat(media_server_date)
-    bgm_date = datetime.date.fromisoformat(bgm_date)
-    diff = media_server_date - bgm_date
-    if abs(diff.days) > diff_day:
-        logger.info(f'bgm: check {media_server_date=} {bgm_date=} diff greater than {diff_day}')
-        return False
-    return True
+    media_server_dates = [media_server_date] if isinstance(media_server_date, str) else media_server_date
+    for media_server_date in media_server_dates:
+        media_server_date = datetime.date.fromisoformat(media_server_date)
+        bgm_date = datetime.date.fromisoformat(bgm_date)
+        diff = media_server_date - bgm_date
+        if abs(diff.days) <= diff_day:
+            return True
+    logger.info(f'bgm: check {media_server_date=} {bgm_date=} diff greater than {diff_day}')
+    return False
 
 
 def bangumi_sync_emby(emby, bgm, emby_eps: list = None, emby_ids: list = None):
@@ -56,7 +58,10 @@ def bangumi_sync_emby(emby, bgm, emby_eps: list = None, emby_ids: list = None):
         logger.error(f'bgm: skip, {genres=} not match {gen_re=}')
         return
 
-    premiere_date = series_info['PremiereDate']
+    premiere_date = series_info.get('PremiereDate')
+    if not premiere_date:
+        logger.error('bgm: skip, PremiereDate data missing')
+        return
     emby_title = series_info['Name']
     ori_title = series_info.get('OriginalTitle', '')
     re_split = re.compile(r'[／/]')
@@ -134,7 +139,8 @@ def search_and_sync(bgm, title, ori_title, premiere_date, season_num, ep_nums, e
         bgm_sea_info = bgm.get_subject(bgm_sea_id)
         if is_emby:
             season_date = emby_season_thread.join().get('PremiereDate', '')[:10]
-            if not bgm_season_date_check(season_date, bgm_sea_info, diff_day=15):
+            check_date = [season_date, premiere_date] if season_num == 1 else season_date
+            if not bgm_season_date_check(check_date, bgm_sea_info, diff_day=15):
                 logger.info(f'bgm: skip, season date check failed | https://bgm.tv/subject/{bgm_sea_id}')
                 return
         else:

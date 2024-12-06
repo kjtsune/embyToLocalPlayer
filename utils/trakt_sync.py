@@ -120,7 +120,8 @@ def sync_ep_or_movie_to_trakt(trakt, eps_data, emby=None):
     if trakt_ids_list:
         res = trakt.add_ep_or_movie_to_history(trakt_ids_list)
         logger.info('trakt:', res)
-    trakt_check_ep_miss_mark(trakt=trakt, emby=emby, eps_data=eps_data, trakt_ids=trakt_ids)
+    if trakt_ids:
+        trakt_check_ep_miss_mark(trakt=trakt, emby=emby, eps_data=eps_data, trakt_ids=trakt_ids)
 
 
 def trakt_check_ep_miss_mark(trakt, emby, eps_data, trakt_ids):
