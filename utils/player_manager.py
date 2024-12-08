@@ -89,13 +89,15 @@ class BaseManager(BaseInit):
                 continue
             if not _stop_sec:
                 continue
-            start_sec = ep.get('start_sec')
-            if start_sec is not None and abs(_stop_sec - int(start_sec)) < 20:
+            start_sec = ep.get('start_sec') or 0
+            if abs(_stop_sec - int(start_sec)) < 20:
                 logger.info(f"skip update progress, {ep['basename']} start_sec stop_sec too close")
             else:
                 update_server_playback_progress(stop_sec=_stop_sec, data=ep)
             ep['_stop_sec'] = _stop_sec
             need_update_eps.append(ep)
+        if not need_update_eps:
+            return
         for provider in 'trakt', 'bangumi':
             if self.data.get('eps_error'):
                 break

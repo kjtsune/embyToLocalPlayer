@@ -474,8 +474,9 @@ def list_episodes(data: dict):
 
     title_data, start_data, end_data = title_intro_index_map()
     pretty_title = configs.raw.getboolean('dev', 'pretty_title', fallback=True)
+    main_ep_basename = data['basename']
 
-    def parse_item(item):
+    def parse_item(item, order):
         source_info = item['MediaSources'][0]
         media_source_id = source_info["Id"]
         file_path = source_info['Path']
@@ -516,6 +517,9 @@ def list_episodes(data: dict):
         if not playlist_info:
             result['SeriesId'] = item['SeriesId']
             result['SeasonId'] = season_id
+        if basename != main_ep_basename:
+            for none_key in ['start_sec', 'main_ep_info', 'episodes_info']:
+                result[none_key] = None
         result.update(dict(
             basename=basename,
             media_basename=media_basename,
@@ -532,6 +536,7 @@ def list_episodes(data: dict):
             media_title=media_title,
             intro_start=start_data.get(unique_key),
             intro_end=end_data.get(unique_key),
+            order=order,
         ))
         return result
 
@@ -573,7 +578,7 @@ def list_episodes(data: dict):
             return [data]
     episodes = [i for i in episodes['Items'] if 'Path' in i and 'RunTimeTicks' in i]
     episodes = version_filter(data['file_path'], episodes) if data['server'] == 'emby' else episodes
-    episodes = [parse_item(i) for i in episodes]
+    episodes = [parse_item(i, o) for (o, i) in enumerate(episodes)]
     if title_intro_map_fail:
         debug_beep_win32()
         logger.info('pretty title: title_intro_map_fail')

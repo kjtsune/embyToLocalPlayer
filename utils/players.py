@@ -1,4 +1,5 @@
 import base64
+import json
 import os.path
 import platform
 import subprocess
@@ -123,6 +124,7 @@ def mpv_player_start(cmd, start_sec=None, sub_file=None, media_title=None, get_s
     if not get_stop_sec:
         return
     if mpv:
+        mpv.command('script-message', 'etlp-cmd-pipe', cmd_pipe)
         mpv.is_iina = is_iina
         mpv.is_mpvnet = is_mpvnet
     return dict(mpv=mpv)
@@ -233,8 +235,16 @@ def playlist_add_mpv(mpv: MPV, data, eps_data=None, limit=10):
     pre_list = episodes[pre_index:cur_index]
     suf_list = episodes[cur_index:cur_index + limit]
 
-    threading.Thread(target=loop_episodes, args=(suf_list,)).start()
-    threading.Thread(target=loop_episodes, args=(reversed(pre_list), True)).start()
+    def adding_thread():
+        suf_thread = threading.Thread(target=loop_episodes, args=(suf_list,))
+        pre_thread = threading.Thread(target=loop_episodes, args=(reversed(pre_list), True))
+        _ = [suf_thread.start(), pre_thread.start()]
+        if configs.raw.getboolean('dev', 'mpv_ipc_playlist_data', fallback=False):
+            mpv.command('script-message', 'etlp-playlist-data', json.dumps(playlist_data, ensure_ascii=False))
+        _ = [suf_thread.join(), pre_thread.join()]
+        mpv.command('script-message', 'etlp-playlist-done')
+
+    threading.Thread(target=adding_thread, daemon=True).start()
     # loop_episodes -> ep['mpv_cmd'] = mpv_cmd 貌似没被多线程运行影响
     return playlist_data
 

@@ -428,6 +428,20 @@ https://github.com/kjtsune/embyToLocalPlayer#faq
 </details>
 
 <details>
+<summary>mpv 传递数据给 lua 脚本</summary>
+
+* 通过 `script-message` 传递部分数据给 mpv，以便其他脚本使用。
+* `'script-message', 'etlp-cmd-pipe', cmd_pipe` : 命令行 ipc 管道名称。
+* `'script-message', 'etlp-playlist-data', playlist_data` : emby 的播放列表数据。
+* `'script-message', 'etlp-playlist-done'` : 表明 mpv 播放列表已添加完成。
+* 填写位置：`.ini` > `[dev]`
+  ```
+  # 播放列表数据较大，默认不传递。若需要启用，则填写此项。
+  mpv_ipc_playlist_data = yes
+  ```
+</details>
+
+<details>
 <summary>mpv 自动跳过片头片尾</summary>
 
 * 播放时检查视频章节时长与标题，符合条件时自动跳过该章节或仅提示。
