@@ -3,7 +3,7 @@
 // @name:zh-CN   embyToLocalPlayer
 // @name:en      embyToLocalPlayer
 // @namespace    https://github.com/kjtsune/embyToLocalPlayer
-// @version      2024.11.08
+// @version      2024.12.08
 // @description  Emby/Jellyfin 调用外部本地播放器，并回传播放记录。适配 Plex。
 // @description:zh-CN Emby/Jellyfin 调用外部本地播放器，并回传播放记录。适配 Plex。
 // @description:en  Play in an external player. Update watch history to Emby/Jellyfin server. Support Plex.
@@ -231,6 +231,18 @@
     let allPlaybackCache = {};
     let allItemDataCache = {};
 
+    let metadataChangeRe = /\/MetadataEditor|\/Refresh\?/;
+    let metadataMayChange = false;
+
+    function cleanOptionalCache() {
+        resumeRawInfoCache = null;
+        resumePlaybakCache = {};
+        resumeItemDataCache = {};
+        allPlaybackCache = {};
+        allItemDataCache = {};
+        episodesInfoCache = []
+    }
+
     function makeItemIdCorrect(itemId) {
         if (serverName !== 'emby') { return itemId; }
         if (!resumeRawInfoCache || !episodesInfoCache) { return itemId; }
@@ -383,8 +395,13 @@
     }
 
     async function cloneAndCacheFetch(resp, key, cache) {
-        const data = await resp.clone().json();
-        cache[key] = data;
+        try {
+            const data = await resp.clone().json();
+            cache[key] = data;
+
+        } catch (_error) {
+            // pass
+        }
     }
 
     let itemInfoRe = /Items\/(\w+)\?/;
@@ -403,7 +420,13 @@
                 cacheResumeItemInfo();
             }
         }
-
+        if (metadataMayChange && url.includes('Items')) {
+            if (url.includes('reqformat') && !url.includes('fields')) {
+                cleanOptionalCache();
+                metadataMayChange = false;
+                logger.info('cleanOptionalCache by metadataMayChange')
+            }
+        }
         // 适配播放列表及媒体库的全部播放、随机播放。限电影及音乐视频。
         if (url.includes('Items?') && (url.includes('Limit=300') || url.includes('Limit=1000')) || url.includes('SpecialFeatures')) {
             let _resp = await originFetch(raw_url, options);
@@ -485,6 +508,15 @@
             logger.error(error, raw_url, url);
             removeErrorWindowsMultiTimes();
             return
+        }
+
+        if (url.match(metadataChangeRe)) {
+            if (url.includes('MetadataEditor')) {
+                metadataMayChange = true;
+            } else {
+                cleanOptionalCache();
+                logger.info('cleanOptionalCache by Refresh')
+            }
         }
         return originFetch(raw_url, options);
     }
