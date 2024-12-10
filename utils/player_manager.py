@@ -21,6 +21,7 @@ class BaseInit:
         self.player_kwargs = {}
         self.playlist_data = {}
         self.playlist_time = {}
+        self.playlist_total_sec = {}
         self.is_http_sub = bool(data.get('sub_file'))
 
 
@@ -72,7 +73,12 @@ class BaseManager(BaseInit):
             logger.info('disable playlist cuz http sub, auto next ep mode enabled')
             self.http_sub_auto_next_ep_time_loop(key_field=key_field_map[self.player_name])
         else:
-            self.playlist_time = stop_sec_func_dict[self.player_name](stop_sec_only=False, **self.player_kwargs)
+            stop_fun_res = stop_sec_func_dict[self.player_name](stop_sec_only=False, **self.player_kwargs)
+            if isinstance(stop_fun_res, tuple):
+                self.playlist_time, self.playlist_total_sec = stop_fun_res
+            else:
+                self.playlist_time = stop_fun_res
+
         # 未兼容播放器多开，暂不处理
         prefetch_data['on'] = False
         prefetch_data['stop_sec_dict'].clear()
@@ -92,14 +98,19 @@ class BaseManager(BaseInit):
             start_sec = ep.get('start_sec') or 0
             if abs(_stop_sec - int(start_sec)) < 20:
                 logger.info(f"skip update progress, {ep['basename']} start_sec stop_sec too close")
+                continue
             else:
                 update_server_playback_progress(stop_sec=_stop_sec, data=ep)
             ep['_stop_sec'] = _stop_sec
+            if ep['total_sec'] == 3600 * 24:
+                if total_sec := self.playlist_total_sec.get(key):
+                    ep['total_sec'] = total_sec
             need_update_eps.append(ep)
         if not need_update_eps:
             return
         for provider in 'trakt', 'bangumi':
-            if self.data.get('eps_error'):
+            if need_update_eps[0]['total_sec'] == 3600 * 24:
+                logger.error('trakt, bgm disabled: cuz miss emby runtime data')
                 break
             if configs.raw.get(provider, 'enable_host', fallback=''):
                 threading.Thread(target=sync_third_party_for_eps,

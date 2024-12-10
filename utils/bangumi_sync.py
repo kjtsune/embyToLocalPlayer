@@ -23,7 +23,9 @@ def bgm_season_date_check(media_server_date, bgm_info, diff_day):
         return False
     media_server_dates = [media_server_date] if isinstance(media_server_date, str) else media_server_date
     for media_server_date in media_server_dates:
-        media_server_date = datetime.date.fromisoformat(media_server_date)
+        if not media_server_date:
+            continue
+        media_server_date = datetime.date.fromisoformat(media_server_date[:10])
         bgm_date = datetime.date.fromisoformat(bgm_date)
         diff = media_server_date - bgm_date
         if abs(diff.days) <= diff_day:

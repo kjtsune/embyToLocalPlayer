@@ -50,9 +50,12 @@ def parse_received_data_emby(received_data):
         media_source_info = version_prefer_emby(media_sources) \
             if len(media_sources) > 1 and is_emby else media_sources[0]
         media_source_id = media_source_info['Id']
-    file_path = media_source_info['Path']
+    file_path = main_ep_info['Path']
+    source_path = media_source_info['Path']  # strm 的时候和 file_path 不一致
     # stream_url = f'{scheme}://{netloc}{media_source_info["DirectStreamUrl"]}' # 可能为转码后的链接
     container = os.path.splitext(file_path)[-1]
+    is_strm = container == '.strm'
+    mount_disk_mode = False if is_strm else mount_disk_mode
     extra_str = '/emby' if is_emby else ''
     server_version = api_client['_serverVersion']
     _a, _b, _c, *_d = [int(i) for i in server_version.split('.')]
@@ -133,9 +136,11 @@ def parse_received_data_emby(received_data):
     server = 'emby' if is_emby else 'jellyfin'
 
     fake_name = os.path.splitdrive(file_path)[1].replace('/', '__').replace('\\', '__')
-    total_sec = int(media_source_info['RunTimeTicks']) // 10 ** 7 if 'RunTimeTicks' in media_source_info else 10 ** 12
+    total_sec = int(media_source_info.get('RunTimeTicks', 0)) // 10 ** 7 or 3600 * 24
     position = start_sec / total_sec
     user_id = query['UserId']
+    if is_strm and configs.raw.get('dev', 'strm_direct', fallback=False):
+        media_path = source_path
 
     result = dict(
         server=server,
@@ -165,7 +170,9 @@ def parse_received_data_emby(received_data):
         playlist_info=playlist_info,
         intro_start=intro_time.get('intro_start'),
         intro_end=intro_time.get('intro_end'),
-        server_version=server_version
+        server_version=server_version,
+        is_strm=is_strm,
+        source_path=source_path,
     )
     return result
 
@@ -475,11 +482,14 @@ def list_episodes(data: dict):
     title_data, start_data, end_data = title_intro_index_map()
     pretty_title = configs.raw.getboolean('dev', 'pretty_title', fallback=True)
     main_ep_basename = data['basename']
+    is_strm = data['is_strm']
+    decode_strm = configs.raw.get('dev', 'strm_direct', fallback=False)
 
     def parse_item(item, order):
         source_info = item['MediaSources'][0]
         media_source_id = source_info["Id"]
-        file_path = source_info['Path']
+        file_path = item['Path']
+        source_path = source_info['Path']
         fake_name = os.path.splitdrive(file_path)[1].replace('/', '__').replace('\\', '__')
         item_id = item['Id']
         container = os.path.splitext(file_path)[-1]
@@ -494,7 +504,7 @@ def list_episodes(data: dict):
         media_title = f'{emby_title}  |  {basename}' if pretty_title and emby_title else basename
         media_title = media_title.replace('"', '”')
         media_basename = os.path.basename(media_path)
-        total_sec = int(source_info['RunTimeTicks']) // 10 ** 7
+        total_sec = int(source_info.get('RunTimeTicks', 0)) // 10 ** 7 or 3600 * 24
 
         media_streams = source_info['MediaStreams']
         sub_dict_list = [s for s in media_streams
@@ -520,6 +530,8 @@ def list_episodes(data: dict):
         if basename != main_ep_basename:
             for none_key in ['start_sec', 'main_ep_info', 'episodes_info']:
                 result[none_key] = None
+        if is_strm and decode_strm:
+            media_path = source_path
         result.update(dict(
             basename=basename,
             media_basename=media_basename,
@@ -568,15 +580,16 @@ def list_episodes(data: dict):
         episodes = requests_urllib(url, params=params, headers=headers, get_json=True)
     # dump_json_file(episodes, 'z_playlist_movie.json')
     eps_error = [i for i in episodes['Items'] if 'Path' not in i or 'RunTimeTicks' not in i]
+    path_error = [i for i in eps_error if 'Path' not in i]
     if eps_error:
-        ids_error = [i['MediaSources'][0]['Id'] for i in eps_error]
-        eps_error = [f"{i['Name']}-{i['Id']}" for i in eps_error]
+        # total_sec 没有，不方便判断进度。
+        ids_error = [i['MediaSources'][0]['Id'] for i in path_error]
+        eps_error = [f"E{i['IndexNumber']}-{i['Name']}-id={i['Id']}" for i in eps_error]
         logger.error(f'some ep miss path or runtime data, may leak error\n{eps_error}')
         if data['media_source_id'] in ids_error:
-            logger.error(f'disable playlist and sync third party')  # total_sec 没有，不方便判断进度。
-            data['eps_error'] = True
+            logger.error(f'disable playlist')
             return [data]
-    episodes = [i for i in episodes['Items'] if 'Path' in i and 'RunTimeTicks' in i]
+    episodes = [i for i in episodes['Items'] if 'Path' in i]
     episodes = version_filter(data['file_path'], episodes) if data['server'] == 'emby' else episodes
     episodes = [parse_item(i, o) for (o, i) in enumerate(episodes)]
     if title_intro_map_fail:

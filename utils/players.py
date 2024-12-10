@@ -255,6 +255,7 @@ def stop_sec_mpv(mpv: MPV, stop_sec_only=True, **_):
         return None if stop_sec_only else {}
     stop_sec = None
     name_stop_sec_dict = {}
+    name_total_sec_dict = {}
 
     chapters_dict = {}
     chapter_skipped = []
@@ -264,6 +265,8 @@ def stop_sec_mpv(mpv: MPV, stop_sec_only=True, **_):
     @mpv.on_event('file-loaded')
     def chapters_info_gen(_event_data):
         chapters_dict.clear()
+        if total_sec := mpv.command('get_property', 'duration'):
+            name_total_sec_dict[mpv.command('get_property', 'media-title')] = total_sec
 
     while True:
         try:
@@ -321,7 +324,7 @@ def stop_sec_mpv(mpv: MPV, stop_sec_only=True, **_):
         except Exception:
             stop_sec = stop_sec and int(stop_sec)
             logger.info(f'mpv exit, return stop sec, {stop_sec=}')
-            return stop_sec if stop_sec_only else name_stop_sec_dict
+            return stop_sec if stop_sec_only else name_stop_sec_dict, name_total_sec_dict
 
 
 def vlc_player_start(cmd: list, start_sec=None, sub_file=None, get_stop_sec=True, mount_disk_mode=None, **_):
