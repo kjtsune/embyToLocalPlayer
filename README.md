@@ -67,6 +67,8 @@ etlp - Emby/Jellyfin 调用 PotPlayer mpv IINA MPC VLC 播放，并回传播放�
       ```
       CreateObject("Wscript.Shell").Run """<Python所在文件夹>\python.exe"" ""<脚本所在文件夹>\embyToLocalPlayer.py""" , 0, True
       ```
+    * 若 bat 或者 vbs 有无法解决的问题，可尝试使用
+      [AutoHotkey 自启动解决方案](https://github.com/kjtsune/embyToLocalPlayer/issues/14#issuecomment-2430602205)。
     * **反馈前看下方相关 FAQ，没按要求反馈会忽略**
 
 > macOS
@@ -439,6 +441,7 @@ https://github.com/kjtsune/embyToLocalPlayer#faq
   # 播放列表数据较大，默认不传递。若需要启用，则填写此项。
   mpv_ipc_playlist_data = yes
   ```
+
 </details>
 
 <details>

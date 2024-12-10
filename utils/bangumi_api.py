@@ -176,7 +176,9 @@ class BangumiApi:
             return eps
         eps = eps['data']
         # ep['episode']['ep'] 会导致分批放送匹配失败。
-        state = {ep['episode']['sort']: {'watched': bool(ep['type'] == 2), 'id': ep['episode']['id']} for ep in eps}
+        # ep['episode']['ep'] == 0 是 SP，会造成 sort 重复，故排除
+        state = {ep['episode']['sort']: {'watched': bool(ep['type'] == 2), 'id': ep['episode']['id']} for ep in eps
+                 if ep['episode']['ep'] != 0}
         return state
 
     def mark_episode_watched(self, subject_id, ep_id):
