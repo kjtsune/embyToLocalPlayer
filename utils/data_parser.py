@@ -21,7 +21,6 @@ def parse_received_data_emby(received_data):
     emby_title = main_ep_to_title(main_ep_info) if not playlist_info else None
     intro_time = main_ep_intro_time(main_ep_info)
     api_client = received_data['ApiClient']
-    mount_disk_mode = True if received_data['mountDiskEnable'] == 'true' else False
     url = urllib.parse.urlparse(received_data['playbackUrl'])
     headers = received_data['request'].get('headers', {})
     is_emby = True if '/emby/' in url.path else False
@@ -55,7 +54,7 @@ def parse_received_data_emby(received_data):
     # stream_url = f'{scheme}://{netloc}{media_source_info["DirectStreamUrl"]}' # 可能为转码后的链接
     container = os.path.splitext(file_path)[-1]
     is_strm = container == '.strm'
-    mount_disk_mode = False if is_strm else mount_disk_mode
+    mount_disk_mode = True if not is_strm and received_data['mountDiskEnable'] == 'true' else False
     extra_str = '/emby' if is_emby else ''
     server_version = api_client['_serverVersion']
     _a, _b, _c, *_d = [int(i) for i in server_version.split('.')]
@@ -120,7 +119,7 @@ def parse_received_data_emby(received_data):
                                    f'/{_sub_index}/0/Stream.{_sub_codec}?api_key={api_key}'
                 logger.info(f'other version sub found, url={sub_delivery_url}')
     sub_file = f'{scheme}://{netloc}{sub_delivery_url}' if sub_delivery_url else None
-    mount_disk_mode = True if force_disk_mode_by_path(file_path) else mount_disk_mode
+    mount_disk_mode = True if not is_strm and force_disk_mode_by_path(file_path) else mount_disk_mode
     media_path = translate_path_by_ini(file_path, debug=True) if mount_disk_mode else stream_url
     basename = os.path.basename(file_path)
     media_basename = os.path.basename(media_path)
@@ -139,7 +138,7 @@ def parse_received_data_emby(received_data):
     total_sec = int(media_source_info.get('RunTimeTicks', 0)) // 10 ** 7 or 3600 * 24
     position = start_sec / total_sec
     user_id = query['UserId']
-    if is_strm and configs.raw.get('dev', 'strm_direct', fallback=False):
+    if is_strm and configs.raw.getboolean('dev', 'strm_direct', fallback=False):
         media_path = source_path
 
     result = dict(
@@ -483,7 +482,7 @@ def list_episodes(data: dict):
     pretty_title = configs.raw.getboolean('dev', 'pretty_title', fallback=True)
     main_ep_basename = data['basename']
     is_strm = data['is_strm']
-    decode_strm = configs.raw.get('dev', 'strm_direct', fallback=False)
+    decode_strm = configs.raw.getboolean('dev', 'strm_direct', fallback=False)
 
     def parse_item(item, order):
         source_info = item['MediaSources'][0]
