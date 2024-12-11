@@ -230,7 +230,7 @@ def start_play(data):
     eps_data_thread = ThreadWithReturnValue(target=list_episodes, args=(data,))
     eps_data_thread.start()
 
-    cmd = get_player_cmd(media_path=data['media_path'], file_path=file_path)
+    cmd = get_player_cmd(media_path=data['media_path'], file_path=file_path, source_path=data.get('source_path'))
     player_path = cmd[0]
     player_path_lower = player_path.lower()
     # 播放器特殊处理

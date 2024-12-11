@@ -159,14 +159,15 @@ def force_disk_mode_by_path(file_path):
     return check
 
 
-def use_dandan_exe_by_path(file_path):
+def use_dandan_exe_by_path(file_path,source_path=None):
     config = configs.raw
     dandan = config['dandan'] if 'dandan' in config.sections() else {}
     if not dandan or not file_path or not dandan.getboolean('enable'):
         return False
     enable_path = dandan.get('enable_path', '').replace('，', ',')
     enable_path = [i.strip() for i in enable_path.split(',') if i]
-    path_match = [path in file_path for path in enable_path]
+    _file_path = f'{file_path} | {source_path}' if source_path else file_path
+    path_match = [path in _file_path for path in enable_path]
     if any(path_match) or not enable_path:
         return True
     _logger.error(f'dandanplay {enable_path=} \n{path_match=}')
@@ -197,7 +198,7 @@ def translate_path_by_ini(file_path, debug=False):
     return file_path if file_path.startswith('http') else unicodedata.normalize('NFC', file_path)
 
 
-def select_player_by_path(file_path):
+def select_player_by_path(file_path, source_path=None):
     data = configs.raw.get('dev', 'player_by_path', fallback='')
     if not data:
         return False
@@ -208,19 +209,21 @@ def select_player_by_path(file_path):
         player, path = [i.strip() for i in rule.split(':', maxsplit=1)]
         for p in [i.strip() for i in path.split(',') if i]:
             path_map[p] = player
-    result = [player for path, player in path_map.items() if path in file_path]
+    _file_path = f'{file_path} | {source_path}' if source_path else file_path
+    result = [player for path, player in path_map.items() if path in _file_path]
     return result[0] if result else False
 
 
-def get_player_cmd(media_path, file_path):
+def get_player_cmd(media_path, file_path, source_path=None):
+    # emby source_path 是 strm 的内容
     config = configs.raw
     player = config['emby']['player']
     try:
         exe = config['exe'][player]
     except KeyError:
         raise ValueError(f'{player=}, {player} not found, check config ini file') from None
-    exe = config['dandan']['exe'] if use_dandan_exe_by_path(file_path) else exe
-    if player_by_path := select_player_by_path(file_path):
+    exe = config['dandan']['exe'] if use_dandan_exe_by_path(file_path,source_path=source_path) else exe
+    if player_by_path := select_player_by_path(file_path, source_path=source_path):
         exe = config['exe'][player_by_path]
     result = [exe, media_path]
     _logger.info('command line:', result)

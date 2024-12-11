@@ -59,7 +59,7 @@ def parse_received_data_emby(received_data):
     server_version = api_client['_serverVersion']
     _a, _b, _c, *_d = [int(i) for i in server_version.split('.')]
     stream_name = 'original' if match_version_range(server_version, ver_range='4.8.0.40-9') else 'stream'
-    if media_source_info.get('Container') == 'bluray':  # emby
+    if media_source_info.get('Container') == 'bluray':  # emby bdmv 根据路径选播放器也够用了，先不管
         container = '.m2ts'
     if media_source_info.get('VideoType') == 'BluRay':  # jellyfin
         stream_name = 'main'
