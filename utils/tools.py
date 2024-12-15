@@ -90,7 +90,6 @@ def open_local_folder(data):
 
 
 def play_media_file(data):
-    server_token = configs.raw.get('dev', 'http_server_token', fallback='')
     nas_href = configs.raw.get('dev', 'server_side_href', fallback='').strip().strip('/')
     href = data.get('href', '').rsplit(':', maxsplit=1)[0].strip('/')
     if not href:
@@ -101,14 +100,18 @@ def play_media_file(data):
     big_file = sorted(data['file'], key=lambda i: i['size'], reverse=True)[0]['name']
     file_path = os.path.join(save_path, big_file)
     media_path = translate_path_by_ini(file_path)
-    if server_token and not os.path.exists(media_path):
+
+    qb_play_via_http = configs.raw.getboolean('dev', 'qb_play_via_http', fallback=False)
+    server_token = configs.raw.get('dev', 'http_server_token', fallback='')
+    if qb_play_via_http and server_token and not os.path.exists(media_path):
         _, ext = os.path.splitext(file_path)
         params = {'token': server_token,
                   'file_path': file_path}
         params = {key: urllib.parse.quote(str(value)) for key, value in params.items()}
         query_str = '&'.join(f'{key}={value}' for key, value in params.items())
-        media_path = f'{href}/play_media_file{ext}' + '?' + query_str
+        media_path = f'{href}/send_media_file{ext}' + '?' + query_str
         _logger.info(f'{file_path=}')
+
     cmd = get_player_cmd(media_path, file_path=file_path)
     player = subprocess.Popen(cmd)
     activate_window_by_pid(player.pid)

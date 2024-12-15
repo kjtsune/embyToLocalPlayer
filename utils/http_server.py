@@ -22,9 +22,10 @@ from utils.trakt_sync import trakt_api_client
 player_is_running = False
 logger = MyLogger()
 dl_manager = DownloadManager(configs.cache_path, speed_limit=configs.speed_limit)
+miss_runtime_start_sec = {}
 
 
-def get_local_ip():
+def get_machine_ip():
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         s.connect(('223.5.5.5', 80))
@@ -40,9 +41,8 @@ class ThreadingHTTPServer(ThreadingMixIn, HTTPServer):
 
 
 def run_server(ip='127.0.0.1', port=58000):
-    server_token = configs.raw.getboolean('dev', 'listen_on_lan', fallback=False)
-    if server_token:
-        ip = get_local_ip()
+    if not configs.raw.getboolean('dev', 'listen_on_localhost', fallback=True):
+        ip = get_machine_ip()
     server_address = (ip, port)
     httpd = ThreadingHTTPServer(server_address, UserScriptRequestHandler)
     logger.info('serving at http://%s:%d' % server_address)
@@ -115,12 +115,11 @@ class UserScriptRequestHandler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(b'Server is running')
             return
-        if self.path.startswith('/play_media_file'):
-            self.play_media_file()
+        if self.path.startswith('/send_media_file'):
+            self.send_media_file()
             return
         if self.path.startswith('/trakt_auth'):
-            parsed_path = urllib.parse.urlparse(self.path)
-            query = dict(urllib.parse.parse_qsl(parsed_path.query))
+            parsed_path, query = self.parse_get_query()
             if received_code := query.get('code'):
                 trakt_api_client(received_code)
             self.send_response(200)
@@ -128,12 +127,34 @@ class UserScriptRequestHandler(BaseHTTPRequestHandler):
             self.wfile.write(b'etlp: trakt auth success')
             logger.info(f'trakt: auth success')
             return
+        if self.path.startswith('/miss_runtime_start_sec'):
+            self.check_miss_runtime_start_sec()
+            return
         logger.info(f'path invalid {self.path=}')
 
-    def play_media_file(self):
+    def return_json(self, data):
+        self.wfile.write(json.dumps(data).encode('utf8'))
+
+    def parse_get_query(self):
         parsed_path = urllib.parse.urlparse(self.path)
         query = dict(urllib.parse.parse_qsl(parsed_path.query))
+        return parsed_path, query
 
+    def check_miss_runtime_start_sec(self):
+        parsed_path, query = self.parse_get_query()
+        stop_sec = query.get('stop_sec')
+        netloc, item_id, basename = query.get('netloc'), query.get('item_id'), query.get('basename')
+        key = f'{netloc}-{item_id}'
+        self.send_response(200)
+        self.end_headers()
+        if stop_sec:
+            miss_runtime_start_sec[key] = int(float(stop_sec))
+            return
+        start_sec = miss_runtime_start_sec.get(key, 0)
+        self.return_json({'start_sec': start_sec})
+
+    def send_media_file(self):
+        parsed_path, query = self.parse_get_query()
         req_token = query.get('token', '')
         server_token = configs.raw.get('dev', 'http_server_token', fallback='')
         if req_token != server_token:

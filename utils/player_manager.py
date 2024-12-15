@@ -6,7 +6,7 @@ import time
 from utils.configs import configs, MyLogger
 from utils.downloader import Downloader
 from utils.net_tools import (get_redirect_url, requests_urllib, realtime_playing_request_sender,
-                             update_server_playback_progress, sync_third_party_for_eps)
+                             update_server_playback_progress, sync_third_party_for_eps, check_miss_runtime_start_sec)
 from utils.players import start_player_func_dict, playlist_func_dict, stop_sec_func_dict, prefetch_data
 from utils.tools import activate_window_by_pid
 
@@ -27,7 +27,18 @@ class BaseInit:
 
 class BaseManager(BaseInit):
 
+    def make_start_sec_correct(self):
+        # emby 缺少视频时长时无法储存起播时间
+        start_sec, total_sec = self.data['start_sec'], self.data['total_sec']
+        if start_sec != 0 or total_sec != 3600 * 24:
+            return start_sec
+        netloc, item_id, basename = self.data['netloc'], self.data['item_id'], self.data['basename']
+        start_sec = check_miss_runtime_start_sec(netloc, item_id, basename)
+        logger.info(f'strm: make_start_sec_correct : {start_sec=}')
+        return start_sec
+
     def start_player(self, **kwargs):
+        kwargs['start_sec'] = self.make_start_sec_correct() or 0
         try:
             self.player_kwargs = start_player_func_dict[self.player_name](**kwargs)
         except FileNotFoundError:
@@ -96,15 +107,24 @@ class BaseManager(BaseInit):
             if not _stop_sec:
                 continue
             start_sec = ep.get('start_sec') or 0
+            _stop_sec = int(_stop_sec)
             if abs(_stop_sec - int(start_sec)) < 20:
                 logger.info(f"skip update progress, {ep['basename']} start_sec stop_sec too close")
                 continue
-            else:
-                update_server_playback_progress(stop_sec=_stop_sec, data=ep)
             ep['_stop_sec'] = _stop_sec
             if ep['total_sec'] == 3600 * 24:
+                netloc, item_id, basename = ep['netloc'], ep['item_id'], ep['basename']
+                check_miss_runtime_start_sec(netloc, item_id, basename, stop_sec=_stop_sec)
+                logger.info(f'strm: cache start_sec={_stop_sec} | {basename}')
+                _skip = True
                 if total_sec := self.playlist_total_sec.get(key):
                     ep['total_sec'] = total_sec
+                    if _stop_sec / total_sec > 0.9:
+                        update_server_playback_progress(stop_sec=_stop_sec, data=ep)
+                        _skip = False
+                _skip and logger.info(f"skip update progress, {ep['basename']} miss runtime data")
+            else:
+                update_server_playback_progress(stop_sec=_stop_sec, data=ep)
             need_update_eps.append(ep)
         if not need_update_eps:
             return
@@ -144,6 +164,10 @@ class PrefetchManager(BaseInit):  # 未兼容播放器多开，暂不处理
             return
         if self.data['server'] == 'plex':
             logger.info('playing_feedback not support plex, skip')
+            return
+        if self.data.get('total_sec') == 3600 * 24:
+            # 会造成意外完成播放
+            logger.info('playing_feedback not support strm, skip')
             return
         stop_sec_dict = prefetch_data['stop_sec_dict']
         prefetch_data['on'] = True

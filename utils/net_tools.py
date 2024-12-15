@@ -111,6 +111,23 @@ class FollowHTTPRedirectHandler(urllib.request.HTTPRedirectHandler):
         return
 
 
+def check_miss_runtime_start_sec(netloc, item_id, basename, start_sec=0, stop_sec=None):
+    href = configs.raw.get('dev', 'server_side_href', fallback='').strip().strip('/')
+    href = href or 'http://127.0.0.1:58000'
+    url = f'{href}/miss_runtime_start_sec'
+    params = {'netloc': netloc, 'item_id': item_id, 'basename': basename}
+    get_json = True
+    if stop_sec is not None:
+        params['stop_sec'] = stop_sec
+        get_json = False
+    try:
+        res = requests_urllib(url, params=params, get_json=get_json, timeout=3, retry=3)
+        if res and start_sec == 0:
+            return res['start_sec']
+    except Exception:
+        logger.info('check_miss_runtime: can not connect to server, check server_side_href setting')
+
+
 def get_redirect_url(url, key_trim='PlaySessionId', follow_redirect=False):
     jump_url = url
     key = url.split(key_trim)[0] if key_trim else url
