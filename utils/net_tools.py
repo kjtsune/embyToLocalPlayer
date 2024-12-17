@@ -186,6 +186,7 @@ def change_emby_play_position(scheme, netloc, item_id, api_key, stop_sec, play_s
     params = {
         'X-Emby-Token': api_key,
         'X-Emby-Device-Id': device_id,
+        'X-Emby-Client': 'embyToLocalPlayer',
         'X-Emby-Device-Name': 'embyToLocalPlayer',
     }
     if not kwargs.get('update_success'):  # 由实时回传功能标记

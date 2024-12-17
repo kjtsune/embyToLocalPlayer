@@ -149,18 +149,20 @@ https://github.com/kjtsune/embyToLocalPlayer#faq
 * 油猴脚本有时也要更新。
 
 > 如何反馈
-
 * **没按要求反馈会忽略。**
 
-1. 运行 `debug.bat` 选1。（ macOS 或 Linux 运行 `.command`)
-    * 若启动不成功，Windows 用户换含 mpv 的便携版测试。
-    * 参考 `如何更新` ，更新到最新版后测试。
-2. 换播放器及换视频文件测试是否复现。  
-   `Windows 用户换含 mpv 的便携版测试`
-3. 截图或复制 `.bat` 窗口中的日志（选中后回车即复制），或者提供 `log.txt` 。
-4. 碰到什么问题及怎么复现。
-5. [可选] 关闭模糊日志。 `.ini` > `[dev]` > `mix_log = no`
-6. 若调用失败（仍在浏览器里播放，或点击播放后 `.bat` 没有新增日志），反馈时提供在 Emby 页面点击浏览器油猴插件图标后的截图。
+1. 参考 `如何更新` ，更新到最新版后测试。   
+   `Windows 用户换含 mpv 的便携版测试，并告知是否正常。`
+2. 运行 `debug.bat` 选 1。  
+   `macOS 或 Linux 运行 etlp_run.command 来代替。`
+3. 至少测试两个不同电影/节目的视频。
+4. 截图或复制 `.bat`/`.command` 窗口中的日志。  
+   `选中后回车即复制，日志需要包含启动后到出现问题的部分。或者直接提供文件夹下的
+   log.txt`
+5. 说明碰到什么问题及怎么复现。
+6. [可选] 关闭模糊日志。 `.ini` > `[dev]` > `mix_log = no`
+7. 若调用失败（仍在浏览器里播放，或点击播放后 `.bat` 没有新增日志），反馈时提供在 Emby 页面点击浏览器油猴插件图标后的截图。
+8. 其他油猴脚本的问题，提供浏览器刷新页面后的截图、浏览器控制台完整日志，相关配置信息（如果有）。
 
 > 字幕相关
 
@@ -262,8 +264,9 @@ https://github.com/kjtsune/embyToLocalPlayer#faq
 
 > mpv
 
-* 若碰到问题，换官方最新原版及使用默认配置测试。  
-  可以换视频或者软解看看，并检查 mpv 日志。  
+* 若碰到问题，换含 mpv 的便携版测试。
+* 还不行就换视频或者软解（`mpv.conf`只保留`log-file` 选项）并检查 mpv 日志。  
+  `mpv_embed` > `portable_config` > `mpv_log.txt`  
   `mpv.conf` > `log-file = <save path>`
 
 > mpv_embed
