@@ -3,7 +3,7 @@
 // @name:zh-CN   embyToLocalPlayer
 // @name:en      embyToLocalPlayer
 // @namespace    https://github.com/kjtsune/embyToLocalPlayer
-// @version      2024.12.08
+// @version      2024.12.17
 // @description  Emby/Jellyfin 调用外部本地播放器，并回传播放记录。适配 Plex。
 // @description:zh-CN Emby/Jellyfin 调用外部本地播放器，并回传播放记录。适配 Plex。
 // @description:en  Play in an external player. Update watch history to Emby/Jellyfin server. Support Plex.
@@ -166,60 +166,6 @@
         logger.info(path, data);
     }
 
-    async function addOpenFolderElement() {
-        if (config.disableOpenFolder) return;
-        let mediaSources = null;
-        for (const _ of Array(5).keys()) {
-            await sleep(500);
-            mediaSources = getVisibleElement(document.querySelectorAll('div.mediaSources'));
-            if (mediaSources) break;
-        }
-        if (!mediaSources) return;
-        let pathDiv = mediaSources.querySelector('div[class^="sectionTitle sectionTitle-cards"] > div');
-        if (!pathDiv || pathDiv.className == 'mediaInfoItems' || pathDiv.id == 'addFileNameElement') return;
-        let full_path = pathDiv.textContent;
-        if (!full_path.match(/[/:]/)) return;
-        if (full_path.match(/\d{1,3}\.?\d{0,2} (MB|GB)/)) return;
-
-        let openButtonHtml = `<a id="openFolderButton" is="emby-linkbutton" class="raised item-tag-button 
-        nobackdropfilter emby-button" ><i class="md-icon button-icon button-icon-left">link</i>Open Folder</a>`
-        pathDiv.insertAdjacentHTML('beforebegin', openButtonHtml);
-        let btn = mediaSources.querySelector('a#openFolderButton');
-        btn.addEventListener('click', () => {
-            logger.info(full_path);
-            sendDataToLocalServer({ full_path: full_path }, 'openFolder');
-        });
-    }
-
-    async function addFileNameElement(url, request) {
-        let mediaSources = null;
-        for (const _ of Array(5).keys()) {
-            await sleep(500);
-            mediaSources = getVisibleElement(document.querySelectorAll('div.mediaSources'));
-            if (mediaSources) break;
-        }
-        if (!mediaSources) return;
-        let pathDivs = mediaSources.querySelectorAll('div[class^="sectionTitle sectionTitle-cards"] > div');
-        if (!pathDivs) return;
-        pathDivs = Array.from(pathDivs);
-        let _pathDiv = pathDivs[0];
-        if (!/\d{4}\/\d+\/\d+/.test(_pathDiv.textContent)) return;
-        if (_pathDiv.id == 'addFileNameElement') return;
-
-        let response = await originFetch(url, request);
-        let data = await response.json();
-        data = data.MediaSources;
-
-        for (let index = 0; index < pathDivs.length; index++) {
-            const pathDiv = pathDivs[index];
-            let filePath = data[index].Path;
-            let fileName = filePath.split('\\').pop().split('/').pop();
-            fileName = (config.crackFullPath) ? filePath : fileName;
-            let fileDiv = `<div id="addFileNameElement">${fileName}</div> `
-            pathDiv.insertAdjacentHTML('beforebegin', fileDiv);
-        }
-    }
-
     let serverName = null;
     let episodesInfoCache = []; // ['type:[Episodes|NextUp|Items]', resp]
     let episodesInfoRe = /\/Episodes\?IsVirtual|\/NextUp\?Series|\/Items\?ParentId=\w+&Filters=IsNotFolder&Recursive=true/; // Items已排除播放列表
@@ -241,6 +187,77 @@
         allPlaybackCache = {};
         allItemDataCache = {};
         episodesInfoCache = []
+    }
+
+    async function addOpenFolderElement(itemId) {
+        if (config.disableOpenFolder) return;
+        let mediaSources = null;
+        for (const _ of Array(5).keys()) {
+            await sleep(500);
+            mediaSources = getVisibleElement(document.querySelectorAll('div.mediaSources'));
+            if (mediaSources) break;
+        }
+        if (!mediaSources) return;
+        let pathDiv = mediaSources.querySelector('div[class^="sectionTitle sectionTitle-cards"] > div');
+        if (!pathDiv || pathDiv.className == 'mediaInfoItems' || pathDiv.id == 'addFileNameElement') return;
+        let full_path = pathDiv.textContent;
+        if (!full_path.match(/[/:]/)) return;
+        if (full_path.match(/\d{1,3}\.?\d{0,2} (MB|GB)/)) return;
+
+        let itemData = (itemId in allItemDataCache) ? allItemDataCache[itemId] : null
+        let strmFile = (full_path.startsWith('http')) ? itemData?.Path : null
+
+        let openButtonHtml = `<a id="openFolderButton" is="emby-linkbutton" class="raised item-tag-button 
+        nobackdropfilter emby-button" ><i class="md-icon button-icon button-icon-left">link</i>Open Folder</a>`
+        pathDiv.insertAdjacentHTML('beforebegin', openButtonHtml);
+        let btn = mediaSources.querySelector('a#openFolderButton');
+        if (strmFile) {
+            pathDiv.innerHTML = pathDiv.innerHTML + '<br>' + strmFile;
+            full_path = strmFile; // emby 会把 strm 内的链接当路径展示
+        }
+        btn.addEventListener('click', () => {
+            logger.info(full_path);
+            sendDataToLocalServer({ full_path: full_path }, 'openFolder');
+        });
+    }
+
+    async function addFileNameElement(resp) {
+        let mediaSources = null;
+        for (const _ of Array(5).keys()) {
+            await sleep(500);
+            mediaSources = getVisibleElement(document.querySelectorAll('div.mediaSources'));
+            if (mediaSources) break;
+        }
+        if (!mediaSources) return;
+        let pathDivs = mediaSources.querySelectorAll('div[class^="sectionTitle sectionTitle-cards"] > div');
+        if (!pathDivs) return;
+        pathDivs = Array.from(pathDivs);
+        let _pathDiv = pathDivs[0];
+        if (_pathDiv.id == 'addFileNameElement') return;
+        let isAdmin = !/\d{4}\/\d+\/\d+/.test(_pathDiv.textContent); // 非管理员只有包含添加日期的文件类型 div
+        let isStrm = _pathDiv.textContent.startsWith('http');
+        if (isAdmin) {
+            if (!isStrm) { return; }
+            pathDivs = pathDivs.filter((_, index) => index % 2 === 0); // 管理员一个文件同时有路径和文件类型两个 div
+        }
+
+        let sources = await resp.clone().json();
+        sources = sources.MediaSources;
+        for (let index = 0; index < pathDivs.length; index++) {
+            const pathDiv = pathDivs[index];
+            let fileName = sources[index].Name; // 多版本的话，是版本名。
+            let filePath = sources[index].Path;
+            let strmFile = filePath.startsWith('http');
+            if (!strmFile) {
+                fileName = filePath.split('\\').pop().split('/').pop();
+                fileName = (config.crackFullPath && !isAdmin) ? filePath : fileName;
+            }
+            let fileDiv = `<div id="addFileNameElement">${fileName}</div> `
+            if (strmFile && (!isAdmin && config.crackFullPath)) {
+                fileDiv = `<div id="addFileNameElement">${fileName}<br>${filePath}</div> `
+            }
+            pathDiv.insertAdjacentHTML('beforebegin', fileDiv);
+        }
     }
 
     function makeItemIdCorrect(itemId) {
@@ -398,7 +415,7 @@
         try {
             const data = await resp.clone().json();
             cache[key] = data;
-
+            return data;
         } catch (_error) {
             // pass
         }
@@ -495,10 +512,10 @@
                     if (await dealWithPlaybakInfo(raw_url, url, options)) { return; } // Emby
                 } else {
                     let itemId = url.match(/\/Items\/(\w+)\/PlaybackInfo/)[1];
-                    addOpenFolderElement();
-                    addFileNameElement(url, options);
                     let resp = await originFetch(raw_url, options);
-                    cloneAndCacheFetch(resp, itemId, allPlaybackCache)
+                    addFileNameElement(resp.clone()); // itemId data 不包含多版本的文件信息，故用不到
+                    addOpenFolderElement(itemId)
+                    cloneAndCacheFetch(resp.clone(), itemId, allPlaybackCache)
                     return resp;
                 }
             } else if (url.indexOf('/Playing/Stopped') != -1 && localStorage.getItem('webPlayerEnable') != 'true') {
