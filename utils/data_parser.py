@@ -52,9 +52,8 @@ def parse_received_data_emby(received_data):
     file_path = main_ep_info['Path']
     source_path = media_source_info['Path']  # strm 的时候和 file_path 不一致
     # stream_url = f'{scheme}://{netloc}{media_source_info["DirectStreamUrl"]}' # 可能为转码后的链接
+    basename = os.path.basename(file_path)
     container = os.path.splitext(file_path)[-1]
-    is_strm = container == '.strm'
-    mount_disk_mode = True if not is_strm and received_data['mountDiskEnable'] == 'true' else False
     extra_str = '/emby' if is_emby else ''
     server_version = api_client['_serverVersion']
     _a, _b, _c, *_d = [int(i) for i in server_version.split('.')]
@@ -69,20 +68,47 @@ def parse_received_data_emby(received_data):
                  f'?DeviceId={device_id}&MediaSourceId={media_source_id}' \
                  f'&PlaySessionId={play_session_id}&api_key={api_key}&Static=true'
 
-    if configs.check_str_match(netloc, 'dev', 'redirect_check_host'):
-        _stream_url = get_redirect_url(stream_url)
-        if stream_url != _stream_url:
-            logger.info(f'url redirect found {stream_url}')
-            stream_url = _stream_url
+    mount_disk_mode = received_data['mountDiskEnable'] == 'true'
+    if not mount_disk_mode:
+        if configs.check_str_match(netloc, 'dev', 'redirect_check_host'):
+            _stream_url = get_redirect_url(stream_url)
+            if stream_url != _stream_url:
+                logger.info(f'url redirect found {stream_url}')
+                stream_url = _stream_url
 
-    if configs.check_str_match(netloc, 'dev', 'stream_prefix', log=False):
-        stream_prefix = configs.ini_str_split('dev', 'stream_prefix')[0].strip('/')
-        stream_url = f'{stream_prefix}{stream_url}'
+        if configs.check_str_match(netloc, 'dev', 'stream_prefix', log=False):
+            stream_prefix = configs.ini_str_split('dev', 'stream_prefix')[0].strip('/')
+            stream_url = f'{stream_prefix}{stream_url}'
 
-    if stream_redirect := configs.ini_str_split('dev', 'stream_redirect'):
-        stream_redirect = zip(stream_redirect[0::2], stream_redirect[1::2])
-        for (_raw, _jump) in stream_redirect:
-            stream_url = stream_url.replace(_raw, _jump)
+        if stream_redirect := configs.ini_str_split('dev', 'stream_redirect'):
+            stream_redirect = zip(stream_redirect[0::2], stream_redirect[1::2])
+            for (_raw, _jump) in stream_redirect:
+                stream_url = stream_url.replace(_raw, _jump)
+
+    is_strm = container == '.strm'
+    strm_direct = configs.raw.getboolean('dev', 'strm_direct', fallback=False)
+    is_http = source_path.startswitch('http')
+    if is_strm and not strm_direct or is_http:
+        mount_disk_mode = False
+    if not is_http and force_disk_mode_by_path(file_path):
+        mount_disk_mode = True
+    if is_strm and not is_http:
+        logger.info(f'{source_path=}')
+
+    if mount_disk_mode:  # 肯定不会是 http
+        if is_strm:
+            if strm_direct:
+                media_path = translate_path_by_ini(source_path)
+            else:  # strm 文件无法直接播放
+                media_path = stream_url
+                mount_disk_mode = False
+        else:
+            media_path = translate_path_by_ini(file_path)
+    else:
+        if is_strm and strm_direct:
+            media_path = source_path
+        else:
+            media_path = stream_url
 
     # 避免将内置字幕转为外挂字幕，内置字幕选择由播放器决定
     media_streams = media_source_info['MediaStreams']
@@ -119,10 +145,6 @@ def parse_received_data_emby(received_data):
                                    f'/{_sub_index}/0/Stream.{_sub_codec}?api_key={api_key}'
                 logger.info(f'other version sub found, url={sub_delivery_url}')
     sub_file = f'{scheme}://{netloc}{sub_delivery_url}' if sub_delivery_url else None
-    mount_disk_mode = True if not is_strm and force_disk_mode_by_path(file_path) else mount_disk_mode
-    media_path = translate_path_by_ini(file_path, debug=True) if mount_disk_mode else stream_url
-    basename = os.path.basename(file_path)
-    media_basename = os.path.basename(media_path)
     if '.m3u8' in file_path:
         media_path = stream_url = file_path
 
@@ -138,8 +160,7 @@ def parse_received_data_emby(received_data):
     total_sec = int(media_source_info.get('RunTimeTicks', 0)) // 10 ** 7 or 3600 * 24
     position = start_sec / total_sec
     user_id = query['UserId']
-    if is_strm and configs.raw.getboolean('dev', 'strm_direct', fallback=False):
-        media_path = source_path
+    media_basename = os.path.basename(media_path)
 
     result = dict(
         server=server,
@@ -482,7 +503,7 @@ def list_episodes(data: dict):
     pretty_title = configs.raw.getboolean('dev', 'pretty_title', fallback=True)
     main_ep_basename = data['basename']
     is_strm = data['is_strm']
-    decode_strm = configs.raw.getboolean('dev', 'strm_direct', fallback=False)
+    strm_direct = configs.raw.getboolean('dev', 'strm_direct', fallback=False)
 
     def parse_item(item, order):
         source_info = item['MediaSources'][0]
@@ -495,7 +516,20 @@ def list_episodes(data: dict):
         stream_url = f'{scheme}://{netloc}{extra_str}/videos/{item_id}/{stream_name}{container}' \
                      f'?DeviceId={device_id}&MediaSourceId={media_source_id}' \
                      f'&PlaySessionId={play_session_id}&api_key={api_key}&Static=true'
-        media_path = translate_path_by_ini(file_path) if mount_disk_mode else stream_url
+        if mount_disk_mode:  # 肯定不会是 http
+            if is_strm:
+                if strm_direct:
+                    media_path = translate_path_by_ini(source_path)
+                else:  # strm 文件无法直接播放
+                    media_path = stream_url
+            else:
+                media_path = translate_path_by_ini(file_path)
+        else:
+            if is_strm and strm_direct:
+                media_path = source_path
+            else:
+                media_path = stream_url
+
         basename = os.path.basename(file_path)
         index = item.get('IndexNumber', 0)
         unique_key = f"{item.get('ParentIndexNumber')}-{index}"
@@ -529,8 +563,6 @@ def list_episodes(data: dict):
         if basename != main_ep_basename:
             for none_key in ['start_sec', 'main_ep_info', 'episodes_info']:
                 result[none_key] = None
-        if is_strm and decode_strm:
-            media_path = source_path
         result.update(dict(
             basename=basename,
             media_basename=media_basename,
