@@ -87,7 +87,7 @@ def parse_received_data_emby(received_data):
 
     is_strm = container == '.strm'
     strm_direct = configs.raw.getboolean('dev', 'strm_direct', fallback=False)
-    is_http = source_path.startswitch('http')
+    is_http = source_path.startswith('http')
     if is_strm and not strm_direct or is_http:
         mount_disk_mode = False
     if not is_http and force_disk_mode_by_path(file_path):
