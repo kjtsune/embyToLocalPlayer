@@ -2,19 +2,50 @@ import datetime
 import difflib
 import json
 import os.path
+import pprint
 import re
+import signal
 import sys
 from configparser import ConfigParser
-
-import requests
+from functools import wraps
 
 try:
     sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
     from utils.emby_api import EmbyApi
+    from utils.bangumi_api import BangumiApiEmbyVer
 except Exception:
     pass
 
 
+def protect_write(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        received_signal = None
+
+        def handle_signal(signum, frame):
+            nonlocal received_signal
+            print(f"Received signal {signum}, deferring until after write.")
+            received_signal = signum
+
+        signal.signal(signal.SIGINT, handle_signal)
+        signal.signal(signal.SIGTERM, handle_signal)
+
+        if hasattr(signal, 'SIGQUIT'):
+            signal.signal(signal.SIGQUIT, handle_signal)
+
+        try:
+            result = func(*args, **kwargs)
+        except Exception as e:
+            print(f"Error during file write: {e}")
+            raise
+        finally:
+            if received_signal is not None:
+                print(f"Re-sending signal {received_signal} to self.")
+                os.kill(os.getpid(), received_signal)
+
+        return result
+
+    return wrapper
 class Configs:
     def __init__(self):
         self.cwd = os.path.dirname(__file__)
@@ -32,56 +63,8 @@ class Configs:
         return self.raw.getint('emby', key, fallback=fallback)
 
 
-class BangumiApi:
-    def __init__(self, http_proxy=None):
-        self.host = 'https://api.bgm.tv/v0/'
-        self.req = requests.Session()
-        self.req.headers.update({'Accept': 'application/json',
-                                 'Connection': 'keep-alive',
-                                 'User-Agent': 'kjtsune/embyBangumi'})
-        if http_proxy:
-            self.req.proxies = {'http': http_proxy, 'https': http_proxy}
-
-    def post(self, path, _json, params=None):
-        res = self.req.post(f'{self.host.rstrip("/")}/{path.lstrip("/")}',
-                            json=_json, params=params)
-        return res
-
-    def search(self, title, start_date, end_date, limit=5):
-        res = self.post('search/subjects',
-                        _json={"keyword": title,
-                               "filter": {"type": [2],
-                                          "air_date": [f'>={start_date}',
-                                                       f'<{end_date}'],
-                                          "nsfw": True}},
-                        params=dict(limit=limit))
-        return res.json()
 
 
-class BangumiApiEmbyVer(BangumiApi):
-    @staticmethod
-    def _emby_filter(bgm_data):
-        useful_key = ['date', 'id', 'name', 'name_cn', 'rank', 'score', ]
-        update_date = str(datetime.date.today())
-        if isinstance(bgm_data, list):
-            res = []
-            for data in bgm_data:
-                d = {k: v for k, v in data.items() if k in useful_key}
-                d['update_date'] = update_date
-                res.append(d)
-            return res
-        else:
-            d = {k: v for k, v in bgm_data.items() if k in useful_key}
-            d['update_date'] = update_date
-            return d
-
-    def emby_search(self, title, premiere_date: str, is_movie=False):
-        air_date = datetime.datetime.fromisoformat(premiere_date[:10])
-        start_date = air_date - datetime.timedelta(days=2)
-        day_after = 200 if is_movie else 2
-        end_date = air_date + datetime.timedelta(days=day_after)
-        bgm_data = self.search(title=title, start_date=start_date, end_date=end_date)
-        return self._emby_filter(bgm_data['data'])
 
 
 class JsonDataBase:
@@ -101,9 +84,13 @@ class JsonDataBase:
         else:
             return _json
 
+    @protect_write
     def dump(self, obj, encoding='utf-8'):
+        # print('saving')
+        # time.sleep(1)
         with open(self.file_path, 'w', encoding=encoding) as f:
             json.dump(obj, f, indent=2, ensure_ascii=False)
+        # print('save done')
 
     def save(self):
         self.dump(self.data)
@@ -130,6 +117,9 @@ class TmdbBgmDataBase(JsonDataBase):
     def __setitem__(self, key, value):
         self.data[key] = value
 
+    def __delitem__(self, key):
+        del self.data[key]
+
     def clean_not_trust_data(self, expire_days=7, min_trust=0.5):
         expire_days = datetime.timedelta(days=expire_days)
         today = datetime.date.today()
@@ -151,6 +141,8 @@ class TmdbBgmDataBase(JsonDataBase):
 
 
 class NotResultDataBase(JsonDataBase):
+    def __delitem__(self, key):
+        del self.data[key]
 
     def is_not_result(self, tmdb_id):
         day_str = self.data.get(tmdb_id)
@@ -176,7 +168,7 @@ def update_critic_rating_by_bgm(emby: EmbyApi, bgm: BangumiApiEmbyVer, genre='',
 
     parent_id = emby.get_library_id(lib_name)
     tmdb_db = TmdbBgmDataBase('tmdb_bgm')
-    tmdb_db.clean_not_trust_data()
+    # tmdb_db.clean_not_trust_data()
     # tmdb_db.clean_not_trust_data(expire_days=0, min_trust=0.5)
     # tmdb_db.recount_trust_score()
     # return
@@ -184,6 +176,7 @@ def update_critic_rating_by_bgm(emby: EmbyApi, bgm: BangumiApiEmbyVer, genre='',
     tmdb_list = []
     req_count = 0
     item_count = 0
+    not_res_log = []
 
     for item in emby.yield_all_items(genre=genre, types=types,
                                      fields=','.join([
@@ -213,6 +206,13 @@ def update_critic_rating_by_bgm(emby: EmbyApi, bgm: BangumiApiEmbyVer, genre='',
         print(emby_name, end=' ')
         item_count += 1
 
+        debug_title = '东离剑游记'
+        if emby_name == debug_title:
+            if tmdb_db[tmdb_id]:
+                del tmdb_db[tmdb_id]
+            if not_result_db.is_not_result(tmdb_id=tmdb_id):
+                del not_result_db[tmdb_id]
+
         # emby.refresh(item['Id'])
         # continue
         re_split = re.compile(r'[／/]')
@@ -224,61 +224,47 @@ def update_critic_rating_by_bgm(emby: EmbyApi, bgm: BangumiApiEmbyVer, genre='',
                     break
             else:
                 emby_ori = emby_ori[0]
-        title = emby_ori or emby_name
         premiere_date = item.get('PremiereDate')
         if not premiere_date:
             print('not PremiereDate, skip')
             continue
 
         if not_result_db.is_not_result(tmdb_id=tmdb_id):
-            print('\n^^^ not result ^^^\n')
+            log = f' {premiere_date[:10]}\n^^^ not result ^^^\n'
+            print(log)
+            not_res_log.append((emby_name, premiere_date[:10]))
             continue
 
         bgm_old = tmdb_db[tmdb_id]
-        bgm_data = bgm_old or bgm.emby_search(title=title, premiere_date=premiere_date)
-        req_count = req_count if bgm_old else req_count + 1
-        if emby_ori and not bgm_data:
-            bgm_data = bgm.emby_search(title=emby_name, premiere_date=premiere_date)
-            req_count += 1
-            print(f' | {emby_ori} :not result', end=' | ')
-            if not bgm_data:
-                print(f'{emby_name} :not result', end=' | ')
-                if is_movie:
-                    print(f'{emby_ori} :try without premiere_date', end=' | ')
-                    bgm_data = bgm.emby_search(title=emby_ori, premiere_date=premiere_date, is_movie=True)
-                    bgm_data or print(f'{emby_name} :try without premiere_date', end=' | ')
-                    req_count = req_count + 1 if bgm_data else req_count + 2
-                    bgm_data = bgm_data or bgm.emby_search(title=emby_name, premiere_date=premiere_date, is_movie=True)
-                if not bgm_data:
-                    not_result_db.update_status(tmdb_id=tmdb_id)
-                    print('\n^^^ not result ^^^\n')
+        bgm_data = bgm_old or bgm.emby_search(title=emby_name, ori_title=emby_ori, premiere_date=premiere_date,
+                                              is_movie=is_movie)
+        req_count = req_count if bgm_old else req_count + 2
         if not bgm_data:
+            not_result_db.update_status(tmdb_id=tmdb_id)
+            log = f' {premiere_date[:10]}\n^^^ not result ^^^\n'
+            print(log)
+            not_res_log.append((emby_name, premiere_date[:10]))
             continue
 
         bgm_data = bgm_data if bgm_old else bgm_data[0]
-        trust = bgm_data.get('trust') or max(difflib.SequenceMatcher(None, bgm_data['name'], emby_ori).quick_ratio(),
-                                             difflib.SequenceMatcher(None, bgm_data['name_cn'],
-                                                                     emby_name).quick_ratio(),
-                                             difflib.SequenceMatcher(None, bgm_data['name'], emby_name).quick_ratio())
         if not bgm_old:
             bgm_data['emby_ori'] = emby_ori
             bgm_data['emby_name'] = emby_name
             bgm_data['premiere_date'] = premiere_date
-            bgm_data['trust'] = trust
             tmdb_db[tmdb_id] = bgm_data
-        if trust < 0.5:
-            print('\n^^^ trust < 0.5 ^^^\n')
-            continue
         if not dry_run:
             emby.update_critic_rating(item['Id'], bgm_data['score'] * 10)
         print(f">>>> {bgm_data['name_cn']}[{bgm_data['name']}] {bgm_data['score']}")
-        if req_count % 50 == 0:
+        if req_count and req_count % 50 == 0:
             not_result_db.save()
             tmdb_db.save()
     if req_count > 0:
         not_result_db.save()
         tmdb_db.save()
 
+    if not_res_log:
+        print(f'\n{len(not_res_log)=}')
+        pprint.pprint(not_res_log)
     print(f'\napi.bgm.tv requests count {req_count}')
     res = emby.get_items(genre=genre, types=types, parent_id=parent_id, start_index=start_index)
     print('emby items count', res['TotalRecordCount'])
