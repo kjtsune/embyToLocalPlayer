@@ -49,8 +49,14 @@ def parse_received_data_emby(received_data):
         media_source_info = version_prefer_emby(media_sources) \
             if len(media_sources) > 1 and is_emby else media_sources[0]
         media_source_id = media_source_info['Id']
-    file_path = main_ep_info['Path']
-    source_path = media_source_info['Path']  # strm 的时候和 file_path 不一致
+    file_path = main_ep_info['Path'] # 多版本时候有误
+    # strm 多版本似乎找不到其他版本服务器文件路径，不过不需要读盘模式，还好。
+    # 因此 strm 多版本时，正确播放，但文件标题只有一种，先不处理。
+    source_path = media_source_info['Path']  # strm 的时候和 file_path 不一致，是 strm 里的地址文本
+    is_strm = file_path != source_path and file_path.endswith('.strm')
+    if not is_strm:
+        file_path = source_path
+
     # stream_url = f'{scheme}://{netloc}{media_source_info["DirectStreamUrl"]}' # 可能为转码后的链接
     basename = os.path.basename(file_path)
     container = os.path.splitext(file_path)[-1]
@@ -85,7 +91,6 @@ def parse_received_data_emby(received_data):
             for (_raw, _jump) in stream_redirect:
                 stream_url = stream_url.replace(_raw, _jump)
 
-    is_strm = container == '.strm'
     strm_direct = configs.raw.getboolean('dev', 'strm_direct', fallback=False)
     is_http = source_path.startswith('http')
     if is_strm and not strm_direct or is_http:
