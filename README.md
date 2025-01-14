@@ -73,6 +73,7 @@ etlp - Emby/Jellyfin 调用 PotPlayer mpv IINA MPC VLC 播放，并回传播放�
 
 > macOS
 
+* macOS 目前没有环境测试，无法提供支持。
 1. 刚才保存的文件夹 > 右击 > 新建位于文件夹的终端窗口 `chmod +x *.command` 回车。
 2. 双击 `etlp_run.command`, 若无报错，可播放测试。
 3. 开机自启（无窗口运行）：

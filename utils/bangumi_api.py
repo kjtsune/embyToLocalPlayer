@@ -69,13 +69,32 @@ class BangumiApi:
         return res['data'] if list_only else res
 
     @functools.lru_cache
-    def search_old(self, title, list_only=True):
+    def search_old(self, title, start_date, end_date, list_only=True):
         res = self.req.get(f'{self.host[:-2]}/search/subject/{title}', params={'type': 2, 'responseGroup': 'large'})
+        _res = {'results': 0, 'list': []}
         try:
             res = res.json()
         except Exception:
-            res = {'results': 0, 'list': []}
-        return res['list'] if list_only else res
+            res = _res
+        try:
+            raw_list = res['list']
+        except KeyError: # 404 不存在时
+            res = _res
+            raw_list = res['list']
+
+        res_list = []
+        if isinstance(start_date, str):
+            start_date = datetime.datetime.fromisoformat(start_date[:10])
+            end_date = datetime.datetime.fromisoformat(end_date[:10])
+        for data in raw_list:
+            air_date = data['air_date'][:10]
+            if air_date == '0000-00-00':
+                continue
+            air_date = datetime.datetime.fromisoformat(air_date)
+            if start_date<= air_date <= end_date:
+                res_list.append(data)
+        res = {'results': len(res_list), 'list': res_list}
+        return res_list if list_only else res
 
     @functools.lru_cache
     def get_subject(self, subject_id):
@@ -218,6 +237,8 @@ class BangumiApi:
 class BangumiApiEmbyVer(BangumiApi):
     @staticmethod
     def _emby_filter(bgm_data):
+        if not bgm_data:
+            return bgm_data
         # 旧 api 由返回数据内容受到大小参数的影响。
         # common_keys = ['id', 'name', 'name_cn', 'summary', 'rating', 'collection', 'images']
         # v0_subject_unique_keys = ['type', 'nsfw', 'locked', 'date', 'platform', 'series', 'infobox', 'volumes',
@@ -229,7 +250,8 @@ class BangumiApiEmbyVer(BangumiApi):
         is_v0 = bool(bgm_data[0].get('date'))
 
         common_key = ['id', 'name', 'name_cn']
-        useful_key = common_key + ['date', 'score', 'rank']
+        useful_key = common_key + ['date', 'score', 'rank'] # 返回的字典键
+
         v0_key_map = common_key + ['date', ('rating', 'score'), ('rating', 'rank')]
         legacy_key_map = common_key + ['air_date', ('rating', 'score'), 'rank']
         key_map = v0_key_map if is_v0 else legacy_key_map
@@ -239,42 +261,56 @@ class BangumiApiEmbyVer(BangumiApi):
             d = {}
             for (k, m) in zip(useful_key, key_map):
                 if isinstance(m, str):
-                    d[k] = data[m]
+                    d[k] = data.get(m)
                     continue
                 v = data  # data.copy() 会更稳妥。
                 for _m in m:
-                    v = v[_m]
+                    v = v.get(_m, {})
                 d[k] = v
             d['update_date'] = update_date
             d['is_v0'] = is_v0
             res.append(d)
+        res = [i for i in res if i.get('rank') is not None and i.get('score') is not None] # 无 'rank' 为未上映，过滤掉
         return res if return_list else res[0]
 
-    def emby_search(self, title, ori_title, premiere_date: str, is_movie=False):
+    def emby_search(self, title, ori_title, premiere_date: str, is_movie=False, _tv_fuzzy_date_retry=False):
         # 新 api 通过 _emby_filter() => {is_v0 : True} 判断
+        day_delta = 15 if _tv_fuzzy_date_retry else 2
         air_date = datetime.datetime.fromisoformat(premiere_date[:10])
-        start_date = air_date - datetime.timedelta(days=2)
-        end_date = air_date + datetime.timedelta(days=2)
+        start_date = air_date - datetime.timedelta(days=day_delta)
+        end_date = air_date + datetime.timedelta(days=day_delta)
+        trust_score = 0.9 if _tv_fuzzy_date_retry else 0.5
         bgm_data = None
-        if ori_title:
-            bgm_data = self.search(title=ori_title, start_date=start_date, end_date=end_date)
-        bgm_data = bgm_data or self.search(title=title, start_date=start_date, end_date=end_date)
-        if not bgm_data and is_movie:
-            title = ori_title or title
-            end_date = air_date + datetime.timedelta(days=200)
-            bgm_data = self.search(title=title, start_date=start_date, end_date=end_date)
-        if not bgm_data or (bgm_data and self.title_diff_ratio(
-                title=title, ori_title=ori_title, bgm_data=bgm_data[0]) < 0.5):
-            # use_old_api = True
-            for t in ori_title, title:
-                bgm_data = self.search_old(title=t)
-                if bgm_data and self.title_diff_ratio(title, ori_title, bgm_data=bgm_data[0]) > 0.5:
-                    break
+        for t in (ori_title, title):
+            bgm_data = self.search(title=t, start_date=start_date, end_date=end_date)
+            if bgm_data and self.title_diff_ratio(title, ori_title, bgm_data=bgm_data[0]) > trust_score:
+                break
             else:
                 bgm_data = None
+        if not bgm_data and is_movie:
+            end_date = air_date + datetime.timedelta(days=200)
+            bgm_data = self.search(title=(ori_title or title), start_date=start_date, end_date=end_date)
+            if self.title_diff_ratio(title, ori_title, bgm_data=bgm_data[0]) < trust_score:
+                bgm_data = None
+        if not bgm_data:
+            # use_old_api = True
+            for t in ori_title, title:
+                bgm_data = self.search_old(title=t, start_date=start_date, end_date=end_date)
+                if bgm_data and self.title_diff_ratio(title, ori_title, bgm_data=bgm_data[0]) > trust_score:
+                    break
+                else:
+                    bgm_data = None
+            else:
+                if not is_movie and not _tv_fuzzy_date_retry:
+                    bgm_data = self.emby_search(title, ori_title, premiere_date, _tv_fuzzy_date_retry=True)
+                else:
+                    bgm_data = None
+        if _tv_fuzzy_date_retry:
+            return bgm_data
+        bgm_data = self._emby_filter(bgm_data=bgm_data)
         if not bgm_data:
             return
-        return self._emby_filter(bgm_data=bgm_data)
+        return bgm_data
 
     @staticmethod
     def title_diff_ratio(title, ori_title, bgm_data):
