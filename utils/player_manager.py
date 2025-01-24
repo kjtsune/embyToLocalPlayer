@@ -112,14 +112,24 @@ class BaseManager(BaseInit):
                 logger.info(f"skip update progress, {ep['basename']} start_sec stop_sec too close")
                 continue
             ep['_stop_sec'] = _stop_sec
-            if ep['total_sec'] == 3600 * 24:
+            if ep['server'] != 'plex' and ep['total_sec'] == 3600 * 24:
+                from utils.emby_api_thin import EmbyApiThin
+                emby_thin = EmbyApiThin(ep)
+                # 注意：仅限启用播放列表时候有这些处理，strm 缺失 total_sec 和 缓存播放进度
                 netloc, item_id, basename = ep['netloc'], ep['item_id'], ep['basename']
-                check_miss_runtime_start_sec(netloc, item_id, basename, stop_sec=_stop_sec)
-                logger.info(f'strm: cache start_sec={_stop_sec} | {basename}')
+                _playback_info = emby_thin.get_playback_info(item_id)
+                _total_sec = _playback_info['MediaSources'][0].get('RunTimeTicks') // 10 ** 7
+                if _total_sec:
+                    logger.info('strm: total_sec found by recheck server data')
+                else:
+                    check_miss_runtime_start_sec(netloc, item_id, basename, stop_sec=_stop_sec)
+                    logger.info(f'strm: cache start_sec={_stop_sec} | {basename}')
+
+                total_sec = self.playlist_total_sec.get(key) or _total_sec
                 _skip = True
-                if total_sec := self.playlist_total_sec.get(key):
+                if total_sec:
                     ep['total_sec'] = total_sec
-                    if _stop_sec / total_sec > 0.9:
+                    if _stop_sec / total_sec > 0.9 or _total_sec:
                         update_server_playback_progress(stop_sec=_stop_sec, data=ep)
                         _skip = False
                 _skip and logger.info(f"skip update progress, {ep['basename']} miss runtime data")
