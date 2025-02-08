@@ -290,7 +290,7 @@ def main_ep_intro_time(main_ep_info):
 
 
 def show_version_info(extra_data):
-    py_script_version = '2024.06.06'
+    py_script_version = '2025.02.08'
     gm_info = extra_data.get('gmInfo')
     user_agent = extra_data.get('userAgent')
     if not gm_info:

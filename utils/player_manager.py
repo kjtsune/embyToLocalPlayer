@@ -118,7 +118,7 @@ class BaseManager(BaseInit):
                 # 注意：仅限启用播放列表时候有这些处理，strm 缺失 total_sec 和 缓存播放进度
                 netloc, item_id, basename = ep['netloc'], ep['item_id'], ep['basename']
                 _playback_info = emby_thin.get_playback_info(item_id)
-                _total_sec = _playback_info['MediaSources'][0].get('RunTimeTicks') // 10 ** 7
+                _total_sec = _playback_info['MediaSources'][0].get('RunTimeTicks', 0) // 10 ** 7
                 if _total_sec:
                     logger.info('strm: total_sec found by recheck server data')
                 else:

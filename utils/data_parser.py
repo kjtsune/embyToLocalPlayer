@@ -50,11 +50,13 @@ def parse_received_data_emby(received_data):
             if len(media_sources) > 1 and is_emby else media_sources[0]
         media_source_id = media_source_info['Id']
     file_path = main_ep_info['Path'] # 多版本时候有误
-    # strm 多版本似乎找不到其他版本服务器文件路径，不过不需要读盘模式，还好。
-    # 因此 strm 多版本时，正确播放，但文件标题只有一种，先不处理。
+    # strm 多版本似乎找不到其他版本服务器文件路径，需要额外请求分集数据。不过不需要读盘模式，还好。
+    # 因此 strm 多版本 且 is_http_source 时，正确播放，但文件标题只有一种，先不处理。
     source_path = media_source_info['Path']  # strm 的时候和 file_path 不一致，是 strm 里的地址文本
-    is_strm = file_path != source_path and file_path.endswith('.strm')
-    if not is_strm:
+    is_strm = file_path != source_path and file_path.endswith('.strm') or media_source_info.get('Container') == 'strm'
+    is_http_source =  source_path.startswith('http')
+    strm_direct = configs.check_str_match(netloc, 'dev', 'strm_direct_host', log_by=True)
+    if not is_strm or (is_strm and not is_http_source):
         file_path = source_path
 
     # stream_url = f'{scheme}://{netloc}{media_source_info["DirectStreamUrl"]}' # 可能为转码后的链接
@@ -91,13 +93,11 @@ def parse_received_data_emby(received_data):
             for (_raw, _jump) in stream_redirect:
                 stream_url = stream_url.replace(_raw, _jump)
 
-    strm_direct = configs.raw.getboolean('dev', 'strm_direct', fallback=False)
-    is_http = source_path.startswith('http')
-    if is_strm and not strm_direct or is_http:
+    if is_strm and not strm_direct or is_http_source:
         mount_disk_mode = False
-    if not is_http and force_disk_mode_by_path(file_path):
+    if not is_http_source and force_disk_mode_by_path(file_path):
         mount_disk_mode = True
-    if is_strm and not is_http:
+    if is_strm and not is_http_source:
         logger.info(f'{source_path=}')
 
     if mount_disk_mode:  # 肯定不会是 http
@@ -197,6 +197,8 @@ def parse_received_data_emby(received_data):
         intro_end=intro_time.get('intro_end'),
         server_version=server_version,
         is_strm=is_strm,
+        strm_direct=strm_direct,
+        is_http_source=is_http_source,
         source_path=source_path,
     )
     return result
@@ -390,6 +392,19 @@ def list_episodes(data: dict):
     season_id = main_ep_info.get('SeasonId')
     stream_name = 'original' if match_version_range(data['server_version'], ver_range='4.8.0.40-9') else 'stream'
 
+    main_ep_basename = data['basename']
+    is_strm = data['is_strm']
+    is_http_source = data['is_http_source']
+    strm_direct = data['strm_direct']
+
+    def strm_file_name_sync(file_path, episodes_data):
+        if is_strm and not is_http_source:
+            for i in episodes_data:
+                i['Path'] = i['MediaSources'][0]['Path']
+
+        return episodes_data
+
+
     def version_filter(file_path, episodes_data):
         if playlist_info:
             return episodes_data
@@ -410,7 +425,7 @@ def list_episodes(data: dict):
         if ep_num == len(episodes_data):
             return episodes_data
 
-        _ep_current = [i for i in episodes_data if i['Path'] == file_path][0]
+        _ep_current = [i for i in episodes_data if file_path in (i['Path'],i[ 'MediaSources'][0]['Path'])][0]
         _current_key = ep_to_key(_ep_current)
         _cut_cur_list = ep_seq_cur_list[ep_seq_cur_list.index(_current_key):]
         _eps_after = [i for i in episodes_data if ep_to_key(i) in _cut_cur_list]
@@ -506,9 +521,6 @@ def list_episodes(data: dict):
 
     title_data, start_data, end_data = title_intro_index_map()
     pretty_title = configs.raw.getboolean('dev', 'pretty_title', fallback=True)
-    main_ep_basename = data['basename']
-    is_strm = data['is_strm']
-    strm_direct = configs.raw.getboolean('dev', 'strm_direct', fallback=False)
 
     def parse_item(item, order):
         source_info = item['MediaSources'][0]
@@ -625,9 +637,12 @@ def list_episodes(data: dict):
         if data['media_source_id'] in ids_error:
             logger.error(f'disable playlist')
             return [data]
+
     episodes = [i for i in episodes['Items'] if 'Path' in i]
+    episodes = strm_file_name_sync(data['file_path'], episodes)
     episodes = version_filter(data['file_path'], episodes) if data['server'] == 'emby' else episodes
     episodes = [parse_item(i, o) for (o, i) in enumerate(episodes)]
+
     if title_intro_map_fail:
         debug_beep_win32()
         logger.info('pretty title: title_intro_map_fail')

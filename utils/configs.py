@@ -301,6 +301,17 @@ class Configs:
             self.overwrite_value_to_ini('playlist', 'subtitle_priority', '', delete_only=True)
             if not is_new_subtitle_priority:
                 self.overwrite_value_to_ini('dev', 'subtitle_priority', sub_priority, new_comment=sub_p_comment)
+        if strm_direct := configs.raw.get('dev', 'strm_direct', fallback='').strip():
+            configs.backup_ini_file()
+            MyLogger.log('breaking change: [dev] > strm_direct was replaced'
+                         f' by [dev] > strm_direct_host. overwriting...')
+            self.overwrite_value_to_ini('dev', 'strm_direct', '', delete_only=True)
+            if strm_direct == 'yes':
+                strm_direct_host = 'local, .\n'
+            else:
+                strm_direct_host = '\n'
+            strm_host_comment = '启用直接播放 strm 内的文件链接，避免 Emby 中转，的服务器域名的关键词，逗号隔开。'
+            self.overwrite_value_to_ini('dev', 'strm_direct_host', strm_direct_host, new_comment=strm_host_comment)
 
 
 configs = Configs()
