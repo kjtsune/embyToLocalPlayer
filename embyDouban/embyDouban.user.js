@@ -3,7 +3,7 @@
 // @name:zh-CN   embyDouban
 // @name:en      embyDouban
 // @namespace    https://github.com/kjtsune/embyToLocalPlayer/tree/main/embyDouban
-// @version      2025.02.16
+// @version      2025.02.17
 // @description  emby 里展示: 豆瓣 Bangumi bgm.tv 评分 链接 (豆瓣评论可关)
 // @description:zh-CN emby 里展示: 豆瓣 Bangumi bgm.tv 评分 链接 (豆瓣评论可关)
 // @description:en  show douban Bangumi ratings in emby
@@ -156,6 +156,19 @@ async function getJSON(url) {
     }
 }
 
+function textSimilarity(text1, text2) {
+    const len1 = text1.length;
+    const len2 = text2.length;
+    let count = 0;
+    for (let i = 0; i < len1; i++) {
+        if (text2.indexOf(text1[i]) != -1) {
+            count++;
+        }
+    }
+    const similarity = count / Math.min(len1, len2);
+    return similarity;
+}
+
 function getEmbyTitle() {
     let container = getVisibleElement(document.querySelectorAll('.itemPrimaryNameContainer'));
     if (!container) return '';
@@ -180,6 +193,12 @@ async function getDoubanInfo(imdbId) {
     const search = await getJSON_GM(`https://movie.douban.com/j/subject_suggest?q=${embyTitle}`);
     if (search && search.length > 0 && search[0].id) {
         let doubanId = search[0].id;
+        let doubanTitle = search[0].title;
+        let doubanSubTitle = search[0].sub_title;
+        if (textSimilarity(embyTitle, doubanTitle) < 0.4 && textSimilarity(embyTitle, doubanSubTitle) < 0.4) {
+            logger.info(`douban title not match emby:${embyTitle} douban:${doubanTitle} ${doubanSubTitle}`);
+            return;
+        }
         const abstract = await getJSON_GM(`https://movie.douban.com/j/subject_abstract?subject_id=${doubanId}`);
         const average = abstract && abstract.subject && abstract.subject.rate ? abstract.subject.rate : '?';
         const comment = abstract && abstract.subject && abstract.subject.short_comment && abstract.subject.short_comment.content;
@@ -318,19 +337,6 @@ function insertBangumiScore(bgmObj, infoTable, linkZone) {
     let buttonClass = tmdbButton.className;
     let bgmString = `<a is="emby-linkbutton" class="${buttonClass}" href="${bgmHref}" target="_blank"><i class="md-icon button-icon button-icon-left">link</i>Bangumi</a>`;
     tmdbButton.insertAdjacentHTML('beforebegin', bgmString);
-}
-
-function textSimilarity(text1, text2) {
-    const len1 = text1.length;
-    const len2 = text2.length;
-    let count = 0;
-    for (let i = 0; i < len1; i++) {
-        if (text2.indexOf(text1[i]) != -1) {
-            count++;
-        }
-    }
-    const similarity = count / Math.min(len1, len2);
-    return similarity;
 }
 
 function checkIsExpire(key, expireDay = 1) {
