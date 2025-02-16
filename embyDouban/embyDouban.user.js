@@ -3,12 +3,14 @@
 // @name:zh-CN   embyDouban
 // @name:en      embyDouban
 // @namespace    https://github.com/kjtsune/embyToLocalPlayer/tree/main/embyDouban
-// @version      2024.11.28
+// @version      2025.02.16
 // @description  emby 里展示: 豆瓣 Bangumi bgm.tv 评分 链接 (豆瓣评论可关)
 // @description:zh-CN emby 里展示: 豆瓣 Bangumi bgm.tv 评分 链接 (豆瓣评论可关)
 // @description:en  show douban Bangumi ratings in emby
 // @author       Kjtsune
 // @match        *://*/web/index.html*
+// @match        *://*/*/web/index.html*
+// @match        https://app.emby.media/*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=emby.media
 // @grant        GM.xmlHttpRequest
 // @grant        GM_registerMenuCommand
@@ -154,28 +156,37 @@ async function getJSON(url) {
     }
 }
 
-async function getDoubanInfo(id) {
-    // TODO: Remove this API completely if it doesn't come back.
-    // const data = await getJSON_GM(`https://api.douban.com/v2/movie/imdb/${id}?apikey=123456`);
-    // if (data) {
-    //     if (isEmpty(data.alt))
-    //         return;
-    //     const url = data.alt.replace('/movie/', '/subject/') + '/';
-    //     return { url, rating: data.rating };
-    // }
-    // Fallback to search.
-    if (!id) {
+function getEmbyTitle() {
+    let container = getVisibleElement(document.querySelectorAll('.itemPrimaryNameContainer'));
+    if (!container) return '';
+    let textTitle = container.querySelector('.itemName-primary');
+    if (textTitle) {
+        return textTitle.textContent.trim();
+    }
+    let imgTitle = container.querySelector('.itemName-primary-logo img');
+    if (imgTitle) {
+        return imgTitle.getAttribute('alt')?.trim() || '';
+    }
+    return '';
+}
+
+async function getDoubanInfo(imdbId) {
+    if (!imdbId) {
         return;
     }
-    const search = await getJSON_GM(`https://movie.douban.com/j/subject_suggest?q=${id}`);
+
+    let embyTitle = getEmbyTitle();
+    // const search = await getJSON_GM(`https://movie.douban.com/j/subject_suggest?q=${id}`);
+    const search = await getJSON_GM(`https://movie.douban.com/j/subject_suggest?q=${embyTitle}`);
     if (search && search.length > 0 && search[0].id) {
-        const abstract = await getJSON_GM(`https://movie.douban.com/j/subject_abstract?subject_id=${search[0].id}`);
+        let doubanId = search[0].id;
+        const abstract = await getJSON_GM(`https://movie.douban.com/j/subject_abstract?subject_id=${doubanId}`);
         const average = abstract && abstract.subject && abstract.subject.rate ? abstract.subject.rate : '?';
         const comment = abstract && abstract.subject && abstract.subject.short_comment && abstract.subject.short_comment.content;
         return {
-            id: search[0].id,
+            id: doubanId,
             comment: comment,
-            // url: `https://movie.douban.com/subject/${search[0].id}/`,
+            // url: `https://movie.douban.com/subject/${doubanId}/`,
             rating: { numRaters: '', max: 10, average },
             title: search[0].title,
             sub_title: search[0].sub_title,
