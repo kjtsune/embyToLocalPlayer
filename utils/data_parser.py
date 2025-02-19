@@ -43,7 +43,7 @@ def parse_received_data_emby(received_data):
     data = received_data['playbackData']
     media_sources = data['MediaSources']
     play_session_id = data['PlaySessionId']
-    if media_source_id:
+    if media_source_id and media_source_id != 'undefined': # jellyfin 10.10.6
         media_source_info = [i for i in media_sources if i['Id'] == media_source_id][0]
     else:
         media_source_info = version_prefer_emby(media_sources) \
@@ -601,13 +601,14 @@ def list_episodes(data: dict):
         return result
 
     if playlist_info:
+        # jellyfin 花絮 疑似也会被当作播放列表数据。
         def chunk_list(lst, chunk_size):
             for i in range(0, len(lst), chunk_size):
                 yield lst[i:i + chunk_size]
-
-        ids = [ep['Id'] for ep in playlist_info]
+        # 限制随机播放列表条目数量避免 HTTP Error 414: URI Too Long
+        ids = [ep['Id'] for ep in playlist_info][:200]
         _eps_parts = []
-        for _ids in chunk_list(ids, 500):
+        for _ids in chunk_list(ids, 200):
             params.update({'Fields': 'MediaSources,Path,ProviderIds',
                            'Ids': ','.join(_ids), })
             _episodes = requests_urllib(
@@ -632,7 +633,7 @@ def list_episodes(data: dict):
     if eps_error:
         # total_sec 没有，不方便判断进度。
         ids_error = [i['MediaSources'][0]['Id'] for i in path_error]
-        eps_error = [f"E{i['IndexNumber']}-{i['Name']}-id={i['Id']}" for i in eps_error]
+        eps_error = [f"E{i.get('IndexNumber')}-{i['Name']}-id={i['Id']}" for i in eps_error]
         logger.error(f'some ep miss path or runtime data, may leak error\n{eps_error}')
         if data['media_source_id'] in ids_error:
             logger.error(f'disable playlist')
