@@ -3,7 +3,7 @@
 // @name:zh-CN   embyToLocalPlayer
 // @name:en      embyToLocalPlayer
 // @namespace    https://github.com/kjtsune/embyToLocalPlayer
-// @version      2024.12.17
+// @version      2025.02.22
 // @description  Emby/Jellyfin 调用外部本地播放器，并回传播放记录。适配 Plex。
 // @description:zh-CN Emby/Jellyfin 调用外部本地播放器，并回传播放记录。适配 Plex。
 // @description:en  Play in an external player. Update watch history to Emby/Jellyfin server. Support Plex.
@@ -12,6 +12,7 @@
 // @match        *://*/*/web/index.html*
 // @match        *://*/web/
 // @match        *://*/*/web/
+// @match        https://app.emby.media/*
 // @match        https://app.plex.tv/*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=emby.media
 // @grant        unsafeWindow
@@ -445,10 +446,10 @@
             }
         }
         // 适配播放列表及媒体库的全部播放、随机播放。限电影及音乐视频。
-        if (url.includes('Items?') && (url.includes('Limit=300') || url.includes('Limit=1000')) || url.includes('SpecialFeatures')) {
+        if (url.includes('Items?') && (url.includes('Limit=300') || url.includes('Limit=1000'))) {
             let _resp = await originFetch(raw_url, options);
             if (serverName == 'emby') {
-                await ApiClient._userViewsPromise.then(result => {
+                await ApiClient._userViewsPromise?.then(result => {
                     let viewsItems = result.Items;
                     let viewsIds = [];
                     viewsItems.forEach(item => {
@@ -469,14 +470,11 @@
 
             playlistInfoCache = null;
             let _resd = await _resp.clone().json();
-            if (url.includes('SpecialFeatures')) {
-                _resd.Items = _resd
-            }
             if (!_resd.Items[0]) {
                 logger.error('playlist is empty, skip');
                 return _resp;
             }
-            if (['Movie', 'MusicVideo'].includes(_resd.Items[0].Type) || url.includes('SpecialFeatures')) {
+            if (['Movie', 'MusicVideo'].includes(_resd.Items[0].Type)) {
                 playlistInfoCache = _resd
                 logger.info('playlistInfoCache', playlistInfoCache);
             }
