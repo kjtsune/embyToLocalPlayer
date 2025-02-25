@@ -69,7 +69,7 @@ def sync_ep_or_movie_to_trakt(trakt, eps_data, emby=None):
         _type = ep['Type'].lower()
         if _type not in allow:
             raise ValueError(f'type not in {allow}')
-        providers = ['imdb', 'tvdb']
+        providers = ['tvdb', 'imdb'] # tvdb 优先，因为集数的 imdb id 只能查到主条目，而不是分集。
         provider_ids = {k.lower(): v for k, v in ep['ProviderIds'].items() if k.lower() in providers}
         if not provider_ids and not trakt_ids_via_series:
             logger.info(f'trakt: not any {providers} id, skip | {name}')
@@ -81,7 +81,7 @@ def sync_ep_or_movie_to_trakt(trakt, eps_data, emby=None):
             if provider not in provider_ids:
                 continue
             provider_id = provider_ids[provider]
-            __type = 'episode' if provider == 'tvdb' and _type == 'episode' else ''
+            __type = 'episode' if provider in ['tvdb', 'imdb'] and _type == 'episode' else ''
             _trakt_ids = trakt.id_lookup(provider, provider_id, _type=__type)
             if not _trakt_ids:
                 logger.info(f'trakt: id lookup not result {provider} {provider_id} | {name}')

@@ -94,12 +94,18 @@ class TraktApi:
 
     @functools.lru_cache
     def id_lookup(self, provider, _id, _type: typing.Literal['movie', 'show', 'episode'] = ''):
-        if _type:
-            _type = '' if provider == 'imdb' else f'?type={_type}'
+        api_suf = f'?type={_type}' if _type and provider != 'imdb' else ''
         allow = ['tvdb', 'tmdb', 'imdb', 'trakt']
         if provider not in allow:
             raise ValueError(f'id_type allow: {allow}')
-        res = self.get(f'search/{provider}/{_id}{_type}')
+        res = self.get(f'search/{provider}/{_id}{api_suf}')
+        # imdb 不能指定类型，集数的 imdb id 只能查到主条目，而不是分集。
+        if res and _type == 'episode' and provider == 'imdb':
+            _res = res[0]
+            res_type = _res['type']
+            if res_type == 'show' :
+                # print('trakt_api: id_lookup fail, cuz ep lookup not support imdb, require trakt id')
+                return []
         return res
 
     @staticmethod
