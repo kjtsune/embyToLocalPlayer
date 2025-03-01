@@ -3,7 +3,7 @@
 // @name:zh-CN   embyToLocalPlayer
 // @name:en      embyToLocalPlayer
 // @namespace    https://github.com/kjtsune/embyToLocalPlayer
-// @version      2025.02.22
+// @version      2025.03.01
 // @description  Emby/Jellyfin 调用外部本地播放器，并回传播放记录。适配 Plex。
 // @description:zh-CN Emby/Jellyfin 调用外部本地播放器，并回传播放记录。适配 Plex。
 // @description:en  Play in an external player. Update watch history to Emby/Jellyfin server. Support Plex.
@@ -131,6 +131,7 @@
             const element = okButtonList[index];
             if (element.textContent.search(/(了解|好的|知道|Got It)/) != -1) {
                 element.click();
+                if (isHidden(element)) { continue; }
                 state = true;
             }
         }
@@ -190,7 +191,20 @@
         episodesInfoCache = []
     }
 
-    async function addOpenFolderElement(itemId) {
+    function throttle(fn, delay) {
+        let lastTime = 0;
+        return function (...args) {
+            const now = Date.now();
+            if (now - lastTime >= delay) {
+                lastTime = now;
+                fn.apply(this, args);
+            }
+        };
+    }
+
+    let addOpenFolderElement = throttle(_addOpenFolderElement, 100);
+
+    async function _addOpenFolderElement(itemId) {
         if (config.disableOpenFolder) return;
         let mediaSources = null;
         for (const _ of Array(5).keys()) {
@@ -512,8 +526,8 @@
                     let itemId = url.match(/\/Items\/(\w+)\/PlaybackInfo/)[1];
                     let resp = await originFetch(raw_url, options);
                     addFileNameElement(resp.clone()); // itemId data 不包含多版本的文件信息，故用不到
-                    addOpenFolderElement(itemId)
-                    cloneAndCacheFetch(resp.clone(), itemId, allPlaybackCache)
+                    addOpenFolderElement(itemId);
+                    cloneAndCacheFetch(resp.clone(), itemId, allPlaybackCache);
                     return resp;
                 }
             } else if (url.indexOf('/Playing/Stopped') != -1 && localStorage.getItem('webPlayerEnable') != 'true') {
