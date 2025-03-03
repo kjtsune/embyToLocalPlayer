@@ -3,13 +3,6 @@ chcp 65001
 :BEGIN
 cls
 
-net session >nul 2>&1
-if %errorLevel% == 0 if not %USERNAME% == Administrator (
-    echo ERROR: do not run as admin!
-    echo ERROR: do not run as admin!
-    GOTO END
-)
-
 set pythonPath="python"
 set pythonEmbed="%~dp0python_embed\python.exe"
 if exist %pythonEmbed% (
