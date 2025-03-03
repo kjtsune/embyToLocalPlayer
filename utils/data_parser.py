@@ -49,10 +49,10 @@ def parse_received_data_emby(received_data):
         media_source_info = version_prefer_emby(media_sources) \
             if len(media_sources) > 1 and is_emby else media_sources[0]
         media_source_id = media_source_info['Id']
-    file_path = main_ep_info['Path'] # 多版本时候有误
     # strm 多版本似乎找不到其他版本服务器文件路径，需要额外请求分集数据。不过不需要读盘模式，还好。
     # 因此 strm 多版本 且 is_http_source 时，正确播放，但文件标题只有一种，先不处理。
     source_path = media_source_info['Path']  # strm 的时候和 file_path 不一致，是 strm 里的地址文本
+    file_path = source_path if main_ep_info.get('Type') == 'TvChannel' else  main_ep_info['Path']  # 多版本时候有误，直播源时没有。
     is_strm = file_path != source_path and file_path.endswith('.strm') or media_source_info.get('Container') == 'strm'
     is_http_source =  source_path.startswith('http')
     strm_direct = configs.check_str_match(netloc, 'dev', 'strm_direct_host', log_by=True)
@@ -633,7 +633,7 @@ def list_episodes(data: dict):
     if eps_error:
         # total_sec 没有，不方便判断进度。
         ids_error = [i['MediaSources'][0]['Id'] for i in path_error]
-        eps_error = [f"E{i.get('IndexNumber')}-{i['Name']}-id={i['Id']}" for i in eps_error]
+        eps_error = [f"E{i['IndexNumber']}-{i['Name']}-id={i['Id']}" for i in eps_error]
         logger.error(f'some ep miss path or runtime data, may leak error\n{eps_error}')
         if data['media_source_id'] in ids_error:
             logger.error(f'disable playlist')
