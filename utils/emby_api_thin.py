@@ -27,7 +27,8 @@ class EmbyApiThin:
             }
         )
         url = rf'{self.host}/emby/{path}'
-        res = self.req(url, params=params, get_json=get_json)
+        timeout = 10 if 'PlaybackInfo' in path else 5 # Jellyfin strm 获取速度慢
+        res = self.req(url, params=params, get_json=get_json, headers=self.headers, timeout=timeout)
         return res
 
     def get_playback_info(self, item_id):

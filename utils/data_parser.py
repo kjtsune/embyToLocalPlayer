@@ -592,7 +592,7 @@ def list_episodes(data: dict):
             total_sec=total_sec,
             sub_file=sub_file,
             index=index,
-            size=source_info['Size'],
+            size=source_info.get('Size', 0), # Jellyfin strm 没有这个键
             media_title=media_title,
             intro_start=start_data.get(unique_key),
             intro_end=end_data.get(unique_key),

@@ -117,7 +117,7 @@ class BaseManager(BaseInit):
                 emby_thin = EmbyApiThin(ep)
                 # 注意：仅限启用播放列表时候有这些处理，strm 缺失 total_sec 和 缓存播放进度
                 netloc, item_id, basename = ep['netloc'], ep['item_id'], ep['basename']
-                _playback_info = emby_thin.get_playback_info(item_id)
+                _playback_info = emby_thin.get_playback_info(item_id) # Jellyfin 不会在播放中补全媒体信息
                 _total_sec = _playback_info['MediaSources'][0].get('RunTimeTicks', 0) // 10 ** 7
                 if _total_sec:
                     logger.info('strm: total_sec found by recheck server data')
