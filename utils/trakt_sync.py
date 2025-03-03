@@ -77,11 +77,14 @@ def sync_ep_or_movie_to_trakt(trakt, eps_data, emby=None):
 
         trakt_ids = None
         tk_type = 'movie' if _type == 'movie' else 'show'
+        if tk_type == 'movie':
+            providers.reverse() # 电影 imdb 优先，tvdb 搜索电脑可能匹配错误，有处理但浪费请求。
         for provider in providers:
             if provider not in provider_ids:
                 continue
             provider_id = provider_ids[provider]
             __type = 'episode' if provider in ['tvdb', 'imdb'] and _type == 'episode' else ''
+            __type = __type if _type != 'movie' else 'movie'
             _trakt_ids = trakt.id_lookup(provider, provider_id, _type=__type)
             if not _trakt_ids:
                 logger.info(f'trakt: id lookup not result {provider} {provider_id} | {name}')

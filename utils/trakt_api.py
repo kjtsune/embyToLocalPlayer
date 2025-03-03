@@ -95,17 +95,24 @@ class TraktApi:
     @functools.lru_cache
     def id_lookup(self, provider, _id, _type: typing.Literal['movie', 'show', 'episode'] = ''):
         api_suf = f'?type={_type}' if _type and provider != 'imdb' else ''
+        if _type == 'movie' and provider == 'tvdb':
+            # tvdb 无法指定 type=movie 可能匹配错误，未核实是否一定返回电视剧。
+            api_suf = ''
         allow = ['tvdb', 'tmdb', 'imdb', 'trakt']
         if provider not in allow:
             raise ValueError(f'id_type allow: {allow}')
         res = self.get(f'search/{provider}/{_id}{api_suf}')
-        # imdb 不能指定类型，集数的 imdb id 只能查到主条目，而不是分集。
-        if res and _type == 'episode' and provider == 'imdb':
+        if res :
             _res = res[0]
             res_type = _res['type']
-            if res_type == 'show' :
-                # print('trakt_api: id_lookup fail, cuz ep lookup not support imdb, require trakt id')
-                return []
+            if  _type == 'episode' and provider == 'imdb':
+                # imdb 不能指定类型，集数的 imdb id 只能查到主条目，而不是分集。
+                if res_type != 'episode' : # 可能返回 show 类型，而不是 episode。
+                    # print('trakt_api: id_lookup fail, cuz ep lookup not support imdb, require trakt id')
+                    return []
+            if _type == 'movie' and provider == 'tvdb':
+                if res_type != 'movie' :
+                    return []
         return res
 
     @staticmethod
