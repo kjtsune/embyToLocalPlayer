@@ -273,6 +273,19 @@ def start_play(data):
             player_manager.update_playlist_time_loop()
             player_manager.update_playback_for_eps()
             player_is_running = False
+            stop_sec = player_manager.last_stop_sec
+            if configs.gui_is_enable:
+                logger.info(f"GUI is enabled: {configs.gui_is_enable}")
+                delete_at = configs.raw.getfloat('gui', 'delete_at', fallback=98)
+                watch_progress = stop_sec / data['total_sec'] * 100 if data['total_sec'] > 0 else 0
+                cache_path = configs.raw['gui']['cache_path']
+                if watch_progress > delete_at:
+                    logger.info(f'(stop_sec={stop_sec}, total_sec={data['total_sec']}), Watch progress {watch_progress}% >= {delete_at}%, deleting file')
+                    threading.Thread(target=dl_manager.delete, args=(data,), daemon=True).start()
+                else:
+                    logger.info(f"(stop_sec={stop_sec}, total_sec={data['total_sec']}), Watch progress {watch_progress}% <= {delete_at}%, not deleting file")
+            else:
+                logger.info("GUI is not enabled, skipping cache deletion check")
             return
 
         player_function = start_player_func_dict[player_name]
@@ -293,11 +306,18 @@ def start_play(data):
                 threading.Thread(target=sync_third_party_for_eps,
                                  kwargs={'eps': [current_ep], 'provider': provider}, daemon=True).start()
 
-        if configs.gui_is_enable \
-                and stop_sec / data['total_sec'] * 100 > configs.raw.getfloat('gui', 'delete_at', fallback=99.9) \
-                and file_path.startswith(configs.raw['gui']['cache_path']):
-            logger.info('watched, delete cache')
-            threading.Thread(target=dl_manager.delete, args=(data,), daemon=True).start()
+            if configs.gui_is_enable:
+                logger.info(f"GUI is enabled: {configs.gui_is_enable}")
+                delete_at = configs.raw.getfloat('gui', 'delete_at', fallback=98)
+                watch_progress = stop_sec / data['total_sec'] * 100 if data['total_sec'] > 0 else 0
+                cache_path = configs.raw['gui']['cache_path']
+                if watch_progress > delete_at:
+                    logger.info(f'(stop_sec={stop_sec}, total_sec={data['total_sec']}), Watch progress {watch_progress}% >= {delete_at}%, deleting file')
+                    threading.Thread(target=dl_manager.delete, args=(data,), daemon=True).start()
+                else:
+                    logger.info(f"(stop_sec={stop_sec}, total_sec={data['total_sec']}), Watch progress {watch_progress}% <= {delete_at}%, not deleting file")
+            else:
+                logger.info("GUI is not enabled, skipping cache deletion check")
     else:
         logger.info('run as not support player mod')
         logger.info(cmd)
