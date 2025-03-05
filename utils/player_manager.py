@@ -85,11 +85,14 @@ class BaseManager(BaseInit):
             self.http_sub_auto_next_ep_time_loop(key_field=key_field_map[self.player_name])
         else:
             stop_fun_res = stop_sec_func_dict[self.player_name](stop_sec_only=False, **self.player_kwargs)
-            if isinstance(stop_fun_res, tuple):
+            if isinstance(stop_fun_res, tuple) and len(stop_fun_res) == 4:
+                self.playlist_time, self.playlist_total_sec, self.last_stop_sec, self.last_media_title = stop_fun_res
+            elif isinstance(stop_fun_res, tuple):
                 self.playlist_time, self.playlist_total_sec = stop_fun_res
             else:
                 self.playlist_time = stop_fun_res
-
+                self.last_stop_sec = stop_fun_res  
+    
         # 未兼容播放器多开，暂不处理
         prefetch_data['on'] = False
         prefetch_data['stop_sec_dict'].clear()
