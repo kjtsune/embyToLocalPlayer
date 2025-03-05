@@ -1,5 +1,6 @@
 import json
 import os.path
+import re
 import socket
 import ssl
 import time
@@ -126,6 +127,33 @@ def check_miss_runtime_start_sec(netloc, item_id, basename, start_sec=0, stop_se
             return res['start_sec']
     except Exception:
         logger.info('check_miss_runtime: can not connect to server, check server_side_href setting')
+
+
+def check_redirect_cache_expired_loop():
+    redirect_time = {}
+    ini_dict = configs.get_match_value('', 'dev', 'redirect_expire_minute', get_ini_dict=True)
+    if not ini_dict:
+        return
+    ini_dict = {k:int(v) for k,v in ini_dict.items()}
+    logger.info(f'redirect_cache_expire: {ini_dict}')
+    pattern = re.compile('|'.join(ini_dict.keys()))
+    while True:
+        now = time.time()
+        for url in list(redirect_url_cache.keys()):
+            match = pattern.search(url)
+            if not match:
+                continue
+            if before := redirect_time.get(url):
+                expire = ini_dict[match[0]] * 60
+                if (before + expire) < now:
+                    del redirect_url_cache[url]
+                    del redirect_time[url]
+                    logger.info(f'redirect_cache_expired: {url}')
+            else:
+                redirect_time[url] = now
+                continue
+
+        time.sleep(300)
 
 
 def get_redirect_url(url, key_trim='PlaySessionId', follow_redirect=False):

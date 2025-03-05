@@ -2,6 +2,8 @@ import os
 import sys
 import threading
 
+from utils.net_tools import check_redirect_cache_expired_loop
+
 try:
     sys.path.insert(0, os.path.dirname(__file__))
 except Exception:
@@ -32,4 +34,5 @@ if __name__ == '__main__':
     clean_tmp_dir()
     configs.necessary_setting_when_server_start()
     threading.Thread(target=prefetch_resume_tv, daemon=True).start()
+    threading.Thread(target=check_redirect_cache_expired_loop, daemon=True).start()
     run_server()  # 主要逻辑入口：utils.http_server.py

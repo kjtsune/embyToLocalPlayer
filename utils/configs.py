@@ -2,6 +2,7 @@ import datetime
 import os
 import platform
 import queue
+import re
 import shutil
 import sys
 import threading
@@ -140,10 +141,6 @@ class Configs:
             print('dl_proxy:', self.dl_proxy)
             print('cache_db:', self.cache_db)
 
-    def ini_str_split(self, section, option, fallback=''):
-        ini = self.raw.get(section, option, fallback=fallback).replace('，', ',')
-        ini = [i.strip() for i in ini.split(',') if i.strip()]
-        return ini
 
     def _get_cache_db(self):
         _cache_db = os.path.join(self.cache_path, '.embyToLocalPlayer.json') if self.cache_path else None
@@ -189,6 +186,21 @@ class Configs:
         self.script_proxy = self._get_proxy('script')
         self.player_proxy = self._get_proxy('player')
         return config
+
+    def ini_str_split(self, section, option, fallback='', split_by=','):
+        ini = self.raw.get(section, option, fallback=fallback).replace('：', ':').replace('，', ',').replace('；', ';')
+        ini = [i.strip() for i in ini.split(split_by) if i.strip()]
+        return ini
+
+    def get_match_value(self, _str, section, option, split_by=';',map_by=':', get_ini_dict=False):
+        ini_list = self.ini_str_split(section, option, fallback='', split_by=split_by)
+        ini_list = [pair.split(map_by) for pair in ini_list]
+        ini_dict = {k.strip(): v.strip() for (k, v) in ini_list}
+        if get_ini_dict:
+            return ini_dict
+        if match := re.search('|'.join(ini_dict.keys()), _str):
+            return ini_dict[match[0]]
+
 
     def check_str_match(self, _str, section, option, return_value=False, log=True,
                         log_by: typing.Literal[True, False] = None, order_only=False, get_next=False):
