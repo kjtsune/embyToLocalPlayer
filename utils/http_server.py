@@ -294,8 +294,7 @@ def start_play(data):
                                  kwargs={'eps': [current_ep], 'provider': provider}, daemon=True).start()
 
         if configs.gui_is_enable \
-                and stop_sec / data['total_sec'] * 100 > configs.raw.getfloat('gui', 'delete_at', fallback=99.9) \
-                and file_path.startswith(configs.raw['gui']['cache_path']):
+                and stop_sec / data['total_sec'] * 100 > configs.raw.getfloat('gui', 'delete_at', fallback=99.9):
             logger.info('watched, delete cache')
             threading.Thread(target=dl_manager.delete, args=(data,), daemon=True).start()
     else:
