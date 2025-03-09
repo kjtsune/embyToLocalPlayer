@@ -173,7 +173,7 @@ function getEmbyTitle() {
     let container = getVisibleElement(document.querySelectorAll('.itemPrimaryNameContainer'));
     if (!container) return '';
     let textTitle = container.querySelector('.itemName-primary');
-    if (textTitle) {
+    if (textTitle && textTitle.textContent.trim()) {
         return textTitle.textContent.trim();
     }
     let imgTitle = container.querySelector('.itemName-primary-logo img');
