@@ -265,8 +265,12 @@ def stop_sec_mpv(mpv: MPV, stop_sec_only=True, **_):
     @mpv.on_event('file-loaded')
     def chapters_info_gen(_event_data):
         chapters_dict.clear()
+        # 顺便获取判断 strm 是否播放完成所需的 total_sec 数据。
+        # 若视频秒加载，会没这个事件，导致首集数据获取失败，不过 strm 一般没这么快加载，先不管。
         if total_sec := mpv.command('get_property', 'duration'):
-            name_total_sec_dict[mpv.command('get_property', 'media-title')] = total_sec
+            _t = mpv.command('get_property', 'media-title')
+            name_total_sec_dict[_t] = total_sec
+            logger.info(f'mpv: get strm file {total_sec=}')
 
     while True:
         try:
@@ -324,7 +328,7 @@ def stop_sec_mpv(mpv: MPV, stop_sec_only=True, **_):
         except Exception:
             stop_sec = stop_sec and int(stop_sec)
             logger.info(f'mpv exit, return stop sec, {stop_sec=}')
-            return stop_sec if stop_sec_only else name_stop_sec_dict, name_total_sec_dict
+            return stop_sec if stop_sec_only else (name_stop_sec_dict, name_total_sec_dict)
 
 
 def vlc_player_start(cmd: list, start_sec=None, sub_file=None, get_stop_sec=True, mount_disk_mode=None, **_):

@@ -3,7 +3,7 @@
 // @name:zh-CN   embyDouban
 // @name:en      embyDouban
 // @namespace    https://github.com/kjtsune/embyToLocalPlayer/tree/main/embyDouban
-// @version      2025.02.17
+// @version      2025.03.10
 // @description  emby 里展示: 豆瓣 Bangumi bgm.tv 评分 链接 (豆瓣评论可关)
 // @description:zh-CN emby 里展示: 豆瓣 Bangumi bgm.tv 评分 链接 (豆瓣评论可关)
 // @description:en  show douban Bangumi ratings in emby
@@ -173,7 +173,7 @@ function getEmbyTitle() {
     let container = getVisibleElement(document.querySelectorAll('.itemPrimaryNameContainer'));
     if (!container) return '';
     let textTitle = container.querySelector('.itemName-primary');
-    if (textTitle && textTitle.textContent.trim()) {
+    if (textTitle && textTitle.textContent) {
         return textTitle.textContent.trim();
     }
     let imgTitle = container.querySelector('.itemName-primary-logo img');

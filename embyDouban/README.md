@@ -10,6 +10,7 @@ emby 里增加：豆瓣 Bangumi bgm.tv 评分 链接
 
 **FAQ**
 
+* 豆瓣：现改用 emby 标题来搜索，而不是 imdb id，准确性下降，仅供参考，欢迎修复。
 * 豆瓣：为了合理使用 api，默认只请求一次并缓存。  
   但偶尔可能碰到你的 ip 或者设备被豆瓣拉黑，不返回。现象是豆瓣有这条目并且 imdb id 正确，但没显示。  
   可以换设备和 ip 测试。或者三天后再看看，出错的浏览器缓存脚本会保留三天。
@@ -20,8 +21,6 @@ emby 里增加：豆瓣 Bangumi bgm.tv 评分 链接
 
 * [embyToLocalPlayer](https://greasyfork.org/zh-CN/scripts/448648-embytolocalplayer)
   ：调用本地播放器。需要 Python。支持回传播放进度。
-* [linkDoubanTrakt](https://greasyfork.org/zh-CN/scripts/449899-linkdoubantrakt)
-  ：Douban Trakt 增加互相跳转链接。
 
 **感谢**
 
