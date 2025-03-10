@@ -2,7 +2,6 @@ import os
 import sys
 import threading
 
-from utils.net_tools import check_redirect_cache_expired_loop
 
 try:
     sys.path.insert(0, os.path.dirname(__file__))
@@ -12,6 +11,7 @@ except Exception:
 from utils.downloader import prefetch_resume_tv
 from utils.http_server import run_server
 from utils.tools import (configs, MyLogger, kill_multi_process, clean_tmp_dir)
+from utils.net_tools import check_redirect_cache_expired_loop
 
 if __name__ == '__main__':
     os.chdir(configs.cwd)
