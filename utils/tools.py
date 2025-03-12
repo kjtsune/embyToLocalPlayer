@@ -6,6 +6,7 @@ import subprocess
 import threading
 import time
 import urllib.parse
+from collections import defaultdict
 from typing import Union
 
 import unicodedata
@@ -254,6 +255,55 @@ def version_prefer_emby(sources):
         return sources[index]
     _logger.info(f'version_prefer: fail')
     return sources[0]
+
+
+def version_prefer_for_playlist(_ep_success_map, current_key, file_path, cur_list, eps_data):
+    if not configs.raw.getboolean('dev', 'version_prefer_for_playlist', fallback=True):
+        _logger.info('version_prefer_for_playlist: disabled by ini')
+        return
+    rules = configs.ini_str_split('dev', 'version_prefer')
+    if not rules:
+        _logger.info('version_prefer_for_playlist: disabled by not version_prefer rules')
+        return
+    mix_dict = defaultdict(list)
+    for key, value in zip(cur_list, eps_data):
+        mix_dict[key].append(value)
+    mix_dict = dict(mix_dict)
+    rules = [re.compile(i, flags=re.I) for i in rules]
+    join_str = '_|_'
+    res = []
+    log = []
+    for cur, sources in mix_dict.items():
+        if len(sources) == 1:
+            res.append(sources[0])
+            log.append('single ver')
+            continue
+        if ep := _ep_success_map.get(cur):  # 选定优先于偏好
+            res.append(ep)
+            log.append('current ver')
+            continue
+        if cur == current_key:
+            select_ep = [s for s in sources if file_path in (s['Path'], s['MediaSources'][0]['Path'])]
+            res.append(select_ep[0])
+            log.append('current play')
+            continue
+        name_list = [os.path.basename(i).lower() for i in [s['Path'] for s in sources]]
+        name_all = join_str.join(name_list)
+        for rule in rules:
+            search = rule.search(name_all)
+            if not search:
+                continue
+            name_all = name_all[:name_all.index(search.group())]
+            name_list = name_all.split(join_str)
+            index = len(name_list) - 1
+            log.append(f'pattern={rule.pattern}')
+            res.append(sources[index])
+            break
+        else:
+            log.append('fail')
+            res.append(sources[0])
+    _logger.info(f'version_prefer_for_playlist: {list(zip(mix_dict.keys(), log))}')
+    return res
 
 
 def main_ep_to_title(main_ep_info):

@@ -6,7 +6,7 @@ from utils.configs import configs, MyLogger
 from utils.net_tools import multi_thread_requests, requests_urllib, get_redirect_url
 from utils.tools import (show_version_info, main_ep_to_title, main_ep_intro_time, logger_setup, version_prefer_emby,
                          match_version_range, sub_via_other_media_version, force_disk_mode_by_path,
-                         translate_path_by_ini, debug_beep_win32)
+                         translate_path_by_ini, debug_beep_win32, version_prefer_for_playlist)
 
 logger = MyLogger()
 
@@ -415,8 +415,8 @@ def list_episodes(data: dict):
             def ep_to_key(_ep):
                 return f"{_ep['ParentIndexNumber']}-{_ep['IndexNumber']}"
 
-            ep_seq_cur_list = list(
-                dict.fromkeys([ep_to_key(i) for i in episodes_data]))
+            ep_raw_cur_list = [ep_to_key(i) for i in episodes_data]
+            ep_seq_cur_list = list(dict.fromkeys(ep_raw_cur_list))
             ep_num = len(ep_seq_cur_list)
         except KeyError:
             logger.error('version_filter: KeyError: some ep not IndexNumber')
@@ -425,7 +425,7 @@ def list_episodes(data: dict):
         if ep_num == len(episodes_data):
             return episodes_data
 
-        _ep_current = [i for i in episodes_data if file_path in (i['Path'],i[ 'MediaSources'][0]['Path'])][0]
+        _ep_current = [i for i in episodes_data if file_path in (i['Path'], i['MediaSources'][0]['Path'])][0]
         _current_key = ep_to_key(_ep_current)
         _cut_cur_list = ep_seq_cur_list[ep_seq_cur_list.index(_current_key):]
         _eps_after = [i for i in episodes_data if ep_to_key(i) in _cut_cur_list]
@@ -434,6 +434,7 @@ def list_episodes(data: dict):
         official_rule = official_rule[-1] if len(official_rule) == 2 else None
         clean_path = re.split(r'E\d\d?', file_path, maxsplit=1)[-1].strip()
 
+        # 会禁用前向播放列表。
         def check_with_sequence(__ep_data):
             __ep_success = []
             _cut_ep_data = __ep_data[__ep_data.index(_ep_current):]
@@ -444,7 +445,10 @@ def list_episodes(data: dict):
                     __ep_success.append(_ep)
             return __ep_success
 
+        builtin_res = []
         for _eps_data in (episodes_data, _eps_after):
+            if builtin_res:
+                break
             _cur_list = ep_seq_cur_list if _eps_data == episodes_data else _cut_cur_list
             for rule in (official_rule, clean_path):
                 if not rule:
@@ -457,9 +461,10 @@ def list_episodes(data: dict):
                     _success = check_with_sequence(_ep_data)
                     if len(_success) > 1:
                         logger.info(f'version_filter: success with {rule=}, seq pass {len(_success)}')
-                        return _success
-                    logger.info(f'version_filter: fail, {rule=}, pass {len(_ep_data)}, not equal {len(_cur_list)}')
+                        builtin_res = _success
+                        break
 
+        ver_re = ''.join(ver_re.split('\n'))  # 多行转单行
         ini_re = re.findall(ver_re, file_path, re.I)
         ver_re = re.compile('|'.join(ini_re))
         _ep_data = [i for i in episodes_data if len(ver_re.findall(i['Path'])) == len(ini_re)]
@@ -467,19 +472,42 @@ def list_episodes(data: dict):
         if _ep_data_num == ep_num:
             logger.info(f'version_filter: success with {ini_re=}')
             return _ep_data
-        elif _ep_data_num == 0:
-            logger.info(f'disable playlist, cuz version_filter: fail, ini regex match nothing. \n{file_path=}')
-            return [_ep_current]
+        ini_res = []
+        _ep_success_map = {ep_to_key(i): i for i in _ep_data}
+        prefer_eps = version_prefer_for_playlist(_ep_success_map, _current_key, file_path, ep_raw_cur_list,
+                                                 episodes_data)
+        if _ep_data_num == 0:
+            if not prefer_eps:
+                if builtin_res:
+                    return builtin_res
+                else:
+                    logger.info(f'disable playlist, cuz version_filter: fail, ini regex match nothing. \n{file_path=}')
+                    return [_ep_current]
         else:
             _ep_success = check_with_sequence(_ep_data)
             _success = True if len(_ep_success) > 1 else False
-            if _success:
-                logger.info(f'version_filter: success with {ini_re=}, pass {len(_ep_success)} ep')
-                return _ep_success
+            if not prefer_eps:
+                if _success:
+                    logger.info(f'version_filter: success with {ini_re=}, pass {len(_ep_success)} ep')
+                    if len(builtin_res) > len(_ep_success):
+                        return builtin_res
+                    return _ep_success
+                else:
+                    if builtin_res:
+                        return builtin_res
+                    if len(_cut_cur_list) > 1:
+                        logger.info(f'disable playlist, cuz version_filter: fail, {ini_re=}')
+                    return [_ep_current]
             else:
-                if len(_cut_cur_list) > 1:
-                    logger.info(f'disable playlist, cuz version_filter: fail, {ini_re=}')
-                return [_ep_current]
+                ini_res = _ep_success
+        filter_res = ini_res if len(ini_res) > len(builtin_res) else builtin_res
+        if len(filter_res) <= 1:
+            return prefer_eps
+        fist_cur, last_cur = ep_to_key(filter_res[0]), ep_to_key(filter_res[-1])
+        fist_index, last_index = ep_seq_cur_list.index(fist_cur), ep_seq_cur_list.index(last_cur)
+        fist_part, last_part = prefer_eps[:fist_index], prefer_eps[last_index + 1:]
+        res = fist_part + filter_res + last_part
+        return res
 
     title_intro_map_fail = False
 
