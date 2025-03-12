@@ -444,22 +444,26 @@ def stop_sec_vlc(vlc: VLCHttpApi, stop_sec_only=True, **_):
         return None if stop_sec_only else {}
     stop_sec = None
     name_stop_sec_dict = {}
+    name_total_sec_dict = {}
     # rc interface 的 get_tile 会受到视频文件内置的标题影响。若采用 get_length 作为 id，动漫可能无法正常使用,故放弃，
     # 而 http api 的话，又不能设置标题
     while True:
         try:
             stat = vlc.get('status', silence=True)
             tmp_sec = stat['time']
+            total_sec = stat['length']
             file_name = stat['information']['category']['meta']['filename']
             if tmp_sec:
                 stop_sec = tmp_sec
                 if not stop_sec_only:
-                    name_stop_sec_dict[os.path.basename(file_name)] = stop_sec
+                    key = os.path.basename(file_name)
+                    name_stop_sec_dict[key] = stop_sec
+                    name_total_sec_dict[key] = total_sec
                     prefetch_data['stop_sec_dict'][file_name] = tmp_sec
                 time.sleep(0.3)
         except Exception:
             logger.info(f'vlc stop, {stop_sec=}')
-            return stop_sec if stop_sec_only else name_stop_sec_dict
+            return stop_sec if stop_sec_only else (name_stop_sec_dict, name_total_sec_dict)
         time.sleep(0.2)
 
 
@@ -577,29 +581,36 @@ def stop_sec_mpc(mpc: MPCHttpApi, stop_sec_only=True, **_):
         return None if stop_sec_only else {}
     stop_stack = [None, None]
     path_stack = [None, None]
+    total_stack = [None, None]
     name_stop_sec_dict = {}
+    name_total_sec_dict = {}
     while True:
         try:
-            state, position, media_path = mpc.get(['state', 'position', 'filepath'], return_list=True)
+            state, position, media_path, duration = mpc.get(['state', 'position', 'filepath', 'duration'],
+                                                            return_list=True)
             if state == '-1':
                 time.sleep(0.3)
                 continue
             stop_sec = position // 1000
+            total_sec = duration // 1000
             stop = stop_stack.pop(0)
             stop_stack.append(stop_sec)
             path = path_stack.pop(0)
             path_stack.append(media_path)
+            total = path_stack.pop(0)
+            total_stack.append(total_sec)
             if not stop_sec_only and path:
                 # emby 播放多版本时，PlaybackInfo 返回的数据里，不同版本 DirectStreamUrl 的 itemid 都一样（理应不同）。
                 # 所以用 basename 去除 itemid 来保证数据准确性。
-                path = os.path.basename(path)
-                name_stop_sec_dict[path] = stop
-                prefetch_data['stop_sec_dict'][path] = stop
+                key = os.path.basename(path)
+                name_stop_sec_dict[key] = stop
+                name_total_sec_dict[key] = total
+                prefetch_data['stop_sec_dict'][key] = stop
         except Exception:
             logger.info('mpc stop', stop_stack[-2], stop_stack)
             # 播放器关闭时，webui 可能返回 0
             name_stop_sec_dict = {k: v for k, v in name_stop_sec_dict.items() if k is not None}
-            return stop_stack[-2] if stop_sec_only else name_stop_sec_dict
+            return stop_stack[-2] if stop_sec_only else (name_stop_sec_dict, name_total_sec_dict)
         time.sleep(0.5)
 
 
@@ -682,16 +693,16 @@ def stop_sec_pot(pid, stop_sec_only=True, check_only=False, **_):
 
     def potplayer_time_title_updater(_pid):
         def send_message(hwnd):
-            nonlocal stop_sec, name_stop_sec_dict
+            nonlocal stop_sec, name_stop_sec_dict, name_total_sec_dict
             target_pid = ctypes.c_ulong()
             user32.GetWindowThreadProcessId(hwnd, ctypes.byref(target_pid))
             if _pid == target_pid.value:
-                message = user32.SendMessageW(hwnd, 0x400, 0x5004, 1)
-                if message:
+                msg_cur_time = user32.SendMessageW(hwnd, 0x400, 0x5004, 1)
+                if msg_cur_time:
                     if check_only:
                         stop_sec = 'check_only'
                         return
-                    stop_sec = message // 1000
+                    stop_sec = msg_cur_time // 1000
 
                     length = user32.GetWindowTextLengthW(hwnd)
                     buff = ctypes.create_unicode_buffer(length + 1)
@@ -699,6 +710,14 @@ def stop_sec_pot(pid, stop_sec_only=True, check_only=False, **_):
                     title = buff.value.replace(' - PotPlayer', '')
                     name_stop_sec_dict[title] = stop_sec
                     prefetch_data['stop_sec_dict'][title] = stop_sec
+
+                    if not name_total_sec_dict.get(title):
+                        msg_total_time = user32.SendMessageW(hwnd, 0x400, 0x5002, 1)
+                        total_sec = msg_total_time // 1000
+                        if total_sec != stop_sec:
+                            name_total_sec_dict[title] = total_sec
+                            if '.strm' in title:
+                                logger.info(f'pot: get strm file {total_sec=}')
 
         def for_each_window(hwnd, _):
             send_message(hwnd)
@@ -709,6 +728,7 @@ def stop_sec_pot(pid, stop_sec_only=True, check_only=False, **_):
 
     stop_sec = None
     name_stop_sec_dict = {}
+    name_total_sec_dict = {}
     while True:
         if not process_is_running_by_pid(pid):
             logger.debug('pot not running')
@@ -721,7 +741,7 @@ def stop_sec_pot(pid, stop_sec_only=True, check_only=False, **_):
     if check_only:
         return False
     logger.info(f'pot stop, {stop_sec=}')
-    return stop_sec if stop_sec_only else name_stop_sec_dict
+    return stop_sec if stop_sec_only else (name_stop_sec_dict, name_total_sec_dict)
 
 
 def dandan_player_start(cmd: list, start_sec=None, sub_file=None, media_title=None, get_stop_sec=True,
