@@ -204,7 +204,7 @@ class BangumiApi:
         data = self.get_subject_collection(subject_id)
         if data.get('type') == 2:
             return
-        if not data:
+        if not data or data.get('type') in (1, 4):
             self.add_collection_subject(subject_id=subject_id)
         if isinstance(ep_id, list):
             self.change_episode_state(ep_id=ep_id, subject_id=subject_id)
