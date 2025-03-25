@@ -141,7 +141,6 @@ class Configs:
             print('dl_proxy:', self.dl_proxy)
             print('cache_db:', self.cache_db)
 
-
     def _get_cache_db(self):
         _cache_db = os.path.join(self.cache_path, '.embyToLocalPlayer.json') if self.cache_path else None
         _dev_cache_db = os.path.join(self.cwd, 'z_cache.json')
@@ -192,7 +191,12 @@ class Configs:
         ini = [i.strip() for i in ini.split(split_by) if i.strip()]
         return ini
 
-    def get_match_value(self, _str, section, option, split_by=';',map_by=':', get_ini_dict=False):
+    def string_replace_by_ini_pair(self, _str, section, option):
+        if replace_pair := self.check_str_match(_str, section=section, option=option):
+            _str = _str.replace(replace_pair[0], replace_pair[1])
+        return _str
+
+    def get_match_value(self, _str, section, option, split_by=';', map_by=':', get_ini_dict=False):
         ini_list = self.ini_str_split(section, option, fallback='', split_by=split_by)
         ini_list = [pair.split(map_by) for pair in ini_list]
         ini_dict = {k.strip(): v.strip() for (k, v) in ini_list}
@@ -201,16 +205,20 @@ class Configs:
         if match := re.search('|'.join(ini_dict.keys()), _str):
             return ini_dict[match[0]]
 
-
     def check_str_match(self, _str, section, option, return_value=False, log=True,
-                        log_by: typing.Literal[True, False] = None, order_only=False, get_next=False):
+                        log_by: typing.Literal[True, False] = None, order_only=False, get_next=False, get_pair=False):
         # 注意 order_only 在匹配失败时返回 0
         ini_list = self.ini_str_split(section, option, fallback='')
         match_list = [i for i in ini_list if i in _str]
         match_order = ini_list.index(match_list[0]) + 1 if match_list else 0
-        if get_next:
+        if get_next or get_pair:
             if match_list and match_order:
-                return ini_list[match_order]
+                if get_next and get_pair:
+                    raise ValueError('get_next and get_pair can not enable in same time')
+                if get_next:
+                    return ini_list[match_order]
+                if get_pair:
+                    return ini_list[match_order - 1], ini_list[match_order]
             return
         if ini_list and any(match_list):
             result = match_list[0] if return_value else True
