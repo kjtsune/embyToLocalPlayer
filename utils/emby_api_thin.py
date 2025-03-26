@@ -32,5 +32,6 @@ class EmbyApiThin:
         return res
 
     def get_playback_info(self, item_id):
+        # emby strm 在回传时可以扫出媒体信息，应该是这个请求产生的结果的。
         res = self.get(f'Items/{item_id}/PlaybackInfo')
         return res

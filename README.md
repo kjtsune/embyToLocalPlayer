@@ -59,6 +59,7 @@ etlp - Emby/Jellyfin 调用 PotPlayer mpv IINA MPC VLC 播放，并回传播放�
 3. 按 2 则创建开机启动项并后台运行。（隐藏窗口运行）
 
 * 问题排查：
+    * Pot 提示渲染 Pin 失败，无法播放。解决方法在 FAQ。
     * 若双击 `.bat` 就提示找不到 Python，  
       或者播放器无法播放，请使用包含 mpv 的便携版测试。
     * 若自启失败，检查启动项是否被禁用：任务管理器 > 启动。  
@@ -347,29 +348,27 @@ https://github.com/kjtsune/embyToLocalPlayer#faq
 
 > PotPlayer
 
-* 若碰到问题，本地用户可考虑：[MPC-HC](https://github.com/clsid2/mpc-hc/releases) 自带 LAV，同样支持 madVR MPCVR BFRC 等。  
-  网络用户或没有特殊需求的话，mpv 系的播放器综合体验较好。
-* 碰到问题时，先尝试初始化 PotPlayer 设置后测试。
-* 选项 > 播放 > 播放窗口尺寸：全屏
-* 配置/语言/其他 > 收尾处理 > 播放完当前后退出（触发回传进度）
-* 读盘模式可能和美化标题和混合S0的功能冲突，不过不影响使用。（FAQ > 隐藏功能 有解决方案）
-* `.bat` 日志提示`KeyError: ''`。  
-  初始化 pot 和 `.ini` 删除播放列表部分试试看。
-* Pot 自身问题：`.bat` 日志可能提示`KeyError: 'stream.mkv'`。  
-  解决方案：三选一（若前两个方法失败换版本估计也不行）。1. 本地用户使用读盘模式；2. 把 `.ini` 文件里`多集回传` 部分删除。3. 换
-  pot版本；  
+* 提示渲染 Pin 失败，无法播放 或者 `.bat` 日志提示`KeyError: 'stream.mkv'`。  
+  解决方案：1. 本地用户使用读盘模式；2. 换 Pot 版本；3. 看隐藏功能替换标题特殊字符。  
   建议换 240618 版本，文件 sha256 与 ScoopInstaller / winget-pkgs 一致。  
   [potplayer-1-7-22286.exe (v240618)](https://potplayer.en.uptodown.com/windows/download/1018490678)    
   sha256sum `66d03fc13f4949948890675cf62b839b704b542a34a13a180466f93be20d5bc6`  
   [github.com/ScoopInstaller/Extras -> potplayer.json](https://github.com/ScoopInstaller/Extras/blob/108f0c0d42347a1cb9a16d8effdad09a7059c22b/bucket/potplayer.json#L11-L12)  
   [github.com/microsoft/winget-pkgs -> Daum.PotPlayer.installer.yaml](https://github.com/microsoft/winget-pkgs/blob/d7aa02cfe97624c51a005b3c7ac42f05f205aff5/manifests/d/Daum/PotPlayer/240618/Daum.PotPlayer.installer.yaml#L84-L85)
-* Pot 自身问题：若使用 http 播放，可能提示地址关闭。Win8 32bit 碰到。  
+* 若碰到其他问题，先尝试初始化 PotPlayer 设置后测试。
+* 本地用户可考虑：[MPC-HC](https://github.com/clsid2/mpc-hc/releases) 自带 LAV，同样支持 madVR MPCVR BFRC 等。  
+  网络用户或没有特殊需求的话，mpv 系的播放器综合体验较好。
+* [可选] 选项 > 播放 > 播放窗口尺寸：全屏
+* 配置/语言/其他 > 收尾处理 > 播放完当前后退出（触发回传进度）
+* `.bat` 日志提示`KeyError: ''`。初始化 pot。
+* 若使用 http 播放，可能提示地址关闭。Win8 32bit 碰到。  
   解决方案：本地用户使用读盘模式，或者换 pot 便携版。  
   安全性未知：[PotPlayerPortable-220914.zip](https://www.videohelp.com/download/PotPlayerPortable-220914.zip)  
   先打开 `PotPlayerPortable.exe` 一次，但播放用 `C:\<path_to>\PotPlayerPortable\App\PotPlayer\PotPlayer.exe`  
   不然会要求管理员权限运行。
-* Pot 自身问题：`.bat` 日志可能提示`请求的操作需要提升`。  
+* `.bat` 日志可能提示`请求的操作需要提升`。  
   解决方案：升降级 pot 或者用 32bit 版本。
+* 读盘模式可能和美化标题和混合S0的功能冲突，不过不影响使用。（FAQ > 隐藏功能 有解决方案）
 
 > MPC：
 
@@ -418,6 +417,21 @@ https://github.com/kjtsune/embyToLocalPlayer#faq
 <summary>隐藏功能（一般用不到 / 配置麻烦 / 无支持）</summary>
 
 ### 隐藏功能（无支持）:
+
+<details>
+<summary>替换媒体标题字符（高版本 Pot 渲染 Pin 失败）</summary>
+
+* 问题：标题含空格或者个别半角符号，会导致 pot 无法从命令行启动，无法播放。
+* 解决方案：把半角单双引号替换为全角，空格替换为连字符。是以下配置的默认行为。
+* 填写位置：`.ini` > `[dev]`
+  ```
+    # 此功能可能产生其他问题，建议仅在 pot 中使用。
+    # 谨慎配置，只接受单个字符，全角逗号隔开，成对填写。
+    # 不要有多余的空格引号，注意分隔符是全角的逗号。
+    media_title_translate = '，＇，"，＂， ，-
+  ```
+
+</details>
 
 <details>
 <summary>替换实际播放地址</summary>
@@ -538,7 +552,7 @@ https://github.com/kjtsune/embyToLocalPlayer#faq
 > 模拟 302 重定向视频流
 
 * 若使用预读取下一集，nginx 可以只反代视频流。浏览器访问源站，重定向视频流交给本机。降低 nginx 配置难度。减少 bug。
-* 亦可用于其他重定向视频流服务器。采用本地重定向。加速访问。
+* 亦可用于其他重定向视频流服务器。采用本地重定向。加速访问。也可由上方的 替换实际播放地址 功能代替。
 * 填写位置：`.ini` > `[dev]`
   ```
   # 网址之间逗号隔开，成对填写。源站, 反代站。

@@ -186,18 +186,26 @@ class Configs:
         self.player_proxy = self._get_proxy('player')
         return config
 
-    def ini_str_split(self, section, option, fallback='', split_by=','):
+    def ini_str_split(self, section, option, fallback='', split_by=',', zip_it=False):
         ini = self.raw.get(section, option, fallback=fallback).replace('：', ':').replace('，', ',').replace('；', ';')
         ini = [i.strip() for i in ini.split(split_by) if i.strip()]
+        if ini and zip_it:
+            return zip(ini[0::2], ini[1::2])
         return ini
 
-    def string_replace_by_ini_pair(self, _str, section, option):
-        if replace_pair := self.check_str_match(_str, section=section, option=option):
-            _str = _str.replace(replace_pair[0], replace_pair[1])
-        return _str
+    def media_title_translate(self, media_title=None, get_trans=False):
+        if map_pair := self.raw.get('dev', 'media_title_translate', fallback=''):
+            map_pair = map_pair.strip('，').split('，')
+            map_dict = dict(zip(map_pair[0::2], map_pair[1::2]))
+            trans = str.maketrans(map_dict)
+            if get_trans:
+                return trans
+            media_title = media_title.translate(trans)
+        return media_title
+
 
     def get_match_value(self, _str, section, option, split_by=';', map_by=':', get_ini_dict=False):
-        ini_list = self.ini_str_split(section, option, fallback='', split_by=split_by)
+        ini_list = self.ini_str_split(section, option, split_by=split_by)
         ini_list = [pair.split(map_by) for pair in ini_list]
         ini_dict = {k.strip(): v.strip() for (k, v) in ini_list}
         if get_ini_dict:
@@ -235,6 +243,12 @@ class Configs:
                 _log = MyLogger.mix_args_str(_log)
             MyLogger.log(_log)
         return result
+
+    def string_replace_by_ini_pair(self, _str, section, option):
+        if replace_pair := self.check_str_match(_str, section=section, option=option, get_pair=True):
+            _str = _str.replace(replace_pair[0], replace_pair[1])
+        return _str
+
 
     def set_player_path_by_mpv_embed_(self):
         ini_mpv = configs.raw.get('exe', 'mpv_embed', fallback='')

@@ -152,7 +152,11 @@ def parse_received_data_emby(received_data):
 
     pretty_title = configs.raw.getboolean('dev', 'pretty_title', fallback=True)
     media_title = f'{emby_title}  |  {basename}' if pretty_title and emby_title else basename
-    media_title = media_title.replace('"', '”')
+    title_trans = configs.media_title_translate(get_trans=True)
+    if title_trans:
+        media_title = media_title.translate(title_trans)
+        _title_trans = {chr(k): v for k, v in title_trans.items()}
+        logger.info(f'media_title_translate {_title_trans}')
 
     seek = query['StartTimeTicks']
     start_sec = int(seek) // (10 ** 7) if seek else 0
@@ -229,6 +233,7 @@ def parse_received_data_plex(received_data):
     )
     res_list = []
     meta_error = False
+    title_trans = configs.media_title_translate(get_trans=True)
     for _index, meta in enumerate(metas):
         res = base_info_dict.copy()
         data = meta['Media'][0]
@@ -264,7 +269,8 @@ def parse_received_data_plex(received_data):
         media_basename = os.path.basename(media_path)
         title = meta.get('title', basename)
         media_title = title if title == basename else f'{title} | {basename}'
-        media_title = media_title.replace('"', '”')
+        if title_trans:
+            media_title = media_title.translate(title_trans)
 
         seek = meta.get('viewOffset')
         rating_key = meta['ratingKey']
@@ -680,7 +686,8 @@ def list_episodes(data: dict):
 
     stream_redirect = configs.check_str_match(episodes[0]['stream_url'], 'dev', 'stream_redirect', get_pair=True)
     media_path_replace = configs.check_str_match(episodes[0]['media_path'], 'dev', 'media_path_replace', get_pair=True)
-    if stream_redirect or media_path_replace:
+    title_trans = configs.media_title_translate(get_trans=True)
+    if stream_redirect or media_path_replace or title_trans:
         for i in episodes:
             if stream_redirect:
                 i['stream_url'] = i['stream_url'].replace(stream_redirect[0], stream_redirect[1])
@@ -689,6 +696,8 @@ def list_episodes(data: dict):
             if media_path_replace:
                 i['media_path'] = i['media_path'].replace(media_path_replace[0], media_path_replace[1])
                 i['media_basename'] = os.path.basename(i['media_path'])
+            if title_trans:
+                i['media_title'] = i['media_title'].translate(title_trans)
 
     if configs.check_str_match(netloc, 'dev', 'stream_prefix', log=False):
         stream_prefix = configs.ini_str_split('dev', 'stream_prefix')[0].strip('/')
