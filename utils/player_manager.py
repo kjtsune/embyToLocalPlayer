@@ -199,6 +199,7 @@ class PrefetchManager(BaseInit):  # 未兼容播放器多开，暂不处理
             cur_sec = stop_sec_dict.get(key)
             ep = self.playlist_data.get(key)
             if not all([cur_sec, ep]):
+                time.sleep(0.5)
                 continue
             if key != last_key:
                 if last_ep:
