@@ -39,10 +39,12 @@ etlp - Emby/Jellyfin 调用 PotPlayer mpv IINA MPC VLC 播放，并回传播放�
    \[可选\]：改名为 `embyToLocalPlayer.ini`
 3. 安装 Python (勾选 add to path) [官网](https://www.python.org/downloads/)
    （若使用便携版，则无需安装。）
-4. 推荐油猴插件，装一个即可
-   [Tampermonkey](https://chromewebstore.google.com/detail/lcmhijbkigalmkeommnijlpobloojgfn) |
-   [Violentmonkey](https://chrome.google.com/webstore/detail/violent-monkey/jinjaccalgkegednnccohejagnlnfdag) |
-   [Tampermonkey v3(不推荐，需启用开发者模式)](https://chromewebstore.google.com/detail/dhdgffkkebhmkfjojejmpbldmpobfkfo)
+4. 推荐油猴插件，装一个即可  
+   [Tampermonkey v2](https://chromewebstore.google.com/detail/lcmhijbkigalmkeommnijlpobloojgfn) |
+   [Violentmonkey](https://chrome.google.com/webstore/detail/violent-monkey/jinjaccalgkegednnccohejagnlnfdag)
+   已知问题：新版 chrome 可能无法安装。  
+   [Tampermonkey v3](https://chromewebstore.google.com/detail/dhdgffkkebhmkfjojejmpbldmpobfkfo)
+   并启用开发者模式。[启用教程](https://www.tampermonkey.net/faq.php#Q209)
 5. 安装油猴脚本并刷新 Emby 页面。[发布页](https://greasyfork.org/zh-CN/scripts/448648-embytolocalplayer)
 
 > 前置说明
@@ -401,6 +403,7 @@ https://github.com/kjtsune/embyToLocalPlayer#faq
     2. 等待10秒后再继续播放；
     3. 手动刷新页面后播放；
     4. ~~告诉我要发送什么请求可以解决这个问题~~
+* 未适配主题曲功能，会有无法二次播放的问题。
 
 > Plex 相关
 
