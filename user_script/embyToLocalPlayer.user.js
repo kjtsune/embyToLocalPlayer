@@ -385,7 +385,7 @@
         // resumeInfoCache = null;
         logger.info(extraData);
         if (mainEpInfo?.Type == 'Trailer') {
-            alert('Does not support Trailers plugin. Please disable it.');
+            alert('etlp: Does not support Trailers plugin. Please disable it.');
             return false;
         }
         let notBackdrop = Boolean(playbackData.MediaSources[0].Path.search(/\Wbackdrop/i) == -1);

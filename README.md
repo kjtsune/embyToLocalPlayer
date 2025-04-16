@@ -30,22 +30,21 @@ etlp - Emby/Jellyfin 调用 PotPlayer mpv IINA MPC VLC 播放，并回传播放�
 
 > 基础配置
 
-1. 下载 `etlp-python-embed-win32.zip` (**便携版** | Windows only)   
-   或者 `etlp-mpv-py-embed-win32.zip` (含mpv播放器便携版 | Windows only | 快捷键见 FAQ)  
-   或者 `embyToLocalPlayer.zip` (Windows / Linux / macOS)  
-   然后解压到任意文件夹。 [发布页](https://github.com/kjtsune/embyToLocalPlayer/releases)
-2. 进入文件夹，修改配置文件：`embyToLocalPlayer_config.ini`
-   中的播放器路径，以及播放器选择。（若使用含mpv便携版，则无需修改。）  
-   \[可选\]：改名为 `embyToLocalPlayer.ini`
-3. 安装 Python (勾选 add to path) [官网](https://www.python.org/downloads/)
-   （若使用便携版，则无需安装。）
-4. 推荐油猴插件，装一个即可  
+1. 油猴插件，装一个即可：  
    [Tampermonkey v2](https://chromewebstore.google.com/detail/lcmhijbkigalmkeommnijlpobloojgfn) |
    [Violentmonkey](https://chrome.google.com/webstore/detail/violent-monkey/jinjaccalgkegednnccohejagnlnfdag)
    已知问题：新版 chrome 可能无法安装。  
    [Tampermonkey v3](https://chromewebstore.google.com/detail/dhdgffkkebhmkfjojejmpbldmpobfkfo)
    并启用开发者模式。[启用教程](https://www.tampermonkey.net/faq.php#Q209)
-5. 安装油猴脚本并刷新 Emby 页面。[发布页](https://greasyfork.org/zh-CN/scripts/448648-embytolocalplayer)
+2. 安装油猴脚本并刷新 Emby 页面。[发布页](https://greasyfork.org/zh-CN/scripts/448648-embytolocalplayer)
+3. 方案三选一，下载并解压 `.zip` 到任意文件夹。 [发布页](https://github.com/kjtsune/embyToLocalPlayer/releases)
+    * 推荐: `etlp-mpv-py-embed-win32.zip` (mpv 播放器 | Windows only | 快捷键见 FAQ)  
+      无需修改配置文件，直接往下看。
+    * `etlp-python-embed-win32.zip` (Windows only)  
+      修改配置文件：`embyToLocalPlayer_config.ini` 中的播放器路径，以及播放器选择。
+    * `embyToLocalPlayer.zip` (Windows / Linux / macOS)  
+      安装 Python (勾选 add to path) [官网](https://www.python.org/downloads/)  
+      修改配置文件：`embyToLocalPlayer_config.ini` 中的播放器路径，以及播放器选择。
 
 > 前置说明
 
@@ -56,11 +55,12 @@ etlp - Emby/Jellyfin 调用 PotPlayer mpv IINA MPC VLC 播放，并回传播放�
 
 > Windows
 
-1. 双击 `embyToLocalPlayer_debug.bat` （不要右击以管理员身份运行）
+1. 双击 `embyToLocalPlayer_debug.bat`
 2. 若无报错，按 1（不要关闭窗口），然后网页播放测试。（点击原来的播放按钮就可以）
 3. 按 2 则创建开机启动项并后台运行。（隐藏窗口运行）
 
 * 问题排查：
+    * 含 mpv 的版本若要修改为其他播放器，需要删除 `mpv_embed` 文件夹。
     * Pot 提示渲染 Pin 失败，无法播放。解决方法在 FAQ。
     * 若双击 `.bat` 就提示找不到 Python，  
       或者播放器无法播放，请使用包含 mpv 的便携版测试。
@@ -73,6 +73,14 @@ etlp - Emby/Jellyfin 调用 PotPlayer mpv IINA MPC VLC 播放，并回传播放�
     * 若 bat 或者 vbs 有无法解决的问题，可尝试使用
       [AutoHotkey 自启动解决方案](https://github.com/kjtsune/embyToLocalPlayer/issues/14#issuecomment-2430602205)。
     * **反馈前看下方相关 FAQ，没按要求反馈会忽略**
+
+**若排版有问题，可到 GitHub 查看。**  
+https://github.com/kjtsune/embyToLocalPlayer#faq
+
+> macOS / Linux
+
+<details>
+<summary>macOS / Linux</summary>
 
 > macOS
 
@@ -118,10 +126,9 @@ etlp - Emby/Jellyfin 调用 PotPlayer mpv IINA MPC VLC 播放，并回传播放�
     ```
     </details>
 
-### FAQ
+</details>
 
-**FAQ 建议到 GitHub 查看。**  
-https://github.com/kjtsune/embyToLocalPlayer#faq
+### FAQ
 
 <details>
 <summary>通用 FAQ</summary>
