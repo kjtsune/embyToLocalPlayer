@@ -75,16 +75,20 @@ def parse_received_data_emby(received_data):
     stream_url = f'{scheme}://{netloc}{extra_str}/videos/{item_id}/{stream_name}{container}' \
                  f'?DeviceId={device_id}&MediaSourceId={media_source_id}' \
                  f'&PlaySessionId={play_session_id}&api_key={api_key}&Static=true'
+    stream_netloc = netloc
+    if is_http_direct_strm := is_strm and strm_direct and is_http_source:
+        stream_url = source_path
+        stream_netloc = urllib.parse.urlparse(stream_url).netloc
 
     mount_disk_mode = received_data['mountDiskEnable'] == 'true'
-    if not mount_disk_mode:
-        if configs.check_str_match(netloc, 'dev', 'redirect_check_host'):
+    if not mount_disk_mode or is_http_direct_strm:
+        if configs.check_str_match(stream_netloc, 'dev', 'redirect_check_host'):
             _stream_url = get_redirect_url(stream_url)
             if stream_url != _stream_url:
                 logger.info(f'url redirect found {stream_url}')
                 stream_url = _stream_url
 
-        if configs.check_str_match(netloc, 'dev', 'stream_prefix', log=False):
+        if configs.check_str_match(stream_netloc, 'dev', 'stream_prefix', log=False):
             stream_prefix = configs.ini_str_split('dev', 'stream_prefix')[0].strip('/')
             stream_url = f'{stream_prefix}{stream_url}'
 
@@ -107,7 +111,7 @@ def parse_received_data_emby(received_data):
         else:
             media_path = translate_path_by_ini(file_path)
     else:
-        if is_strm and strm_direct:
+        if is_strm and strm_direct and not is_http_direct_strm:
             media_path = source_path
         else:
             media_path = stream_url
@@ -202,6 +206,7 @@ def parse_received_data_emby(received_data):
         strm_direct=strm_direct,
         is_http_source=is_http_source,
         source_path=source_path,
+        is_http_direct_strm=is_http_direct_strm,
     )
     return result
 
@@ -400,6 +405,7 @@ def list_episodes(data: dict):
     is_strm = data['is_strm']
     is_http_source = data['is_http_source']
     strm_direct = data['strm_direct']
+    is_http_direct_strm = data['is_http_direct_strm']
 
     def strm_file_name_sync(file_path, episodes_data):
         if is_strm and not is_http_source:
@@ -431,6 +437,14 @@ def list_episodes(data: dict):
 
         _ep_current = [i for i in episodes_data if file_path in (i['Path'], i['MediaSources'][0]['Path'])][0]
         _current_key = ep_to_key(_ep_current)
+        _cur_count = ep_raw_cur_list.count(_current_key)
+        if _cur_count > 1:  # 适配首集多版本但过于相似的情况
+            _cur_raw_index = ep_raw_cur_list.index(_current_key)
+            del episodes_data[_cur_raw_index + 1:_cur_raw_index + _cur_count]
+            del ep_raw_cur_list[_cur_raw_index + 1:_cur_raw_index + _cur_count]
+            episodes_data[_cur_raw_index] = _ep_current
+            if ep_num == len(episodes_data):  # 只有首集是多版本时
+                return episodes_data
         _cut_cur_list = ep_seq_cur_list[ep_seq_cur_list.index(_current_key):]
         _eps_after = [i for i in episodes_data if ep_to_key(i) in _cut_cur_list]
         _ep_index_list = sorted(list({i['IndexNumber'] for i in episodes_data}))
@@ -565,6 +579,9 @@ def list_episodes(data: dict):
         stream_url = f'{scheme}://{netloc}{extra_str}/videos/{item_id}/{stream_name}{container}' \
                      f'?DeviceId={device_id}&MediaSourceId={media_source_id}' \
                      f'&PlaySessionId={play_session_id}&api_key={api_key}&Static=true'
+        if is_http_direct_strm:
+            stream_url = source_path
+
         if mount_disk_mode:  # 肯定不会是 http
             if is_strm:
                 if strm_direct:
@@ -574,7 +591,7 @@ def list_episodes(data: dict):
             else:
                 media_path = translate_path_by_ini(file_path)
         else:
-            if is_strm and strm_direct:
+            if is_strm and strm_direct and not is_http_direct_strm:
                 media_path = source_path
             else:
                 media_path = stream_url

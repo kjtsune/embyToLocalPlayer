@@ -2,6 +2,7 @@ import os
 import re
 import threading
 import time
+import urllib.parse
 
 from utils.configs import configs, MyLogger
 from utils.downloader import Downloader
@@ -224,7 +225,8 @@ class PrefetchManager(BaseInit):  # 未兼容播放器多开，暂不处理
 
     def redirect_next_ep_loop(self):
         mpv = self.player_kwargs.get('mpv')
-        if not mpv or not configs.check_str_match(self.data['netloc'], 'dev', 'redirect_check_host', log=False):
+        stream_netloc = urllib.parse.urlparse(self.data['stream_url']).netloc
+        if not mpv or not configs.check_str_match(stream_netloc, 'dev', 'redirect_check_host', log=False):
             return
         if len(self.playlist_data) == 1:
             return
@@ -241,7 +243,7 @@ class PrefetchManager(BaseInit):  # 未兼容播放器多开，暂不处理
                     return
                 if not key or not stop_sec or key in done_list:
                     continue
-                if stop_sec / ep['total_sec'] < 0.5:
+                if stop_sec / ep['total_sec'] < 0.5 and ep['total_sec'] != 86400:
                     continue
                 # mix_sO 可能造成 index 重复
                 # next_ep = [e for e in self.playlist_data.values() if e['index'] == ep['index'] + 1]
