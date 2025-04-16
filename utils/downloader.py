@@ -253,13 +253,9 @@ class DownloadManager:
 
 
 def prefetch_resume_tv():
-    conf = configs.raw.get('dev', 'prefetch_conf', fallback='')
-    if not conf:
-        return
-    confs = conf.replace('，', ',').replace('；', ';').split(';')
-    confs = [i.strip() for i in confs if i.strip()]
+    confs = configs.ini_str_split('dev', 'prefetch_conf', split_by=';', re_split_by=',')
     for conf in confs:
-        host, user_id, api_key, *startswith = [i.strip() for i in conf.split(',') if i.strip()]
+        host, user_id, api_key, *startswith = conf
         logger.info(f'prefetch conf: {host=} {user_id=} {api_key=} {startswith=}')
         threading.Thread(target=_prefetch_resume_tv, args=(host, user_id, api_key, startswith), daemon=True).start()
 

@@ -165,7 +165,7 @@ def get_redirect_url(url, key_trim='PlaySessionId', follow_redirect=False):
     try:
         redirect_handler = FollowHTTPRedirectHandler if follow_redirect else SkipHTTPRedirectHandler
         # FollowHTTPRedirectHandler, # 系统代理有可能很慢，默认不启用
-        timeout = 15 if follow_redirect else 3
+        timeout = 30 if follow_redirect else 3
         handlers = [
             urllib.request.HTTPSHandler(context=ssl_context),
             redirect_handler,

@@ -186,11 +186,18 @@ class Configs:
         self.player_proxy = self._get_proxy('player')
         return config
 
-    def ini_str_split(self, section, option, fallback='', split_by=',', zip_it=False):
+    def ini_str_split(self, section, option, fallback='', split_by=',', zip_it=False, re_split_by=None):
         ini = self.raw.get(section, option, fallback=fallback).replace('：', ':').replace('，', ',').replace('；', ';')
         ini = [i.strip() for i in ini.split(split_by) if i.strip()]
         if ini and zip_it:
+            if re_split_by:
+                raise ValueError('re_split_by can not zip')
             return zip(ini[0::2], ini[1::2])
+        if ini and re_split_by:
+            res = []
+            for group in ini:
+                res.append([i.strip() for i in group.split(re_split_by) if i.strip()])
+            return res
         return ini
 
     def media_title_translate(self, media_title=None, get_trans=False):

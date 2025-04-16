@@ -6,7 +6,7 @@ import requests
 class EmbyApi:
     def __init__(self, host, api_key, user_id, *,
                  http_proxy=None, socks_proxy=None, cert_verify=True):
-        self.host = host.rstrip('/')
+        self.host = host.rstrip('/').split('/web/index')[0]
         self.api_key = api_key
         self.user_id = user_id
         self.req = requests.Session()
@@ -77,12 +77,14 @@ class EmbyApi:
         res = self.get(f'Shows/{item_id}/Seasons')
         return res
 
-    def get_episodes(self, item_id, season_id=None, get_user_data=False):
+    def get_episodes(self, item_id, season_id=None, get_user_data=False, get_sources=False):
         params = {'SeasonId': season_id} if season_id else {}
         if get_user_data:
             if not self.user_id:
                 raise ValueError('get_user_data require user id')
             params.update({'UserId': self.user_id})
+        if get_sources:
+            params.update({'Fields': 'MediaSources,Path,ProviderIds'})
         res = self.get(f'Shows/{item_id}/Episodes', params=params)
         return res
 
@@ -111,7 +113,7 @@ class EmbyApi:
     def get_items(self, genre='', types='Movie,Series,Video', fields: typing.Union[list, str] = None, start_index=0,
                   ids=None, limit=50, parent_id=None,
                   sort_by='DateCreated,SortName',
-                  recursive=True, ext_params: dict = None):
+                  recursive=True, ext_params: dict = None, filters=None, by_user=False):
         # 注意默认不包含 Episode。同时 Episode 需要 ext_params={'HasTmdbId': None}。
         fields = fields or self._default_fields
         fields = fields if isinstance(fields, str) else ','.join(fields)
@@ -133,11 +135,16 @@ class EmbyApi:
             params.update({'Ids': ids})
         if parent_id:
             params.update({'ParentId': parent_id})
-
+        if filters:
+            params.update({'Filters': filters})
+            if 'IsFavorite' in filters and not by_user:
+                raise ValueError('IsFavorite require by_user')
         if ext_params:
             params.update(ext_params)
-
-        res = self.get('Items', params=params)
+        path = f'Users/{self.user_id}/Items' if by_user else 'Items'
+        if by_user and not self.user_id:
+            raise ValueError('user_id required')
+        res = self.get(path, params=params)
         return res
 
     def yield_all_items(self, genre='', types='Movie,Series,Video', fields: typing.Union[list, str] = None,
