@@ -597,7 +597,7 @@ def stop_sec_mpc(mpc: MPCHttpApi, stop_sec_only=True, **_):
             stop_stack.append(stop_sec)
             path = path_stack.pop(0)
             path_stack.append(media_path)
-            total = path_stack.pop(0)
+            total = total_stack.pop(0)
             total_stack.append(total_sec)
             if not stop_sec_only and path:
                 # emby 播放多版本时，PlaybackInfo 返回的数据里，不同版本 DirectStreamUrl 的 itemid 都一样（理应不同）。
