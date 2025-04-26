@@ -170,7 +170,6 @@ def parse_received_data_emby(received_data):
     total_sec = int(media_source_info.get('RunTimeTicks', 0)) // 10 ** 7 or 3600 * 24
     position = start_sec / total_sec
     user_id = query['UserId']
-    media_path = configs.string_replace_by_ini_pair(media_path, 'dev', 'media_path_replace')
     media_basename = os.path.basename(media_path)
 
     result = dict(
@@ -702,17 +701,13 @@ def list_episodes(data: dict):
                 ep['media_title'] = data['media_title']
 
     stream_redirect = configs.check_str_match(episodes[0]['stream_url'], 'dev', 'stream_redirect', get_pair=True)
-    media_path_replace = configs.check_str_match(episodes[0]['media_path'], 'dev', 'media_path_replace', get_pair=True)
     title_trans = configs.media_title_translate(get_trans=True)
-    if stream_redirect or media_path_replace or title_trans:
+    if stream_redirect or title_trans:
         for i in episodes:
             if stream_redirect:
                 i['stream_url'] = i['stream_url'].replace(stream_redirect[0], stream_redirect[1])
                 if not mount_disk_mode:
                     i['media_path'] = i['stream_url']
-            if media_path_replace:
-                i['media_path'] = i['media_path'].replace(media_path_replace[0], media_path_replace[1])
-                i['media_basename'] = os.path.basename(i['media_path'])
             if title_trans:
                 i['media_title'] = i['media_title'].translate(title_trans)
 
