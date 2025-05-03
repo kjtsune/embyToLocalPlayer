@@ -73,7 +73,7 @@ echo %startupCmd% > %startupVbs%
 echo writing startupCmd to startupVbs, save in startup folder.
 timeout /nobreak /t 1 >nul
 echo close this window manually
-wscript.exe ""%startupVbs%""
+cscript.exe //nologo ""%startupVbs%""
 GOTO END
 
 
