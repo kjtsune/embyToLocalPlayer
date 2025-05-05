@@ -114,7 +114,8 @@ class BangumiApi:
         })
         return res.json()
 
-    def get_target_season_episode_id(self, subject_id, target_season: int, target_ep: typing.Union[int, list] = None):
+    def get_target_season_episode_id(self, subject_id, target_season: int, target_ep: typing.Union[int, list] = None,
+                                     subject_platform=None):
         season_num = 1
         current_id = subject_id
         ep_num_list = target_ep if isinstance(target_ep, list) else None
@@ -122,6 +123,11 @@ class BangumiApi:
 
         if target_season > 5 or (target_ep and target_ep > 99):
             return None, None if target_ep else None
+        platform_allow = ['TV']
+        if not subject_platform:
+            subject_platform = self.get_subject(subject_id)['platform']
+        if subject_platform == 'WEB':  # 仅限主条目是 WEB 时，续集可以是 WEB。好像有主条目 TV，需要过滤掉续集里 WEB 的情况。
+            platform_allow.append(subject_platform)
 
         if target_season == 1:
             if not target_ep:
@@ -130,7 +136,7 @@ class BangumiApi:
             while True:
                 if not fist_part:
                     current_info = self.get_subject(current_id)
-                    if current_info['platform'] not in ('TV', 'WEB'):
+                    if current_info['platform'] not in platform_allow:
                         break
                 episodes = self.get_episodes(current_id)
                 ep_info = episodes['data']
@@ -159,7 +165,7 @@ class BangumiApi:
                 break
             current_id = next_id[0]['id']
             current_info = self.get_subject(current_id)
-            if current_info['platform'] != 'TV':
+            if current_info['platform'] != subject_platform:
                 continue
             episodes = self.get_episodes(current_id)
             ep_info = episodes['data']
@@ -237,6 +243,7 @@ class BangumiApi:
 class BangumiApiEmbyVer(BangumiApi):
     @staticmethod
     def _emby_filter(bgm_data):
+        # 旧 api 没有 platform，此时 platform 会设置为 None
         if not bgm_data:
             return bgm_data
         # 旧 api 由返回数据内容受到大小参数的影响。
@@ -250,10 +257,10 @@ class BangumiApiEmbyVer(BangumiApi):
         is_v0 = bool(bgm_data[0].get('date'))
 
         common_key = ['id', 'name', 'name_cn']
-        useful_key = common_key + ['date', 'score', 'rank'] # 返回的字典键
+        useful_key = common_key + ['date', 'score', 'rank', 'platform']  # 返回的字典键
 
-        v0_key_map = common_key + ['date', ('rating', 'score'), ('rating', 'rank')]
-        legacy_key_map = common_key + ['air_date', ('rating', 'score'), 'rank']
+        v0_key_map = common_key + ['date', ('rating', 'score'), ('rating', 'rank'), 'platform']
+        legacy_key_map = common_key + ['air_date', ('rating', 'score'), 'rank', 'platform']
         key_map = v0_key_map if is_v0 else legacy_key_map
 
         res = []

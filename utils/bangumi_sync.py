@@ -133,7 +133,7 @@ def search_and_sync(bgm, title, ori_title, premiere_date, season_num, ep_nums, e
 
     subject_id = bgm_data['id']
     bgm_sea_id, bgm_ep_ids = bgm.get_target_season_episode_id(
-        subject_id=subject_id, target_season=season_num, target_ep=ep_nums)
+        subject_id=subject_id, target_season=season_num, target_ep=ep_nums, subject_platform=bgm_data['platform'])
     if not bgm_ep_ids:
         logger.info(f'bgm: skip, {subject_id=} {season_num=} {ep_nums=}, not exists or too big'
                     f' | https://bgm.tv/subject/{bgm_sea_id or subject_id}')
