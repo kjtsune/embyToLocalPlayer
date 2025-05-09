@@ -3,7 +3,7 @@
 // @name:zh-CN   embyToLocalPlayer
 // @name:en      embyToLocalPlayer
 // @namespace    https://github.com/kjtsune/embyToLocalPlayer
-// @version      2025.05.03
+// @version      2025.05.09
 // @description  Emby/Jellyfin 调用外部本地播放器，并回传播放记录。适配 Plex。
 // @description:zh-CN Emby/Jellyfin 调用外部本地播放器，并回传播放记录。适配 Plex。
 // @description:en  Play in an external player. Update watch history to Emby/Jellyfin server. Support Plex.
@@ -339,6 +339,12 @@
                 break;
         }
         for (const cache of cacheList) {
+            if (funName == 'getPlaybackInfo') {
+                // strm ffprobe 处理前后的外挂字幕 index 会变化，故不缓存。
+                let runtime = resInfo?.MediaSources?.[0]?.RunTimeTicks;
+                if (!runtime)
+                    break;
+            }
             cache[itemId] = resInfo;
         }
         return resInfo;
