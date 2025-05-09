@@ -78,6 +78,9 @@ class BangumiApi:
             res = _res
         try:
             raw_list = res['list']
+            # 无结果 res 也可能返回 {'list': None, 'results': 1}
+            if raw_list is None:
+                raise KeyError
         except KeyError: # 404 不存在时
             res = _res
             raw_list = res['list']

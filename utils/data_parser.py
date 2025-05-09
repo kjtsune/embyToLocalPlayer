@@ -82,6 +82,8 @@ def parse_received_data_emby(received_data):
 
     mount_disk_mode = received_data['mountDiskEnable'] == 'true'
     if not mount_disk_mode or is_http_direct_strm:
+        stream_url = configs.string_replace_by_ini_pair(stream_url, 'dev', 'stream_redirect')
+
         if configs.check_str_match(stream_netloc, 'dev', 'redirect_check_host'):
             _stream_url = get_redirect_url(stream_url)
             if stream_url != _stream_url:
@@ -91,8 +93,6 @@ def parse_received_data_emby(received_data):
         if configs.check_str_match(stream_netloc, 'dev', 'stream_prefix', log=False):
             stream_prefix = configs.ini_str_split('dev', 'stream_prefix')[0].strip('/')
             stream_url = f'{stream_prefix}{stream_url}'
-
-        stream_url = configs.string_replace_by_ini_pair(stream_url, 'dev', 'stream_redirect')
 
     if is_strm and not strm_direct or is_http_source:
         mount_disk_mode = False

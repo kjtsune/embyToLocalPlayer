@@ -228,12 +228,17 @@ class Configs:
         match_order = ini_list.index(match_list[0]) + 1 if match_list else 0
         if get_next or get_pair:
             if match_list and match_order:
+                if match_order % 2 == 0:
+                    return
                 if get_next and get_pair:
                     raise ValueError('get_next and get_pair can not enable in same time')
-                if get_next:
-                    return ini_list[match_order]
-                if get_pair:
-                    return ini_list[match_order - 1], ini_list[match_order]
+                try:
+                    if get_next:
+                        return ini_list[match_order]
+                    if get_pair:
+                        return ini_list[match_order - 1], ini_list[match_order]
+                except IndexError:
+                    MyLogger.log(f'{section} -> {option} match {match_list[0]} but not next value')
             return
         if ini_list and any(match_list):
             result = match_list[0] if return_value else True
