@@ -45,6 +45,7 @@ def main():
     diff_path = os.path.join(cwd, 'embyToLocalPlayer_diff.ini')
     print('#' * 50)
 
+    print(f'{configs.script_proxy=}')
     print('downloading...')
     zip_path = os.path.join(cwd, 'embyToLocalPlayer.zip')
     requests_urllib(url, save_path=zip_path)
