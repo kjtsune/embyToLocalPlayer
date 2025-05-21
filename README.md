@@ -185,6 +185,7 @@ https://github.com/kjtsune/embyToLocalPlayer#faq
 > 剧集播放列表（连续播放|多集回传）相关
 
 * 默认已启用，可在配置文件里 `[playlist]` 中修改。
+* 建议不要禁用，大部分功能与播放列表绑定，禁用会缺失一些功能。
 * 播放列表添加完成前最好不退出（大部分没事）
 * 特别说明：若是 Emby/Jellyfin 网页上的 全部播放/随机播放/播放列表 ，仅支持电影和音乐视频类型。
 
@@ -214,7 +215,8 @@ https://github.com/kjtsune/embyToLocalPlayer#faq
 <details>
 <summary>播放器相关</summary>
 
-### 播放器相关:
+<details>
+<summary>mpv</summary>
 
 > mpv
 
@@ -233,6 +235,7 @@ https://github.com/kjtsune/embyToLocalPlayer#faq
   并添加增强字幕选择规则脚本（`sub-select.lua` `sub-select.json`）  
   `sub-select.json` 貌似未正确配置，等待你提供正确配置  
   和加载同目录文件脚本 `autoload.lua`
+* 想更新版本可点击 `mpv_embed` > `updater.bat`
 
 > mpv_embed 快捷键
 
@@ -301,6 +304,11 @@ https://github.com/kjtsune/embyToLocalPlayer#faq
 * 设置播放完自动关闭。不加载下个文件。（方便触发回传进度，`.ini`配置有播放列表选项）  
   右击 > Settings > Playback > idle:no, auto-load-folder:no （大概是这样
 
+</details>
+
+<details>
+<summary>PotPlayer</summary>
+
 > PotPlayer
 
 * 提示渲染 Pin 失败，无法播放 或者 `.bat` 日志提示`KeyError: 'stream.mkv'`。  
@@ -328,6 +336,11 @@ https://github.com/kjtsune/embyToLocalPlayer#faq
   解决方案：升降级 pot 或者用 32bit 版本。
 * 读盘模式可能和美化标题和混合S0的功能冲突，不过不影响使用。（FAQ > 隐藏功能 有解决方案）
 
+</details>
+
+<details>
+<summary>其他播放器</summary>
+
 > MPC：
 
 * 会自动开启 WebUI，系统防火墙提示的时候可以拒绝（不影响使用）。
@@ -344,6 +357,7 @@ https://github.com/kjtsune/embyToLocalPlayer#faq
 * 完全退出播放器才会回传进度。
 * 非读盘模式不支持播放列表。
 
+</details>
 </details>
 
 <details>
