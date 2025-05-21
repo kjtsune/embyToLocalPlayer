@@ -119,9 +119,11 @@ class BaseManager(BaseInit):
                 # 注意：仅限启用播放列表时候有这些处理，strm 缺失 total_sec 和 缓存播放进度
                 netloc, item_id, basename = ep['netloc'], ep['item_id'], ep['basename']
                 _playback_info = emby_thin.get_playback_info(item_id) # Jellyfin 不会在播放中补全媒体信息
-                _media_source = [i for i in _playback_info['MediaSources'] if i['Id'] == ep['media_source_id']]
-                _total_sec = _media_source[0].get('RunTimeTicks', 0) // 10 ** 7
-                if _total_sec:
+                _media_source = [i for i in _playback_info['MediaSources'] if i.get('RunTimeTicks', 0)]
+                _total_sec = _media_source and _media_source[0]['RunTimeTicks'] // 10 ** 7 or 0
+                if _media_source:
+                    # 注意此处 id 变动了，为了确保回传成功，目前没不良影响。多版本不同支线的情况极少，emby 自身也是没区分。
+                    ep['item_id'] = _media_source[0]['ItemId']
                     logger.info('strm: total_sec found by recheck server data')
                 else:
                     check_miss_runtime_start_sec(netloc, item_id, basename, stop_sec=_stop_sec)
