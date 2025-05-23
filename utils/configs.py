@@ -210,7 +210,6 @@ class Configs:
             media_title = media_title.translate(trans)
         return media_title
 
-
     def get_match_value(self, _str, section, option, split_by=';', map_by=':', get_ini_dict=False):
         ini_list = self.ini_str_split(section, option, split_by=split_by)
         ini_list = [pair.split(map_by) for pair in ini_list]
@@ -261,6 +260,27 @@ class Configs:
             _str = _str.replace(replace_pair[0], replace_pair[1])
         return _str
 
+    def get_server_api_by_ini(self, specify='', use_thin_api=True, get_dict=True, ):
+        server_list = self.ini_str_split('dev', 'server_data_group', split_by=';', re_split_by=',')
+        api_dict = {}
+        for server in server_list:
+            server_name, host, api_key, user_id = server
+            if specify and specify != server_name:
+                continue
+            if use_thin_api:
+                from utils.emby_api_thin import EmbyApiThin
+                api = EmbyApiThin(data=None, host=host, api_key=api_key, user_id=user_id)
+            else:
+                from utils.emby_api import EmbyApi
+                api = EmbyApi(host=host, api_key=api_key, user_id=user_id,
+                              http_proxy=self.script_proxy,
+                              cert_verify=(
+                                  not self.raw.getboolean('dev', 'skip_certificate_verify', fallback=False)), )
+            api_dict[server_name] = api
+            if specify:
+                return api
+        if get_dict:
+            return api_dict
 
     def set_player_path_by_mpv_embed_(self):
         ini_mpv = configs.raw.get('exe', 'mpv_embed', fallback='')

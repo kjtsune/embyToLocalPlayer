@@ -4,6 +4,7 @@ import time
 import typing
 
 from utils.configs import configs, MyLogger
+from utils.emby_api_thin import EmbyApiThin
 from utils.net_tools import requests_urllib, tg_notify
 from utils.tools import load_json_file, dump_json_file, scan_cache_dir, safe_deleter
 
@@ -253,51 +254,49 @@ class DownloadManager:
 
 
 def prefetch_resume_tv():
-    confs = configs.ini_str_split('dev', 'prefetch_conf', split_by=';', re_split_by=',')
-    for conf in confs:
-        host, user_id, api_key, *startswith = conf
-        logger.info(f'prefetch conf: {host=} {user_id=} {api_key=} {startswith=}')
-        threading.Thread(target=_prefetch_resume_tv, args=(host, user_id, api_key, startswith), daemon=True).start()
+    settings_all = configs.ini_str_split('dev', 'prefetch_conf', split_by=';', re_split_by=',')
+    api_dict = configs.get_server_api_by_ini()
+    for setting_single in settings_all:
+        name, *startswith = setting_single
+        if name not in api_dict:
+            logger.info(f'ini incorrect: {name} not set in [dev] > server_data_group, see FAQ')
+            continue
+        logger.info(f'prefetch conf: {name=} {startswith=}')
+        emby_thin = api_dict[name]
+        threading.Thread(target=_prefetch_resume_tv, args=(emby_thin, startswith), daemon=True).start()
 
 
-def _prefetch_resume_tv(host, user_id, api_key, startswith):
+def _prefetch_resume_tv(emby_thin: EmbyApiThin, startswith):
     startswith = tuple(startswith)
     null_file = 'NUL' if os.name == 'nt' else '/dev/null'
-    headers = {
-        'accept': 'application/json',
-        'X-MediaBrowser-Token': api_key,
-    }
-    params = {
-        'Fields': 'MediaStreams,PremiereDate,Path',
-        'MediaTypes': 'Video',
-        'Limit': '12',
-        'X-Emby-Token': api_key,
-    }
 
     if configs.raw.getboolean('tg_notify', 'get_chat_id', fallback=False):
         tg_notify('_get_chat_id')
 
     item_done_stat = {}  # {item_id:[source_id,]}
+    strm_done_list = []
     sleep_again = False
     while True:
         try:
-            items = requests_urllib(f'{host}/Users/{user_id}/Items/Resume',
-                                    params=params, headers=headers, get_json=True, timeout=10)
+            items_all = emby_thin.get_resume_items()
         except Exception:
             time.sleep(600)
             continue
         # dump_json_file(items, 'z_resume_emby.json')
-        items = items['Items']
-        items = [i for i in items if i.get('SeriesName') and i.get('PremiereDate')
-                 and time.mktime(time.strptime(i['PremiereDate'][:10], '%Y-%m-%d')) > time.time() - 86400 * 7]
-        resume_ids = [i['Id'] for i in items]
+        items_all = items_all['Items']
+        items_fresh = [i for i in items_all if i.get('SeriesName') and i.get('PremiereDate')
+                       and time.mktime(time.strptime(i['PremiereDate'][:10], '%Y-%m-%d')) > time.time() - 86400 * 7]
+        resume_ids = [i['Id'] for i in items_all]
         item_done_stat = {k: v for k, v in item_done_stat.items() if k in resume_ids}
-        fresh_item_list = []
-        for ep in items:
+        notify_item_list = []
+        for ep in items_all:
             item_id = ep['Id']
             source_info = ep['MediaSources'][0] if 'MediaSources' in ep else ep
             file_path = source_info['Path']
-            if not file_path.startswith(startswith) and '/' not in startswith:
+            is_strm = file_path.startswith('http') or ep['Path'].endswith('.strm')
+            if not file_path.startswith(startswith) and '/' not in startswith and not is_strm:
+                continue
+            if item_id in strm_done_list:
                 continue
             if item_id in item_done_stat.keys():
                 if sleep_again:
@@ -307,14 +306,14 @@ def _prefetch_resume_tv(host, user_id, api_key, startswith):
                     sleep_again = True
             else:
                 item_done_stat[item_id] = []
-                fresh_item_list.append(item_id)
+                if ep in items_fresh:
+                    notify_item_list.append(item_id)
             # if ep['UserData'].get('LastPlayedDate'):
             #     continue
             try:
-                playback_info = requests_urllib(f'{host}/Items/{item_id}/PlaybackInfo',
-                                                params=params, headers=headers, get_json=True)
+                playback_info = emby_thin.get_playback_info(item_id)
                 play_session_id = playback_info['PlaySessionId']
-
+                host = emby_thin.host
                 image = f'[ ]({host}/emby/Items/{item_id}/Images/Primary?maxHeight=282&maxWidth=500)'
                 item_url = f"[emby]({host}/web/index.html#!/item?id={item_id}&serverId={ep['ServerId']})"
                 notify_msg = f"{image}{ep['SeriesName']} \| `{time.ctime()}` \| {item_url}"
@@ -331,7 +330,7 @@ def _prefetch_resume_tv(host, user_id, api_key, startswith):
                     #              f'?MediaSourceId={source_info["Id"]}&Static=true&api_key={api_key}'
                     stream_url = f'{host}/emby/videos/{item_id}/stream{container}' \
                                  f'?DeviceId=embyToLocalPlayer&MediaSourceId={source_id}&Static=true' \
-                                 f'&PlaySessionId={play_session_id}&api_key={api_key}'
+                                 f'&PlaySessionId={play_session_id}&api_key={emby_thin.api_key}'
                     if stream_redirect := configs.ini_str_split('dev', 'stream_redirect'):
                         stream_redirect = zip(stream_redirect[0::2], stream_redirect[1::2])
                         for (_raw, _jump) in stream_redirect:
@@ -347,15 +346,19 @@ def _prefetch_resume_tv(host, user_id, api_key, startswith):
                     if configs.check_str_match(host, 'dev', 'stream_prefix', log=False):
                         stream_prefix = configs.ini_str_split('dev', 'stream_prefix')[0].strip('/')
                         stream_url = f'{stream_prefix}{stream_url}'
-                    logger.info(f'prefetch {relative_path} \n{stream_url[:100]}')
-                    dl = Downloader(url=stream_url, _id=os.path.basename(file_path), save_path=null_file)
+                    if is_strm:
+                        strm_done_list.append(item_id)
+                        logger.info(f'get playback info only, cuz is strm [{ep["Name"]}]{relative_path}')
+                        continue
                     try:
+                        logger.info(f'prefetch {relative_path} \n{stream_url[:100]}')
+                        dl = Downloader(url=stream_url, _id=os.path.basename(file_path), save_path=null_file)
                         dl.percent_download(0, 0.05)
                         dl.percent_download(0.98, 1)
                     except Exception:
                         logger.error(f'prefetch error on download connection, skip\n{stream_url}')
                     print()
-                if item_id in fresh_item_list:
+                if item_id in notify_item_list:
                     tg_notify(notify_msg)
             except Exception as e:
                 logger.error(f'_prefetch_resume_tv error found {str(e)[:100]}')

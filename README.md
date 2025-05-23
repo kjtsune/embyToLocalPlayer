@@ -85,6 +85,7 @@ https://github.com/kjtsune/embyToLocalPlayer#faq
 > macOS
 
 * macOS 目前没有环境测试，无法提供支持。
+
 1. 刚才保存的文件夹 > 右击 > 新建位于文件夹的终端窗口 `chmod +x *.command` 回车。
 2. 双击 `etlp_run.command`, 若无报错，可播放测试。
 3. 开机自启（无窗口运行）：
@@ -160,6 +161,7 @@ https://github.com/kjtsune/embyToLocalPlayer#faq
 * 油猴脚本有时也要更新。
 
 > 如何反馈
+
 * **没按要求反馈会忽略。**
 
 1. 参考 `如何更新` ，更新到最新版后测试。   
@@ -215,10 +217,10 @@ https://github.com/kjtsune/embyToLocalPlayer#faq
 <details>
 <summary>播放器相关</summary>
 
+> mpv
+
 <details>
 <summary>mpv</summary>
-
-> mpv
 
 * 若碰到问题，换含 mpv 的便携版测试。
 * 还不行就换视频或者软解（`mpv.conf`只保留`log-file` 选项）并检查 mpv 日志。  
@@ -306,21 +308,21 @@ https://github.com/kjtsune/embyToLocalPlayer#faq
 
 </details>
 
+> PotPlayer
+
 <details>
 <summary>PotPlayer</summary>
-
-> PotPlayer
 
 * 提示渲染 Pin 失败，无法播放 或者 `.bat` 日志提示`KeyError: 'stream.mkv'`。  
   解决方案三选一：
     1. 本地用户查看`通用 FAQ` > `如何切换模式` 使用读盘模式。
     2. 换 Pot 为 20240618 版本。
     3. 看 `FAQ` > `隐藏功能` > `替换媒体标题字符` 修改配置文件。  
-  建议换 240618 版本，文件 sha256 与 ScoopInstaller / winget-pkgs 一致。  
-  [potplayer-1-7-22286.exe (v240618)](https://potplayer.en.uptodown.com/windows/download/1018490678)    
-  sha256sum `66d03fc13f4949948890675cf62b839b704b542a34a13a180466f93be20d5bc6`  
-  [github.com/ScoopInstaller/Extras -> potplayer.json](https://github.com/ScoopInstaller/Extras/blob/108f0c0d42347a1cb9a16d8effdad09a7059c22b/bucket/potplayer.json#L11-L12)  
-  [github.com/microsoft/winget-pkgs -> Daum.PotPlayer.installer.yaml](https://github.com/microsoft/winget-pkgs/blob/d7aa02cfe97624c51a005b3c7ac42f05f205aff5/manifests/d/Daum/PotPlayer/240618/Daum.PotPlayer.installer.yaml#L84-L85)
+       建议换 240618 版本，文件 sha256 与 ScoopInstaller / winget-pkgs 一致。  
+       [potplayer-1-7-22286.exe (v240618)](https://potplayer.en.uptodown.com/windows/download/1018490678)    
+       sha256sum `66d03fc13f4949948890675cf62b839b704b542a34a13a180466f93be20d5bc6`  
+       [github.com/ScoopInstaller/Extras -> potplayer.json](https://github.com/ScoopInstaller/Extras/blob/108f0c0d42347a1cb9a16d8effdad09a7059c22b/bucket/potplayer.json#L11-L12)  
+       [github.com/microsoft/winget-pkgs -> Daum.PotPlayer.installer.yaml](https://github.com/microsoft/winget-pkgs/blob/d7aa02cfe97624c51a005b3c7ac42f05f205aff5/manifests/d/Daum/PotPlayer/240618/Daum.PotPlayer.installer.yaml#L84-L85)
 * 若碰到其他问题，先尝试初始化 PotPlayer 设置后测试。
 * 本地用户可考虑：[MPC-HC](https://github.com/clsid2/mpc-hc/releases) 自带 LAV，同样支持 madVR MPCVR BFRC 等。  
   网络用户或没有特殊需求的话，mpv 系的播放器综合体验较好。
@@ -337,6 +339,8 @@ https://github.com/kjtsune/embyToLocalPlayer#faq
 * 读盘模式可能和美化标题和混合S0的功能冲突，不过不影响使用。（FAQ > 隐藏功能 有解决方案）
 
 </details>
+
+> 其他播放器
 
 <details>
 <summary>其他播放器</summary>
@@ -585,14 +589,18 @@ https://github.com/kjtsune/embyToLocalPlayer#faq
 > 预读取继续观看
 
 * 类似预读取下一集。仅处理最近上映的集（7天内），适合追更。
+* 尝试获取 strm 文件的媒体信息，加速起播。
 * [可选] 在不关机的机器里配置并运行更合适一点。
 * 填写位置：`.ini` > `[dev]`
   ```
-  # 配置格式：网址，user_id，api_key，一个或者多个服务端路径前缀;
+  # 服务器信息，各项之间逗号隔开，最后分号结尾。复数服务器需要配置就分号后面继续写。
+  # api_key：设置 > API 密钥。user_id：设置 > 用户 > [用户名] > 看浏览器网址。
+  server_data_group = myself, http://localhost:8096, api_key, user_id;
+                      others, https://www.abc.org, api_key, user_id;
+  # 配置格式：上方配置的服务器名，一个或者多个服务端媒体路径前缀，复数服务器同样分号隔开。
   # 服务端路径包含路径前缀才预读取，全部就写 /
-  # 各项之间逗号隔开，最后分号结尾。复数服务器需要配置就分号后面继续写。
-  # user_id：设置 > 用户 > [用户名] > 看浏览器网址。api_key：设置 > API 密钥。
-  prefetch_conf = http://emby.abc.org:8096, user_id, api_key, /, /od/另一个路径前缀;
+  # strm 是特殊值，只用来刮出媒体时长信息。此时无视上映时间和路径限制。
+  prefetch_conf = myself, strm, /, /od/另一个路径前缀;
   ```
 * 若需要 nginx 缓存：网址填反代站。如果填源站，需要配置上方的重定向视频流到反代站。  
   注意播放链接与预读取链接不一致。 `proxy_cache_key "$arg_MediaSourceId$slice_range";`
