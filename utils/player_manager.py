@@ -6,6 +6,7 @@ import urllib.parse
 
 from utils.configs import configs, MyLogger
 from utils.downloader import Downloader
+from utils.emby_api_thin import EmbyApiThin
 from utils.net_tools import (get_redirect_url, requests_urllib, realtime_playing_request_sender,
                              update_server_playback_progress, sync_third_party_for_eps, check_miss_runtime_start_sec)
 from utils.players import start_player_func_dict, playlist_func_dict, stop_sec_func_dict, prefetch_data
@@ -24,6 +25,7 @@ class BaseInit:
         self.playlist_time = {}
         self.playlist_total_sec = {}
         self.is_http_sub = bool(data.get('sub_file'))
+        self.emby_thin = EmbyApiThin(data)
 
 
 class BaseManager(BaseInit):
@@ -95,6 +97,17 @@ class BaseManager(BaseInit):
         prefetch_data['on'] = False
         prefetch_data['stop_sec_dict'].clear()
 
+    def prefetch_next_ep_playback_info(self):
+        played_eps = [self.playlist_data.get(key) for key in self.playlist_time]
+        played_eps = sorted([i for i in played_eps if i], key=lambda d: d['order'])
+        next_ep = [i for i in self.playlist_data.values() if i['order'] == played_eps[0]['order'] + 1]
+        if next_ep:
+            next_ep = next_ep[0]
+            if next_ep['total_sec'] != 3600 * 24:
+                return
+            threading.Thread(target=self.emby_thin.get_playback_info, args=(next_ep['item_id'],)).start()
+            logger.info(f'prefetch_next_ep_playback_info {next_ep["basename"]}')
+
     def update_playback_for_eps(self):
         need_update_eps = []
         if not self.playlist_data:
@@ -114,11 +127,9 @@ class BaseManager(BaseInit):
                 continue
             ep['_stop_sec'] = _stop_sec
             if ep['server'] != 'plex' and ep['total_sec'] == 3600 * 24:
-                from utils.emby_api_thin import EmbyApiThin
-                emby_thin = EmbyApiThin(ep)
                 # 注意：仅限启用播放列表时候有这些处理，strm 缺失 total_sec 和 缓存播放进度
                 netloc, item_id, basename = ep['netloc'], ep['item_id'], ep['basename']
-                _playback_info = emby_thin.get_playback_info(item_id) # Jellyfin 不会在播放中补全媒体信息
+                _playback_info = self.emby_thin.get_playback_info(item_id)  # Jellyfin 不会在播放中补全媒体信息
                 _media_source = [i for i in _playback_info['MediaSources'] if i.get('RunTimeTicks', 0)]
                 _total_sec = _media_source and _media_source[0]['RunTimeTicks'] // 10 ** 7 or 0
                 if _media_source:
@@ -140,6 +151,7 @@ class BaseManager(BaseInit):
             else:
                 update_server_playback_progress(stop_sec=_stop_sec, data=ep)
             need_update_eps.append(ep)
+        self.prefetch_next_ep_playback_info()
         if not need_update_eps:
             return
         for provider in 'trakt', 'bangumi':
@@ -365,6 +377,7 @@ class PrefetchManager(BaseInit):  # 未兼容播放器多开，暂不处理
 
 
 class PlayerManager(BaseManager, PrefetchManager):
+
     def playlist_add(self, eps_data=None):
         super().playlist_add(eps_data=eps_data)
         threading.Thread(target=self.prefetch_next_ep_loop, daemon=True).start()
