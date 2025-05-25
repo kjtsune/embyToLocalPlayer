@@ -50,7 +50,7 @@ def fill_trakt_ep_ids_by_series(trakt, emby, eps_data, force=False):
             return eps_data
     tk_eps_ids = {i['number']: (i['ids'], i['title']) for i in tk_eps_ids}
     for ep in eps_data:
-        ep_index = ep['index']
+        ep_index = ep.get('index') or ep.get('IndexNumber')  # sync via stream 不是 index
         if not tk_eps_ids.get(ep_index):
             logger.info(f'fill_trakt_ep_ids_by_series: trakt info not found, {ep_index=}')
             continue
