@@ -117,8 +117,34 @@ class BangumiApi:
         })
         return res.json()
 
+    def episodes_date_filter(self, episodes, dates, fuzzy_days=2):
+        res = []
+        date_idx = 0
+        if isinstance(dates[0], str):
+            dates = [datetime.datetime.fromisoformat(i[:10]) for i in dates]
+        dates.sort()
+        for ep in episodes['data']:
+            bgm_date = ep.get('airdate') or ep.get('date')
+            if not bgm_date:
+                continue
+            if abs((datetime.datetime.fromisoformat(bgm_date) - dates[date_idx]).days) <= fuzzy_days:
+                res.append(ep)
+                date_idx += 1
+            if date_idx == len(dates):
+                break
+        if len(res) != len(dates):
+            res = []
+        return res
+
+    def get_episodes_and_date_filter(self, subject_id, dates=None, fuzzy_days=2):
+        episodes = self.get_episodes(subject_id)
+        if not dates:
+            return episodes, None
+        filter_res = self.episodes_date_filter(episodes, dates, fuzzy_days=fuzzy_days)
+        return episodes, filter_res
+
     def get_target_season_episode_id(self, subject_id, target_season: int, target_ep: typing.Union[int, list] = None,
-                                     subject_platform=None):
+                                     subject_platform=None, match_by_dates: typing.Optional[list] = None):
         season_num = 1
         current_id = subject_id
         ep_num_list = target_ep if isinstance(target_ep, list) else None
@@ -132,6 +158,7 @@ class BangumiApi:
         if subject_platform == 'WEB':  # 仅限主条目是 WEB 时，续集可以是 WEB。好像有主条目 TV，需要过滤掉续集里 WEB 的情况。
             platform_allow.append(subject_platform)
 
+        custom_get_episodes = lambda _id: self.get_episodes_and_date_filter(_id, dates=match_by_dates)
         if target_season == 1:
             if not target_ep:
                 return current_id
@@ -141,7 +168,11 @@ class BangumiApi:
                     current_info = self.get_subject(current_id)
                     if current_info['platform'] not in platform_allow:
                         break
-                episodes = self.get_episodes(current_id)
+                episodes, match_dates_success = custom_get_episodes(current_id)
+                if match_dates_success:
+                    if ep_num_list:
+                        return current_id, [i['id'] for i in match_dates_success]
+                    return current_id, match_dates_success[0]['id']
                 ep_info = episodes['data']
                 _target_ep = [i for i in ep_info if i['sort'] == target_ep]
                 if _target_ep:
@@ -170,7 +201,11 @@ class BangumiApi:
             current_info = self.get_subject(current_id)
             if current_info['platform'] != subject_platform:
                 continue
-            episodes = self.get_episodes(current_id)
+            episodes, match_dates_success = custom_get_episodes(current_id)
+            if match_dates_success:
+                if ep_num_list:
+                    return current_id, [i['id'] for i in match_dates_success]
+                return current_id, match_dates_success[0]['id']
             ep_info = episodes['data']
             normal_season = True if episodes['total'] > 3 and ep_info[0]['sort'] <= 1 else False
             _target_ep = [i for i in ep_info if i['sort'] == target_ep]
@@ -205,8 +240,9 @@ class BangumiApi:
         eps = eps['data']
         # ep['episode']['ep'] 会导致分批放送匹配失败。
         # ep['episode']['ep'] == 0 是 SP，会造成 sort 重复，故排除
-        state = {ep['episode']['sort']: {'watched': bool(ep['type'] == 2), 'id': ep['episode']['id']} for ep in eps
-                 if ep['episode']['ep'] != 0}
+        state = {ep['episode']['sort']: {'watched': bool(ep['type'] == 2), 'id': ep['episode']['id'],
+                                         'date': (ep['episode'].get('date') or ep['episode'].get('airdate'))}
+                 for ep in eps if ep['episode']['ep'] != 0}
         return state
 
     def mark_episode_watched(self, subject_id, ep_id):

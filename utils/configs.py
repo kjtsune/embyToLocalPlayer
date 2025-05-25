@@ -260,12 +260,14 @@ class Configs:
             _str = _str.replace(replace_pair[0], replace_pair[1])
         return _str
 
-    def get_server_api_by_ini(self, specify='', use_thin_api=True, get_dict=True, ):
+    def get_server_api_by_ini(self, specify='', use_thin_api=True, get_dict=True, specify_host=''):
         server_list = self.ini_str_split('dev', 'server_data_group', split_by=';', re_split_by=',')
         api_dict = {}
         for server in server_list:
             server_name, host, api_key, user_id = server
             if specify and specify != server_name:
+                continue
+            if specify_host and specify_host not in host:
                 continue
             if use_thin_api:
                 from utils.emby_api_thin import EmbyApiThin
@@ -277,7 +279,7 @@ class Configs:
                               cert_verify=(
                                   not self.raw.getboolean('dev', 'skip_certificate_verify', fallback=False)), )
             api_dict[server_name] = api
-            if specify:
+            if specify or specify_host:
                 return api
         if get_dict:
             return api_dict

@@ -135,9 +135,21 @@ def search_and_sync(bgm, title, ori_title, premiere_date, season_num, ep_nums, e
     bgm_sea_id, bgm_ep_ids = bgm.get_target_season_episode_id(
         subject_id=subject_id, target_season=season_num, target_ep=ep_nums, subject_platform=bgm_data['platform'])
     if not bgm_ep_ids:
-        logger.info(f'bgm: skip, {subject_id=} {season_num=} {ep_nums=}, not exists or too big'
+        logger.info(f'bgm: {subject_id=} {season_num=} {ep_nums=}, not exists or too big'
                     f' | https://bgm.tv/subject/{bgm_sea_id or subject_id}')
-        return
+        if not is_emby:
+            return
+        logger.info('bgm: try math by ep air date')
+        if eps_data[0].get('item_id'):  # 解析过的，不含上映时间
+            emby_ids = [i['item_id'] for i in eps_data]
+            eps_data = emby.get_items(ids=','.join(emby_ids))['Items']
+        emby_dates = [i['PremiereDate'] for i in eps_data]
+        bgm_sea_id, bgm_ep_ids = bgm.get_target_season_episode_id(
+            subject_id=subject_id, target_season=season_num, target_ep=ep_nums,
+            subject_platform=bgm_data['platform'], match_by_dates=emby_dates)
+        if not bgm_ep_ids:
+            logger.info('bgm: skip, math by air date failed')
+            return
 
     if max(ep_nums) < 12 or not bgm_data.get('is_v0'):
         bgm_sea_info = bgm.get_subject(bgm_sea_id)
@@ -161,9 +173,13 @@ def search_and_sync(bgm, title, ori_title, premiere_date, season_num, ep_nums, e
     bgm_check_ep_miss_mark(bgm=bgm, emby=emby, eps_data=eps_data, bgm_sea_id=bgm_sea_id)
 
 
-def get_emby_season_watched_ep_key(emby, eps_data):
+def get_emby_season_watched_ep_key(emby, eps_data, get_date=False):
     if not emby.user_id:  # sync_via_stream_url 没有 user_id
-        emby.user_id = configs.check_str_match(emby.host, 'dev', 'stream_userid', get_next=True)
+        user_id = configs.get_server_api_by_ini(specify_host=emby.host).user_id
+        if not user_id:
+            logger.info('sync_via_stream_url: require setting user_id, see detail in FAQ')
+            return
+        emby.user_id = user_id
     from utils.emby_api import EmbyApi
     emby: EmbyApi
     fist_ep = eps_data[0]
@@ -176,6 +192,7 @@ def get_emby_season_watched_ep_key(emby, eps_data):
         logger.error(f'skip get_emby_season_watched_ep_key: {str(e)[:50]}')
         return
     watched = []
+    dates = []
     for ep in eps_data:
         if not ep['UserData']['Played']:
             continue
@@ -183,15 +200,17 @@ def get_emby_season_watched_ep_key(emby, eps_data):
         if not all([ep_num, sea_num]):
             continue
         key = f'{sea_num}-{ep_num}'
+        if get_date:
+            dates.append(ep.get('PremiereDate'))
         watched.append(key)
-    return watched
+    return (watched, dates) if get_date else watched
 
 
 def bgm_check_ep_miss_mark(bgm, emby, eps_data, bgm_sea_id):
     # 不支持 Plex。
     if not emby:
         return
-    em_keys = get_emby_season_watched_ep_key(emby=emby, eps_data=eps_data)
+    em_keys, em_dates = get_emby_season_watched_ep_key(emby=emby, eps_data=eps_data, get_date=True)
     if not em_keys:
         return
     sea_num = int(em_keys[0].split('-')[0])
@@ -200,10 +219,17 @@ def bgm_check_ep_miss_mark(bgm, emby, eps_data, bgm_sea_id):
     miss_keys = set(em_keys) - set(bgm_keys)
     miss_keys = [int(i.split('-')[1]) for i in miss_keys]
     miss_ids = [bgm_eps_map.get(k)['id'] for k in miss_keys if bgm_eps_map.get(k)]
+    check_by_date = False
+    if not miss_ids:
+        emby_watched_bgm = bgm.episodes_date_filter(episodes={'data': bgm_eps_map.values()}, dates=em_dates)
+        miss_ids = [i['id'] for i in emby_watched_bgm if not i['watched']]
+        if miss_ids:
+            logger.info('bgm: get miss_ids by ep date check')
+            check_by_date = True
     if miss_ids:
         logger.info(f'bgm: miss sync {miss_keys}, re sync {len(miss_ids)} item')
         bgm.mark_episode_watched(subject_id=bgm_sea_id, ep_id=miss_ids)
-        if len(miss_keys) != len(miss_ids):
+        if len(miss_keys) != len(miss_ids) and not check_by_date:
             loss_keys = [k for k in miss_keys if not bgm_eps_map.get(k)]
             logger.info(f'bgm: loss sync {loss_keys}, may need check it manually')
 
