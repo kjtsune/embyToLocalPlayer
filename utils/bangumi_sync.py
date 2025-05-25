@@ -142,7 +142,7 @@ def search_and_sync(bgm, title, ori_title, premiere_date, season_num, ep_nums, e
         logger.info('bgm: try math by ep air date')
         if eps_data[0].get('item_id'):  # 解析过的，不含上映时间
             emby_ids = [i['item_id'] for i in eps_data]
-            eps_data = emby.get_items(ids=','.join(emby_ids))['Items']
+            eps_data = emby.get_items(ids=emby_ids)['Items']
         emby_dates = [i['PremiereDate'] for i in eps_data]
         bgm_sea_id, bgm_ep_ids = bgm.get_target_season_episode_id(
             subject_id=subject_id, target_season=season_num, target_ep=ep_nums,
