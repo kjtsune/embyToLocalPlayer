@@ -21,5 +21,6 @@ if [ $(screen -ls | grep -c $screen_name) -ne 0 ]; then
 fi
 
 screen -dmS $screen_name
-screen -x $screen_name -p 0 -X stuff "python3 embyToLocalPlayer.py"
+# screen -x $screen_name -p 0 -X stuff "python3 embyToLocalPlayer.py"
+screen -x $screen_name -p 0 -X stuff "python3 Jellyfin_Movist.py"
 screen -x $screen_name -p 0 -X stuff $'\n'
