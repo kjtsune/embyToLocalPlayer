@@ -5,7 +5,7 @@ import urllib.parse
 
 # 配置
 HOST = "localhost"  # 本地监听地址
-PORT = 58001       # 必须和用户脚本中的端口一致
+PORT = 58000       # 必须和用户脚本中的端口一致
 MOVIST_PRO_PATH = "/Applications/Movist Pro.app/Contents/MacOS/Movist Pro"  # Movist Pro 路径
 API_KEY = "替换为你的实际 API Key"
 
