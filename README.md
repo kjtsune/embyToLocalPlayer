@@ -552,7 +552,8 @@ https://github.com/kjtsune/embyToLocalPlayer#faq
        例如：`mpv.exe 所在目录 > portable_config > scripts > etlp_sync_bgm_trakt.lua`
     3. 修改 `etlp_sync_bgm_trakt.lua` 内 etlp 的保存目录（刚才解压的文件夹路径）
     4. 参考上方 `FAQ > 观看记录存储服务相关` 修改配置文件：`embyToLocalPlayer_config.ini`
-    5. 播放一个视频，进度拖到 90% 以上，查看 etlp 日志：`刚才解压的文件夹 > log.txt`。或者查看 mpv 日志。
+    5. 参考 `隐藏功能 > 预读取继续观看` 设置 `[dev] > server_data_group`。用于获取`user_id`
+    6. 播放一个视频，进度拖到 90% 以上，查看 etlp 日志：`刚才解压的文件夹 > log.txt`。或者查看 mpv 日志。
 * 排错方法：使用本项目浏览器调用播放测试。
 
 </details>

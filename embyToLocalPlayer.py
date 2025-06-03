@@ -15,6 +15,7 @@ from utils.net_tools import check_redirect_cache_expired_loop
 
 if __name__ == '__main__':
     os.chdir(configs.cwd)
+    configs.print_version()
     if configs.raw.getboolean('dev', 'kill_process_at_start', fallback=True):
         kill_multi_process(name_re=f'(embyToLocalPlayer.py|autohotkey_tool|' +
                                    r'mpv.*exe|mpc-.*exe|vlc.exe|PotPlayer.*exe|' +

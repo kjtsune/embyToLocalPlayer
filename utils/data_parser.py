@@ -471,7 +471,7 @@ def list_episodes(data: dict):
                 if not rule:
                     continue
                 _ep_data = [i for i in _eps_data if rule in i['Path']]
-                if len(_ep_data) == len(_cur_list):
+                if len(_ep_data) == len(_cur_list) and len(_cur_list) > 1:
                     logger.info(f'version_filter: success with {rule=}, pass {len(_cur_list)}')
                     return _ep_data
                 else:

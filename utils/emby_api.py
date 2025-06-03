@@ -111,10 +111,10 @@ class EmbyApi:
         return res
 
     def get_items(self, genre='', types='Movie,Series,Video', fields: typing.Union[list, str] = None, start_index=0,
-                  ids=None, limit=50, parent_id=None,
+                  ids: typing.Union[list, str] = None, limit=50, parent_id=None,
                   sort_by='DateCreated,SortName',
                   recursive=True, ext_params: dict = None, filters=None, by_user=False):
-        # 注意默认不包含 Episode。同时 Episode 需要 ext_params={'HasTmdbId': None}。
+        # 注意默认不包含 Episode。同时 Episode 需要 ext_params={'HasTmdbId': None}。IncludeItemTypes = None
         fields = fields or self._default_fields
         fields = fields if isinstance(fields, str) else ','.join(fields)
         params = {
@@ -132,6 +132,11 @@ class EmbyApi:
         if genre:
             params.update({'GenreIds': self.get_genre_id(genre)})
         if ids:
+            params.update({'HasTmdbId': None,
+                           'IncludeItemTypes': None})
+            if isinstance(ids, (list, tuple)):
+                ids = map(str, ids)
+                ids = ','.join(ids)
             params.update({'Ids': ids})
         if parent_id:
             params.update({'ParentId': parent_id})

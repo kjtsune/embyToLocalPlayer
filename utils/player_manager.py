@@ -98,14 +98,15 @@ class BaseManager(BaseInit):
         prefetch_data['stop_sec_dict'].clear()
 
     def prefetch_next_ep_playback_info(self):
-        played_eps = [self.playlist_data.get(key) for key in self.playlist_time]
-        played_eps = sorted([i for i in played_eps if i], key=lambda d: d['order'])
-        next_ep = [i for i in self.playlist_data.values() if i['order'] == played_eps[0]['order'] + 1]
-        if next_ep:
+        try:
+            played_eps = [self.playlist_data.get(key) for key in self.playlist_time]
+            played_eps = sorted([i for i in played_eps if i], key=lambda d: d['order'])
+            next_ep = [i for i in self.playlist_data.values() if i['order'] == played_eps[0]['order'] + 1]
+        except Exception:  # not played_eps, movie not order
+            return
+        if next_ep and next_ep[0].get('total_sec') == 3600 * 24:
             next_ep = next_ep[0]
-            if next_ep['total_sec'] != 3600 * 24:
-                return
-            threading.Thread(target=self.emby_thin.get_playback_info, args=(next_ep['item_id'],)).start()
+            self.emby_thin.get_playback_info(next_ep['item_id'])
             logger.info(f'prefetch_next_ep_playback_info {next_ep["basename"]}')
 
     def update_playback_for_eps(self):
@@ -151,7 +152,7 @@ class BaseManager(BaseInit):
             else:
                 update_server_playback_progress(stop_sec=_stop_sec, data=ep)
             need_update_eps.append(ep)
-        self.prefetch_next_ep_playback_info()
+        threading.Thread(target=self.prefetch_next_ep_playback_info, daemon=True).start()
         if not need_update_eps:
             return
         for provider in 'trakt', 'bangumi':

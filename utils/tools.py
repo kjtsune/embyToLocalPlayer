@@ -129,11 +129,13 @@ def kill_multi_process(name_re, not_re=None):
         pid_cmd = [(int(pid), cmd) for (pid, cmd) in pid_cmd if re.search(name_re, cmd)]
     pid_cmd = [(int(pid), cmd) for (pid, cmd) in pid_cmd if not re.search(not_re, cmd)] if not_re else pid_cmd
     my_pid = os.getpid()
+    killed = False
     for pid, _ in pid_cmd:
         if pid != my_pid:
             _logger.info('kill', pid, _)
             os.kill(pid, signal.SIGABRT)
-    time.sleep(1)
+            killed = True
+    killed and time.sleep(1)
 
 
 def activate_window_by_pid(pid, sleep=0):
@@ -339,8 +341,10 @@ def main_ep_intro_time(main_ep_info):
     return res
 
 
-def show_version_info(extra_data):
-    py_script_version = '2025.02.08'
+def show_version_info(extra_data=None):
+    py_script_version = '2025.05.21'
+    if not extra_data:
+        return py_script_version
     gm_info = extra_data.get('gmInfo')
     user_agent = extra_data.get('userAgent')
     if not gm_info:
