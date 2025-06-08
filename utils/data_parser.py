@@ -701,7 +701,7 @@ def list_episodes(data: dict):
                 ep['media_title'] = data['media_title']
 
     stream_redirect = configs.check_str_match(episodes[0]['stream_url'], 'dev', 'stream_redirect', get_pair=True)
-    title_trans = configs.media_title_translate(get_trans=True)
+    title_trans = configs.media_title_translate(get_trans=True, log=False)
     if stream_redirect or title_trans:
         for i in episodes:
             if stream_redirect:

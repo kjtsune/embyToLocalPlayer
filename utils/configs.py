@@ -1,5 +1,6 @@
 import datetime
 import os
+import pathlib
 import platform
 import queue
 import re
@@ -203,14 +204,42 @@ class Configs:
             return res
         return ini
 
-    def media_title_translate(self, media_title=None, get_trans=False):
-        if map_pair := self.raw.get('dev', 'media_title_translate', fallback=''):
-            map_pair = map_pair.strip('，').split('，')
-            map_dict = dict(zip(map_pair[0::2], map_pair[1::2]))
-            trans = str.maketrans(map_dict)
+    def _pot_version_is_too_high(self):
+        player = self.raw['emby']['player']
+        exe = self.raw['exe'].get(player, fallback='')
+        if 'potplayer' not in exe.lower():
+            return
+
+        exe = pathlib.Path(exe)
+        pot_history = exe.parent / 'History' / 'English.txt'
+        if not pot_history.exists():
+            return
+        with open(pot_history, 'r', encoding='utf-8') as f:
+            for _ in range(50):
+                line = f.readline()
+                if not line:
+                    break
+                if line.strip().startswith('[') and line.strip().endswith(']'):
+                    version = line.strip()[1:-1]
+                    if version.isdigit() and int(version) > 240618:
+                        return version
+
+    def media_title_translate(self, media_title=None, get_trans=False, log=True):
+        map_pair = self.raw.get('dev', 'media_title_translate', fallback='')
+        if not map_pair:
+            if pot_ver := self._pot_version_is_too_high():
+                map_pair = """'，＇，"，＂， ，-"""
+                log and MyLogger.log(f'{pot_ver=}, gather than 240618, trans title to fix error')
+        if not map_pair:
             if get_trans:
-                return trans
-            media_title = media_title.translate(trans)
+                return
+            return media_title
+        map_pair = map_pair.strip('，').split('，')
+        map_dict = dict(zip(map_pair[0::2], map_pair[1::2]))
+        trans = str.maketrans(map_dict)
+        if get_trans:
+            return trans
+        media_title = media_title.translate(trans)
         return media_title
 
     def get_match_value(self, _str, section, option, split_by=';', map_by=':', get_ini_dict=False):
