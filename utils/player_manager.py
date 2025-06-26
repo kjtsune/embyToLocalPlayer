@@ -127,7 +127,10 @@ class BaseManager(BaseInit):
                 logger.info(f"skip update progress, {ep['basename']} start_sec stop_sec too close")
                 continue
             ep['_stop_sec'] = _stop_sec
-            if ep['server'] != 'plex' and ep['total_sec'] == 3600 * 24:
+            emby_strm_miss_runtime = bool(ep['server'] != 'plex' and ep['total_sec'] == 3600 * 24)
+            mpv_total_sec = self.playlist_total_sec.get(key)
+            need_recheck = emby_strm_miss_runtime and bool(not mpv_total_sec or _stop_sec / mpv_total_sec < 0.9)
+            if need_recheck:
                 # 注意：仅限启用播放列表时候有这些处理，strm 缺失 total_sec 和 缓存播放进度
                 netloc, item_id, basename = ep['netloc'], ep['item_id'], ep['basename']
                 _playback_info = self.emby_thin.get_playback_info(item_id)  # Jellyfin 不会在播放中补全媒体信息
@@ -150,6 +153,8 @@ class BaseManager(BaseInit):
                         _skip = False
                 _skip and logger.info(f"skip update progress, {ep['basename']} miss runtime data")
             else:
+                if emby_strm_miss_runtime and mpv_total_sec:
+                    ep['total_sec'] = mpv_total_sec
                 update_server_playback_progress(stop_sec=_stop_sec, data=ep)
             need_update_eps.append(ep)
         threading.Thread(target=self.prefetch_next_ep_playback_info, daemon=True).start()
