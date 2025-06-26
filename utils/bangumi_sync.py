@@ -49,7 +49,7 @@ def bangumi_sync_emby(emby, bgm, emby_eps: list = None, emby_ids: list = None):
         return
 
     season_num = item_info['ParentIndexNumber']
-    index_key = 'index' if emby_eps else 'IndexNumber'
+    index_key = 'index' if 'index' in item_info else 'IndexNumber'
     ep_nums = [i[index_key] for i in item_infos]
     if not season_num or season_num == 0 or 0 in ep_nums:
         logger.error(f'bgm: skip, {season_num=} {ep_nums=} contain zero')
@@ -143,10 +143,14 @@ def search_and_sync(bgm, title, ori_title, premiere_date, season_num, ep_nums, e
         if eps_data[0].get('item_id'):  # 解析过的，不含上映时间
             emby_ids = [i['item_id'] for i in eps_data]
             eps_data = emby.get_items(ids=emby_ids)['Items']
-        emby_dates = [i['PremiereDate'] for i in eps_data]
-        bgm_sea_id, bgm_ep_ids = bgm.get_target_season_episode_id(
-            subject_id=subject_id, target_season=season_num, target_ep=ep_nums,
-            subject_platform=bgm_data['platform'], match_by_dates=emby_dates)
+        try:
+            emby_dates = [i['PremiereDate'] for i in eps_data]
+            bgm_sea_id, bgm_ep_ids = bgm.get_target_season_episode_id(
+                subject_id=subject_id, target_season=season_num, target_ep=ep_nums,
+                subject_platform=bgm_data['platform'], match_by_dates=emby_dates)
+        except KeyError:
+            logger.info('bgm: skip, missing premiere date in emby')
+            return
         if not bgm_ep_ids:
             logger.info('bgm: skip, math by air date failed')
             return

@@ -646,7 +646,7 @@ class TraktApi extends BaseApi {
 async function doubanPlayedByTrakt() {
     if (window.location.host != 'movie.douban.com') { return; }
 
-    traktSettings = settingsSaverBase('traktSettings', traktSettings, true);
+    traktSettings = settingsSaverBase('traktSettings', traktSettings, false);
     traktSettings = (typeof (traktSettings) == 'string') ? JSON.parse(traktSettings) : traktSettings;
 
     if (!traktSettings) { return; }

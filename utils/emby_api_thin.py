@@ -11,7 +11,7 @@ class EmbyApiThin:
         if data:
             self.host = f"{data['scheme']}://{data['netloc']}"
             self.api_key = data['api_key']
-            self.user_id = data['user_id']
+            self.user_id = data.get('user_id', '')
         self.headers = {
             'Referer': f'{self.host}/web/index.html',
             'X-Emby-Authorization': f'MediaBrowser Client="embyToLocalPlayer",Token="{self.api_key}"',
