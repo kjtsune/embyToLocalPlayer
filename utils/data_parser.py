@@ -392,11 +392,14 @@ def list_episodes(data: dict):
     main_ep_info = data.get('main_ep_info') or requests_urllib(
         f'{scheme}://{netloc}{extra_str}/Users/{user_id}/Items/{data["item_id"]}',
         params=params, headers=headers, get_json=True)
+
+    def fill_data_type_provider_ids(): # sync trakt required
+        data.update(main_ep_info)
+        return data
+
     # if video is movie
     if not playlist_info and 'SeasonId' not in main_ep_info:
-        data['Type'] = main_ep_info['Type']
-        data['ProviderIds'] = main_ep_info['ProviderIds']
-        return [data]
+        return [fill_data_type_provider_ids()]
     season_id = main_ep_info.get('SeasonId')
     stream_name = 'original' if match_version_range(data['server_version'], ver_range='4.8.0.40-9') else 'stream'
 
@@ -681,11 +684,15 @@ def list_episodes(data: dict):
     if eps_error:
         # total_sec 没有，不方便判断进度。
         ids_error = [i['MediaSources'][0]['Id'] for i in path_error]
-        eps_error = [f"E{i['IndexNumber']}-{i['Name']}-id={i['Id']}" for i in eps_error]
+        try:
+            eps_error = [f"E{i['IndexNumber']}-{i['Name']}-id={i['Id']}" for i in eps_error]
+        except KeyError:
+            logger.error('disable playlist, IndexNumber miss')
+            return [fill_data_type_provider_ids()]
         logger.error(f'some ep miss path or runtime data, may leak error\n{eps_error}')
         if data['media_source_id'] in ids_error:
-            logger.error(f'disable playlist')
-            return [data]
+            logger.error(f'disable playlist, Path miss')
+            return [fill_data_type_provider_ids()]
 
     episodes = [i for i in episodes['Items'] if 'Path' in i]
     episodes = strm_file_name_sync(data['file_path'], episodes)
