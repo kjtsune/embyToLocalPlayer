@@ -232,11 +232,8 @@ https://github.com/kjtsune/embyToLocalPlayer#faq
 
 > mpv_embed
 
-* mpv_embed 主要目的是方便排错与反馈，`mpv.conf` 是我个人的简易配置。
-* 相较原版 mpv，只修改了少部分快捷键和配置。  
-  并添加增强字幕选择规则脚本（`sub-select.lua` `sub-select.json`）  
-  `sub-select.json` 貌似未正确配置，等待你提供正确配置  
-  和加载同目录文件脚本 `autoload.lua`
+* `mpv.conf` 是我个人使用的简易配置。
+* 相较原版 mpv，只修改了少部分快捷键和配置。
 * 想更新版本可点击 `mpv_embed` > `updater.bat`
 
 > mpv_embed 快捷键

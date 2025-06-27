@@ -55,6 +55,8 @@ def mpv_player_start(cmd, start_sec=None, sub_file=None, media_title=None, get_s
     cmd_pipe = fr'\\.\pipe\{pipe_name}' if os.name == 'nt' else f'/tmp/{pipe_name}.pipe'
     pipe_name = pipe_name if os.name == 'nt' else cmd_pipe
     osd_title = '${path}' if mount_disk_mode else media_title
+    if sub_inner_idx:= data.get('sub_inner_idx'):
+        cmd.append(f'--sid={sub_inner_idx}')
     if sub_file:
         if not is_iina and not is_mpvnet:
             # https://github.com/iina/iina/issues/1991

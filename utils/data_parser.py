@@ -118,18 +118,35 @@ def parse_received_data_emby(received_data):
 
     # 避免将内置字幕转为外挂字幕，内置字幕选择由播放器决定
     media_streams = media_source_info['MediaStreams']
+    sub_inner_idx = 0
     sub_index = sub_index if sub_index < 0 or media_streams[sub_index]['IsExternal'] else -2
-    if not mount_disk_mode and sub_index == -1:
-        sub_dict_list = [s for s in media_streams
-                         if not mount_disk_mode and s['Type'] == 'Subtitle' and s['IsExternal']]
-        for _sub in sub_dict_list:
-            _sub['Order'] = configs.check_str_match(
-                f"{str(_sub.get('Title', '') + ',' + _sub['DisplayTitle']).lower()}",
-                'dev', 'subtitle_priority', log=False, order_only=True)
-        sub_dict_list = [i for i in sub_dict_list if i['Order'] != 0]
-        sub_dict_list.sort(key=lambda s: s['Order'])
-        sub_dict = sub_dict_list[0] if sub_dict_list else {}
-        sub_index = sub_dict.get('Index', sub_index)
+    if sub_index == -1:
+        sub_dict_list = [s for s in media_streams if s['Type'] == 'Subtitle']
+        sub_ext_list = [s for s in sub_dict_list if s['IsExternal']]
+        sub_inner_list = [s for s in sub_dict_list if not s['IsExternal']]
+
+        def _get_sub_order_by_ini(_sub_list):
+            for _sub in _sub_list:
+                _sub['Order'] = configs.check_str_match(
+                    f"{str(_sub.get('Title', '') + ',' + _sub['DisplayTitle']).lower()}",
+                    'dev', 'subtitle_priority', log=False, order_only=True)
+
+        if not sub_ext_list and sub_inner_list:
+            _get_sub_order_by_ini(sub_inner_list)
+            sub_inner_match = [i for i in sub_inner_list if i['Order'] != 0]
+            if sub_inner_match: # 可能影响多版本补充备选时的字幕顺序，问题不大，先不管。
+                sub_inner_match.sort(key=lambda s: s['Order'])
+                sub_inner_match = sub_inner_match[0]
+                sub_inner_idx = sub_inner_list.index(sub_inner_match) + 1
+                logger.info(f"subtitles: cuz unspecified and not external -> subtitle_priority: --sid={sub_inner_idx} "
+                            f"(mpv only): {sub_inner_match.get('Title', '')},{sub_inner_match['DisplayTitle']}")
+
+        if not mount_disk_mode:
+            _get_sub_order_by_ini(sub_ext_list)
+            sub_ext_list = [i for i in sub_ext_list if i['Order'] != 0]
+            sub_ext_list.sort(key=lambda s: s['Order'])
+            sub_dict = sub_ext_list[0] if sub_ext_list else {}
+            sub_index = sub_dict.get('Index', sub_index)
 
     sub_jellyfin_str = '' if is_emby \
         else f'{item_id[:8]}-{item_id[8:12]}-{item_id[12:16]}-{item_id[16:20]}-{item_id[20:]}/'
@@ -206,6 +223,7 @@ def parse_received_data_emby(received_data):
         is_http_source=is_http_source,
         source_path=source_path,
         is_http_direct_strm=is_http_direct_strm,
+        sub_inner_idx=sub_inner_idx,
     )
     return result
 
@@ -676,7 +694,8 @@ def list_episodes(data: dict):
         params.update({'Fields': 'MediaSources,Path,ProviderIds',
                        'SeasonId': season_id, })
         series_id = main_ep_info['SeriesId']
-        url = f'{scheme}://{netloc}{extra_str}/Shows/{series_id}/Episodes'
+        # 改用 season_id，避免S0命名不规范导致美化标题失败，不知道会不会影响S0混播。
+        url = f'{scheme}://{netloc}{extra_str}/Shows/{season_id}/Episodes'
         episodes = requests_urllib(url, params=params, headers=headers, get_json=True)
     # dump_json_file(episodes, 'z_playlist_movie.json')
     eps_error = [i for i in episodes['Items'] if 'Path' not in i or 'RunTimeTicks' not in i]
