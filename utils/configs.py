@@ -204,9 +204,11 @@ class Configs:
             return res
         return ini
 
-    def _pot_version_is_too_high(self):
+    def _pot_version_is_too_high(self, player_path=''):
         player = self.raw['emby']['player']
         exe = self.raw['exe'].get(player, fallback='')
+        if player_path:
+            exe = player_path
         if 'potplayer' not in exe.lower():
             return
 
@@ -224,10 +226,14 @@ class Configs:
                     if version.isdigit() and int(version) > 240618:
                         return version
 
-    def media_title_translate(self, media_title=None, get_trans=False, log=True):
+    def media_title_translate(self, media_title=None, get_trans=False, log=True, player_path=''):
+        if '--|--' in str(None):
+            if get_trans:
+                return
+            return media_title
         map_pair = self.raw.get('dev', 'media_title_translate', fallback='')
         if not map_pair:
-            if pot_ver := self._pot_version_is_too_high():
+            if pot_ver := self._pot_version_is_too_high(player_path=player_path):
                 map_pair = """'，＇，"，＂， ，-"""
                 log and MyLogger.log(f'{pot_ver=}, gather than 240618, trans title to fix error')
         if not map_pair:

@@ -42,6 +42,10 @@ class BaseManager(BaseInit):
 
     def start_player(self, **kwargs):
         kwargs['start_sec'] = self.make_start_sec_correct() or 0
+        if 'pot' in self.player_name and not self.data.get('mount_disk_mode'):
+            media_title = kwargs['media_title']
+            media_title = configs.media_title_translate(media_title=media_title, player_path=self.player_path)
+            self.data['media_title'], kwargs['media_title'] = media_title, media_title
         try:
             self.player_kwargs = start_player_func_dict[self.player_name](**kwargs)
         except FileNotFoundError:
@@ -51,6 +55,14 @@ class BaseManager(BaseInit):
         limit = configs.raw.getint('playlist', 'item_limit', fallback=-1)
         if limit > 0:
             self.player_kwargs['limit'] = limit
+
+        if 'pot' in self.player_name and not self.data.get('mount_disk_mode'):
+            if trans := configs.media_title_translate(get_trans=True, player_path=self.player_path):
+                for ep in eps_data:
+                    media_title = ep['media_title']
+                    if '  |  ' in media_title:
+                        ep['media_title'] = media_title.translate(trans)
+
         self.playlist_data = playlist_func_dict[self.player_name](data=self.data, eps_data=eps_data,
                                                                   **self.player_kwargs)
 
@@ -106,8 +118,8 @@ class BaseManager(BaseInit):
             return
         if next_ep and next_ep[0].get('total_sec') == 3600 * 24:
             next_ep = next_ep[0]
-            self.emby_thin.get_playback_info(next_ep['item_id'])
             logger.info(f'prefetch_next_ep_playback_info {next_ep["basename"]}')
+            self.emby_thin.get_playback_info(next_ep['item_id'], timeout=60)
 
     def update_playback_for_eps(self):
         need_update_eps = []
@@ -133,6 +145,7 @@ class BaseManager(BaseInit):
             if need_recheck:
                 # 注意：仅限启用播放列表时候有这些处理，strm 缺失 total_sec 和 缓存播放进度
                 netloc, item_id, basename = ep['netloc'], ep['item_id'], ep['basename']
+                logger.info('strm: fetching playback info')
                 _playback_info = self.emby_thin.get_playback_info(item_id)  # Jellyfin 不会在播放中补全媒体信息
                 _media_source = [i for i in _playback_info['MediaSources'] if i.get('RunTimeTicks', 0)]
                 _total_sec = _media_source and _media_source[0]['RunTimeTicks'] // 10 ** 7 or 0

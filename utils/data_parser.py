@@ -558,6 +558,8 @@ def list_episodes(data: dict):
         title_intro_map_fail = not episodes_info
 
         for ep in episodes_info:
+            if ep['SeasonId'] != season_id:  # 影响S0混播，使用频率过低，先不管
+                continue
             if 'ParentIndexNumber' not in ep or 'IndexNumber' not in ep:
                 title_intro_map_fail = True
                 logger.info('disable title_intro_index_map, cuz season or ep index num error found')
