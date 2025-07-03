@@ -1,11 +1,35 @@
 import datetime
 import difflib
+import enum
 import functools
 import os
 import typing
 
 import requests
 
+
+class MyIntEnum(enum.IntEnum):
+    def __str__(self):
+        return str(self.value)
+
+    def __repr__(self):
+        return str(self.value)
+
+
+class SubjectState(MyIntEnum):  # Subject['type']
+    WISH = 1  # 想看
+    WATCHED = 2  # 看过
+    WATCHING = 3  # 在看
+    ON_HOLD = 4  # 搁置
+    DROPPED = 5  # 抛弃
+
+
+class SubjectType(MyIntEnum):  # Subject['subject_type']
+    BOOK = 1  # 书籍
+    ANIME = 2  # 动画
+    MUSIC = 3  # 音乐
+    GAME = 4  # 游戏
+    REAL = 6  # 三次元
 
 class BangumiApi:
     def __init__(self, username=None, access_token=None, private=True, http_proxy=None):
@@ -117,7 +141,8 @@ class BangumiApi:
         })
         return res.json()
 
-    def episodes_date_filter(self, episodes, dates, fuzzy_days=2):
+    @staticmethod
+    def episodes_date_filter(episodes, dates, fuzzy_days=2):
         res = []
         date_idx = 0
         if isinstance(dates[0], str):
@@ -224,6 +249,19 @@ class BangumiApi:
                 return current_id, _target_ep[0]['id']
         return None, None if target_ep else None
 
+    def get_user_collections(self, username=None, subject_type=SubjectType.ANIME, state=SubjectState.WATCHING,
+                             limit=50, offset=0):
+        username = username or self.username
+        params = {
+            'subject_type': subject_type,
+            'type': state,
+            'limit': limit,
+            'offset': offset
+        }
+        res = self.get(f'users/{username}/collections', params=params)
+        return res.json()
+
+
     def get_subject_collection(self, subject_id, get_eps=False):
         extra = '/episodes' if get_eps else ''
         user = '-' if get_eps else self.username
@@ -231,6 +269,19 @@ class BangumiApi:
         if res.status_code == 404:
             return {}
         return res.json()
+
+    def list_watching_is_done_subjects(self, mark_watched=False):
+        watching = self.get_user_collections()
+        result = []
+        for item in watching.get('data', []):
+            subject = item.get('subject', {})
+            if item.get('ep_status') == subject.get('eps'):
+                name_cn = subject.get('name_cn') or subject.get('name')
+                subject_id = subject.get('id')
+                result.append((name_cn, subject_id))
+                if mark_watched:
+                    self.add_collection_subject(subject_id=subject_id, state=SubjectState.WATCHED)
+        return result
 
     def get_user_eps_collection(self, subject_id, map_state=False):
         # map_state=true return { ep_num: {'watched': bool, 'id': ep_id}}
@@ -254,22 +305,22 @@ class BangumiApi:
         if isinstance(ep_id, list):
             self.change_episode_state(ep_id=ep_id, subject_id=subject_id)
         else:
-            self.change_episode_state(ep_id=ep_id, state=2)
+            self.change_episode_state(ep_id=ep_id, state=SubjectState.WATCHED)
 
-    def add_collection_subject(self, subject_id, private=None, state=3):
+    def add_collection_subject(self, subject_id, private=None, state=SubjectState.WATCHING):
         private = self.private if private is None else private
         self.post(f'users/-/collections/{subject_id}',
                   _json={'type': state,
                          'private': bool(private)})
 
-    def change_episode_state(self, ep_id, state=2, subject_id=None):
+    def change_episode_state(self, ep_id, state=SubjectState.WATCHED, subject_id=None):
         if isinstance(ep_id, list):
             if not subject_id:
                 raise ValueError('update eps require subject_id')
             res = self.patch(f'users/-/collections/{subject_id}/episodes',
                              _json={
                                  'episode_id': ep_id,
-                                 'type': 2
+                                 'type': state
                              })
         else:
             res = self.put(f'users/-/collections/-/episodes/{ep_id}',

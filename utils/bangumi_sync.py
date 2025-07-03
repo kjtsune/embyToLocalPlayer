@@ -1,5 +1,6 @@
 import datetime
 import os
+import pprint
 import re
 import sys
 import time
@@ -301,8 +302,17 @@ def api_client_via_stream_url(url):
     return emby, item_id, parsed_url
 
 
-def bgm_sync_via_stream_url(url):
+def bgm_sync_via_stream_url(url='', get_bgm=False):
     from utils.bangumi_api import BangumiApiEmbyVer
+    bgm = BangumiApiEmbyVer(
+        username=configs.raw.get('bangumi', 'username', fallback=''),
+        private=configs.raw.getboolean('bangumi', 'private', fallback=True),
+        access_token=configs.raw.get('bangumi', 'access_token', fallback=''),
+        http_proxy=configs.script_proxy)
+    if get_bgm:
+        return bgm
+    elif not url:
+        raise ValueError('url required')
     emby, item_id, parsed_url = api_client_via_stream_url(url)
     if not emby:
         time.sleep(1)
@@ -310,11 +320,6 @@ def bgm_sync_via_stream_url(url):
     if not configs.check_str_match(parsed_url.netloc, 'bangumi', 'enable_host', log=True):
         time.sleep(1)
         return
-    bgm = BangumiApiEmbyVer(
-        username=configs.raw.get('bangumi', 'username', fallback=''),
-        private=configs.raw.getboolean('bangumi', 'private', fallback=True),
-        access_token=configs.raw.get('bangumi', 'access_token', fallback=''),
-        http_proxy=configs.script_proxy)
     bangumi_sync_emby(emby=emby, bgm=bgm, emby_ids=[item_id])
     time.sleep(1)
 
@@ -322,10 +327,35 @@ def bgm_sync_via_stream_url(url):
 def run_via_console():
     argv = sys.argv
     logger.info(f'{argv=}')
+    arg = ''
     if len(argv) == 2:
-        bgm_sync_via_stream_url(url=argv[1])
+        arg = argv[1].strip()
+    else:
+        arg = ''
+    if arg.startswith('http'):
+        bgm_sync_via_stream_url(url=arg)
+    elif arg in ('mark_played', 'mark_watched'):
+        mark_all_ep_done_series_as_played()
+    else:
+        logger.info('parameter error, require: mark_played or <emby_stream_url>')
+        time.sleep(0.5)
 
+
+def mark_all_ep_done_series_as_played():
+    bgm = bgm_sync_via_stream_url(get_bgm=True)
+    is_done = bgm.list_watching_is_done_subjects(mark_watched=False)
+    print()
+    pprint.pprint(is_done)
+    while True:
+        user_input = input('\n以上是观看完成的列表。\n确认标记全部已观看请按回车或输入 yes: ').strip().lower()
+        if user_input in ('', 'yes'):
+            break
+        print('未确认，请输入 yes 或直接回车继续。')
+    print('正在标记观看，请稍后')
+    bgm.list_watching_is_done_subjects(mark_watched=True)
+    print('已全部标记完成')
 
 if __name__ == '__main__':
     os.chdir(configs.cwd)
     run_via_console()
+    # mark_all_ep_done_series_as_played()
