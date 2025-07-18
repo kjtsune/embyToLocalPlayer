@@ -42,10 +42,15 @@ class BaseManager(BaseInit):
 
     def start_player(self, **kwargs):
         kwargs['start_sec'] = self.make_start_sec_correct() or 0
-        if 'pot' in self.player_name and not self.data.get('mount_disk_mode'):
-            media_title = kwargs['media_title']
-            media_title = configs.media_title_translate(media_title=media_title, player_path=self.player_path)
-            self.data['media_title'], kwargs['media_title'] = media_title, media_title
+        media_title = kwargs['media_title']
+        if 'pot' in self.player_name and configs.media_title_translate(
+                media_title=media_title, get_trans=True, player_path=self.player_path):
+            if self.data['mount_disk_mode']:
+                self.data['media_title'], kwargs['media_title'] = self.data['basename'], None
+            else:
+                media_title = configs.media_title_translate(media_title=media_title, player_path=self.player_path,
+                                                            log=False)
+                self.data['media_title'], kwargs['media_title'] = media_title, media_title
         try:
             self.player_kwargs = start_player_func_dict[self.player_name](**kwargs)
         except FileNotFoundError:
@@ -53,10 +58,13 @@ class BaseManager(BaseInit):
 
     def playlist_add(self, eps_data=None):
         limit = configs.raw.getint('playlist', 'item_limit', fallback=-1)
-        if limit > 0:
+        if self.data.get('gui_cmd'):
+            logger.info('disable playlist: cuz gui_cmd found')
+            limit = 0
+        if limit >= 0:
             self.player_kwargs['limit'] = limit
 
-        if 'pot' in self.player_name and not self.data.get('mount_disk_mode'):
+        if 'pot' in self.player_name and not self.data['mount_disk_mode']:
             if trans := configs.media_title_translate(get_trans=True, player_path=self.player_path):
                 for ep in eps_data:
                     media_title = ep['media_title']
@@ -145,8 +153,8 @@ class BaseManager(BaseInit):
             if need_recheck:
                 # 注意：仅限启用播放列表时候有这些处理，strm 缺失 total_sec 和 缓存播放进度
                 netloc, item_id, basename = ep['netloc'], ep['item_id'], ep['basename']
-                logger.info('strm: fetching playback info')
-                _playback_info = self.emby_thin.get_playback_info(item_id)  # Jellyfin 不会在播放中补全媒体信息
+                logger.info('strm: fetching playback info')  # emby 也可能补全媒体信息失败，会返回没有 RunTimeTicks 的。
+                _playback_info = self.emby_thin.get_playback_info(item_id, timeout=30)  # Jellyfin 不会在播放中补全媒体信息
                 _media_source = [i for i in _playback_info['MediaSources'] if i.get('RunTimeTicks', 0)]
                 _total_sec = _media_source and _media_source[0]['RunTimeTicks'] // 10 ** 7 or 0
                 if _media_source:
@@ -155,7 +163,7 @@ class BaseManager(BaseInit):
                     logger.info('strm: total_sec found by recheck server data')
                 else:
                     check_miss_runtime_start_sec(netloc, item_id, basename, stop_sec=_stop_sec)
-                    logger.info(f'strm: cache start_sec={_stop_sec} | {basename}')
+                    logger.info(f'strm: recheck failed, cache start_sec={_stop_sec} | {basename}')
 
                 total_sec = self.playlist_total_sec.get(key) or _total_sec
                 _skip = True
@@ -366,8 +374,8 @@ class PrefetchManager(BaseInit):  # 未兼容播放器多开，暂不处理
                                                                  log_by=False):
                     prefetch_data['running'] = False
                     return
-                if prefetch_path and not ep['file_path'].startswith(prefetch_path):
-                    logger.info(f'{ep["file_path"]} not startswith {prefetch_path=} skip prefetch')
+                if prefetch_path and not any(p in ep['file_path'] for p in prefetch_path):
+                    logger.info(f'{ep["file_path"]} not contain {prefetch_path=} skip prefetch')
                     prefetch_data['running'] = False
                     return
                 total_sec = ep['total_sec']

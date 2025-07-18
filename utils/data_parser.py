@@ -471,6 +471,8 @@ def list_episodes(data: dict):
         official_rule = file_path.rsplit(' - ', 1)
         official_rule = official_rule[-1] if len(official_rule) == 2 else None
         clean_path = re.split(r'E\d\d?', file_path, maxsplit=1)[-1].strip()
+        if len(clean_path) <= 5:  # 仅文件格式的话，不够严谨
+            clean_path = None
 
         # 会禁用前向播放列表。
         def check_with_sequence(__ep_data):

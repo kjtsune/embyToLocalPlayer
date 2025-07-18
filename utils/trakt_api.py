@@ -17,7 +17,8 @@ class TraktApi:
         self.req = requests.Session()
         self.req.headers.update({'Accept': 'application/json',
                                  'trakt-api-key': client_id,
-                                 'trakt-api-version': '2', })
+                                 'trakt-api-version': '2',
+                                 'User-Agent': 'embyToLocalPlayer/1.1', })  # 'trakt.py (4.4.0)'
         if http_proxy:
             self.req.proxies = {'http': http_proxy, 'https': http_proxy}
         self.oauth_code = oauth_code
@@ -96,6 +97,8 @@ class TraktApi:
 
     @functools.lru_cache
     def id_lookup(self, provider, _id, _type: typing.Literal['movie', 'show', 'episode'] = ''):
+        # 碰到通过 imdb id 查询若网络报错 500，可以用 tmdb id 查就正常。
+        # 报错 500 时用官方库 trakt.py Trakt['search'].lookup(_id, 'imdb') 查询一遍后，该 imdb id 再次查询也不报错了，原因未知。
         api_suf = f'?type={_type}' if _type and provider != 'imdb' else ''
         if _type == 'movie' and provider == 'tvdb':
             # tvdb 无法指定 type=movie 可能匹配错误，未核实是否一定返回电视剧。

@@ -81,7 +81,7 @@ def requests_urllib(host, params=None, _json=None, decode=False, timeout=5.0, he
                 return response
             break
         except socket.timeout:
-            logger.error(f'urllib {try_times=} {host=}', silence=silence)
+            logger.error(f'urllib timeout {try_times=} {host=}', silence=silence)
             if try_times == retry:
                 raise TimeoutError(f'{try_times=} {host=}') from None
         except urllib.error.URLError as e:

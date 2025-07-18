@@ -46,6 +46,7 @@ class Downloader:
         logger.debug(headers)
         h_size = int(response.getheader('Content-Length'))
         logger.debug('total_size', self.size, 'size', h_size, 'size_mb', h_size // 1024 // 1024, f'{open_mode=}')
+        downloaded_size = 0
         with open(self.file, open_mode) as f:
             f.seek(header_start)
             logger.debug(f'seek {header_start=}')
@@ -54,9 +55,10 @@ class Downloader:
                     if self.cancel or self.pause:
                         return start
                     f.write(chunk)
+                    downloaded_size += len(chunk)
                     if start < self.size * 0.1:
                         f.flush()
-                    start += self.chunk_size
+                    start += len(chunk)
                     if update:
                         tmp_progress = start * 100 // self.size / 100
                         if tmp_progress >= self.progress:
@@ -66,6 +68,10 @@ class Downloader:
                 logger.error(self._id, 'internet interrupt! retry')
                 return start
             # logger.info(self._id, 'part download success', download_times, 'MB')
+        if downloaded_size < h_size:
+            logger.error(self._id, f'part download failed. Expected {h_size}, got {downloaded_size}. Retrying.')
+            return start
+
         return end
 
     def percent_download(self, start, end, speed=0, update=True):

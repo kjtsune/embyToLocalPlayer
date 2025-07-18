@@ -25,7 +25,7 @@ def logger_setup(api_key, netloc):
     MyLogger.netloc_replace = MyLogger.mix_host_gen(netloc)
 
 
-def safe_deleter(file, ext: Union[str, list, tuple] = ('mkv', 'mp4', 'srt', 'ass')):
+def safe_deleter(file, ext: Union[str, list, tuple] = ('mkv', 'mp4', 'srt', 'ass', 'strm')):
     ext = [ext] if isinstance(ext, str) else ext
     *_, f_ext = os.path.splitext(file)
     if f_ext.replace('.', '') in ext and os.path.exists(file):
@@ -145,13 +145,15 @@ def activate_window_by_pid(pid, sleep=0):
 
     from utils.windows_tool import activate_window_by_win32
 
-    def activate_loop():
+    def activate_loop(_sleep=0):
+        time.sleep(_sleep)
         for _ in range(100):
             time.sleep(0.5)
             if activate_window_by_win32(pid):
                 return
 
-    threading.Thread(target=activate_loop).start()
+    threading.Thread(target=activate_loop, args=(0,)).start()
+    threading.Thread(target=activate_loop, args=(3,)).start()
     time.sleep(sleep)
 
 
@@ -244,7 +246,8 @@ def version_prefer_emby(sources):
     if not rules:
         return sources[0]
     rules = [i.lower() for i in rules]
-    name_list = [os.path.basename(i).lower() for i in [s['Path'] for s in sources]]
+    name_key = 'Name' if sources[0]['Path'].startswith('http') else 'Path'
+    name_list = [os.path.basename(i).lower() for i in [s[name_key] for s in sources]]
     join_str = '_|_'
     name_all = join_str.join(name_list)
     for rule in rules:
@@ -255,7 +258,7 @@ def version_prefer_emby(sources):
         index = len(name_list) - 1
         _logger.info(f'version_prefer: success with {rule=}')
         return sources[index]
-    _logger.info(f'version_prefer: fail')
+    _logger.info(f'version_prefer: fail\n{name_list}')
     return sources[0]
 
 

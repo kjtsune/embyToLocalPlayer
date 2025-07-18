@@ -153,23 +153,45 @@ class EmbyApi:
         return res
 
     def yield_all_items(self, genre='', types='Movie,Series,Video', fields: typing.Union[list, str] = None,
-                        start_index=0, piece=200, item_limit=0, parent_id=None, ext_params: dict = None):
-        piece = item_limit if item_limit != 0 and item_limit < piece else piece
-        fist = self.get_items(genre=genre, types=types, fields=fields, start_index=start_index, limit=piece,
-                              parent_id=parent_id, ext_params=ext_params)
-        count = len(fist['Items'])
-        total = fist['TotalRecordCount']
-        yield from fist['Items']
-        for i in range(1, (total - start_index) // piece + 1):
-            _start_index = i * piece + start_index
-            if item_limit != 0 and count >= item_limit:
-                break
-            for item in self.get_items(genre=genre, types=types, fields=fields, start_index=_start_index,
-                                       limit=piece, parent_id=parent_id, ext_params=ext_params)['Items']:
-                count += 1
+                        start_index=0, piece=200, item_limit=0, parent_id: typing.Union[list, str] = None,
+                        ext_params: dict = None):
+        parent_ids = parent_id if isinstance(parent_id, list) else [parent_id]
+        count = 0
+
+        for pid in parent_ids:
+            local_start_index = start_index
+            current_piece = piece if item_limit == 0 or item_limit >= piece else item_limit
+
+            fist = self.get_items(
+                genre=genre, types=types, fields=fields,
+                start_index=local_start_index, limit=current_piece,
+                parent_id=pid, ext_params=ext_params
+            )
+            items = fist['Items']
+            total = fist['TotalRecordCount']
+
+            for item in items:
                 if item_limit != 0 and count >= item_limit:
-                    break
+                    return
                 yield item
+                count += 1
+
+            pages = (total - local_start_index) // current_piece
+            for i in range(1, pages + 1):
+                local_start_index = i * current_piece + start_index
+                if item_limit != 0 and count >= item_limit:
+                    return
+                page_items = self.get_items(
+                    genre=genre, types=types, fields=fields,
+                    start_index=local_start_index, limit=current_piece,
+                    parent_id=pid, ext_params=ext_params
+                )['Items']
+
+                for item in page_items:
+                    if item_limit != 0 and count >= item_limit:
+                        return
+                    yield item
+                    count += 1
 
     def search_by_trakt(self, tk_ids: dict):
         """只能搜索主条目，集和季不行"""
@@ -214,4 +236,14 @@ class EmbyApi:
             self.system_info = self.get('System/Info')
             self.server_id = self.system_info['Id']
         url = f'{self.host}/web/index.html#!/item?id={item_id}&serverId={self.server_id}'
+        return url
+
+    def image_url_generate(self, item_id, img_type='poster'):
+        api_map = {
+            'poster': 'Primary',
+            'fanart': 'Backdrop/0',
+            'thumb': 'Primary',
+        }
+        img_type = api_map.get(img_type)
+        url = f'{self.host}/emby/Items/{item_id}/Images/{img_type}'
         return url

@@ -69,7 +69,12 @@ def sync_ep_or_movie_to_trakt(trakt, eps_data, emby=None):
         _type = ep['Type'].lower()
         if _type not in allow:
             raise ValueError(f'type not in {allow}')
-        providers = ['tvdb', 'imdb'] # tvdb 优先，因为集数的 imdb id 只能查到主条目，而不是分集。
+        providers = ['tmdb', 'imdb', 'tvdb']
+        # imdb tvdb 都可能请求报错 500, tmdb 没有分集 id
+        # tvdb 搜索电影可能匹配错误，有处理但浪费请求。
+        # ?电视 tvdb 优先，因为集数的 imdb id 只能查到主条目，而不是分集。
+        if _type != 'movie':
+            providers.reverse()
         provider_ids = {k.lower(): v for k, v in ep['ProviderIds'].items() if k.lower() in providers}
         if not provider_ids and not trakt_ids_via_series:
             logger.info(f'trakt: not any {providers} id, skip | {name}')
@@ -77,8 +82,6 @@ def sync_ep_or_movie_to_trakt(trakt, eps_data, emby=None):
 
         trakt_ids = None
         tk_type = 'movie' if _type == 'movie' else 'show'
-        if tk_type == 'movie':
-            providers.reverse() # 电影 imdb 优先，tvdb 搜索电脑可能匹配错误，有处理但浪费请求。
         for provider in providers:
             if provider not in provider_ids:
                 continue
