@@ -11,6 +11,41 @@ from utils.tools import (show_version_info, main_ep_to_title, main_ep_intro_time
 logger = MyLogger()
 
 
+def _get_sub_order_by_ini(_sub_list):
+    for _sub in _sub_list:
+        _sub['Order'] = configs.check_str_match(
+            f"{str(_sub.get('Title', '') + ',' + _sub['DisplayTitle']).lower()}",
+            'dev', 'subtitle_priority', log=False, order_only=True)
+
+
+def subtitle_checker(media_streams, sub_index, mount_disk_mode, log=False):
+    sub_inner_idx = 0
+    sub_dict = {}
+    if sub_index == -1:
+        sub_dict_list = [s for s in media_streams if s['Type'] == 'Subtitle']
+        sub_ext_list = [s for s in sub_dict_list if s['IsExternal']]
+        sub_inner_list = [s for s in sub_dict_list if not s['IsExternal']]
+
+        if not sub_ext_list and sub_inner_list:
+            _get_sub_order_by_ini(sub_inner_list)
+            sub_inner_match = [i for i in sub_inner_list if i['Order'] != 0]
+            if sub_inner_match:  # 可能影响多版本补充备选时的字幕顺序，问题不大，先不管。
+                sub_inner_match.sort(key=lambda s: s['Order'])
+                sub_inner_match = sub_inner_match[0]
+                sub_inner_idx = sub_inner_list.index(sub_inner_match) + 1
+                log and logger.info(
+                    f"subtitles: cuz unspecified and not external -> subtitle_priority: --sid={sub_inner_idx} "
+                    f"(mpv only): {sub_inner_match.get('Title', '')},{sub_inner_match['DisplayTitle']}")
+
+        if not mount_disk_mode:
+            _get_sub_order_by_ini(sub_ext_list)
+            sub_ext_list = [i for i in sub_ext_list if i['Order'] != 0]
+            sub_ext_list.sort(key=lambda s: s['Order'])
+            sub_dict = sub_ext_list[0] if sub_ext_list else {}
+            sub_index = sub_dict.get('Index', sub_index)
+
+    return sub_index, sub_inner_idx, sub_dict
+
 def parse_received_data_emby(received_data):
     extra_data = received_data['extraData']
     show_version_info(extra_data=extra_data)
@@ -58,6 +93,13 @@ def parse_received_data_emby(received_data):
     strm_direct = configs.check_str_match(netloc, 'dev', 'strm_direct_host', log_by=True)
     if not is_strm or (is_strm and not is_http_source):
         file_path = source_path
+
+    if is_strm and is_http_source and len(media_sources) > 1 and media_source_info['Name'] not in file_path:
+        basename = os.path.basename(file_path)
+        for _m in media_sources:
+            if _m['Name'] in basename:  # S01E01.mkv 这种无解
+                file_path = file_path.replace(_m['Name'], media_source_info['Name'])
+                break
 
     # stream_url = f'{scheme}://{netloc}{media_source_info["DirectStreamUrl"]}' # 可能为转码后的链接
     basename = os.path.basename(file_path)
@@ -118,47 +160,20 @@ def parse_received_data_emby(received_data):
 
     # 避免将内置字幕转为外挂字幕，内置字幕选择由播放器决定
     media_streams = media_source_info['MediaStreams']
-    sub_inner_idx = 0
+
     sub_index = sub_index if sub_index < 0 or media_streams[sub_index]['IsExternal'] else -2
-    if sub_index == -1:
-        sub_dict_list = [s for s in media_streams if s['Type'] == 'Subtitle']
-        sub_ext_list = [s for s in sub_dict_list if s['IsExternal']]
-        sub_inner_list = [s for s in sub_dict_list if not s['IsExternal']]
-
-        def _get_sub_order_by_ini(_sub_list):
-            for _sub in _sub_list:
-                _sub['Order'] = configs.check_str_match(
-                    f"{str(_sub.get('Title', '') + ',' + _sub['DisplayTitle']).lower()}",
-                    'dev', 'subtitle_priority', log=False, order_only=True)
-
-        if not sub_ext_list and sub_inner_list:
-            _get_sub_order_by_ini(sub_inner_list)
-            sub_inner_match = [i for i in sub_inner_list if i['Order'] != 0]
-            if sub_inner_match: # 可能影响多版本补充备选时的字幕顺序，问题不大，先不管。
-                sub_inner_match.sort(key=lambda s: s['Order'])
-                sub_inner_match = sub_inner_match[0]
-                sub_inner_idx = sub_inner_list.index(sub_inner_match) + 1
-                logger.info(f"subtitles: cuz unspecified and not external -> subtitle_priority: --sid={sub_inner_idx} "
-                            f"(mpv only): {sub_inner_match.get('Title', '')},{sub_inner_match['DisplayTitle']}")
-
-        if not mount_disk_mode:
-            _get_sub_order_by_ini(sub_ext_list)
-            sub_ext_list = [i for i in sub_ext_list if i['Order'] != 0]
-            sub_ext_list.sort(key=lambda s: s['Order'])
-            sub_dict = sub_ext_list[0] if sub_ext_list else {}
-            sub_index = sub_dict.get('Index', sub_index)
-
+    sub_index, sub_inner_idx, sub_dict = subtitle_checker(media_streams, sub_index, mount_disk_mode, log=True)
     sub_jellyfin_str = '' if is_emby \
         else f'{item_id[:8]}-{item_id[8:12]}-{item_id[12:16]}-{item_id[16:20]}-{item_id[20:]}/'
-    if not mount_disk_mode and sub_index >= 0:
+    if sub_dict:
         sub_emby_str = f'/{media_source_id}' if is_emby else ''
         # sub_data = media_source_info['MediaStreams'][sub_index]
-        sub_data = [i for i in media_streams if i['Index'] == sub_index][0]
         fallback_sub = f'{extra_str}/videos/{sub_jellyfin_str}{item_id}{sub_emby_str}/Subtitles' \
-                       f'/{sub_index}/0/Stream.{sub_data["Codec"]}?api_key={api_key}'
-        sub_delivery_url = sub_data['Codec'] != 'sup' and sub_data.get('DeliveryUrl') or fallback_sub
+                       f'/{sub_index}/0/Stream.{sub_dict["Codec"]}?api_key={api_key}'
+        sub_delivery_url = sub_dict['Codec'] != 'sup' and sub_dict.get('DeliveryUrl') or fallback_sub
     else:
         sub_delivery_url = None
+
     if not sub_delivery_url and configs.raw.get('dev', 'sub_extract_priority', fallback='') and main_ep_info:
         if sub_all_match := sub_via_other_media_version(main_ep_info['MediaSources']):
             _sub_source_id, _sub_index, _sub_codec = list(sub_all_match.values())[0]
@@ -188,6 +203,7 @@ def parse_received_data_emby(received_data):
     position = start_sec / total_sec
     user_id = query['UserId']
     media_basename = os.path.basename(media_path)
+    size = int(media_source_info.get('Size', 0)) or 0
 
     result = dict(
         server=server,
@@ -224,6 +240,7 @@ def parse_received_data_emby(received_data):
         source_path=source_path,
         is_http_direct_strm=is_http_direct_strm,
         sub_inner_idx=sub_inner_idx,
+        size=size,
     )
     return result
 
@@ -591,6 +608,7 @@ def list_episodes(data: dict):
 
     title_data, start_data, end_data = title_intro_index_map()
     pretty_title = configs.raw.getboolean('dev', 'pretty_title', fallback=True)
+    need_check_inner_sub = {True: -1, False: -2}[bool(data.get('sub_inner_idx'))]
 
     def parse_item(item, order):
         source_info = item['MediaSources'][0]
@@ -628,20 +646,15 @@ def list_episodes(data: dict):
         media_title = media_title.replace('"', '”')
         media_basename = os.path.basename(media_path)
         total_sec = int(source_info.get('RunTimeTicks', 0)) // 10 ** 7 or 3600 * 24
+        size = int(source_info.get('Size', 0)) or 0
 
         media_streams = source_info['MediaStreams']
-        sub_dict_list = [s for s in media_streams
-                         if not mount_disk_mode and s['Type'] == 'Subtitle' and s['IsExternal']]
-        for _sub in sub_dict_list:
-            _sub['Order'] = configs.check_str_match(
-                f"{str(_sub.get('Title', '') + ',' + _sub['DisplayTitle']).lower()}",
-                'dev', 'subtitle_priority', log=False, order_only=True)
-        sub_dict_list = [i for i in sub_dict_list if i['Order'] != 0]
-        sub_dict_list.sort(key=lambda s: s['Order'])
-        sub_dict = sub_dict_list[0] if sub_dict_list else {}
-        sub_file = f'{scheme}://{netloc}/Videos/{item_id}/{source_info["Id"]}/Subtitles' \
-                   f'/{sub_dict["Index"]}/Stream{os.path.splitext(sub_dict["Path"])[-1]}' if sub_dict else None
-        sub_file = None if mount_disk_mode else sub_file
+        sub_index, sub_inner_idx, sub_dict = subtitle_checker(media_streams, need_check_inner_sub, mount_disk_mode)
+
+        sub_file = None
+        if sub_dict:
+            sub_file = f'{scheme}://{netloc}/Videos/{item_id}/{source_info["Id"]}/Subtitles' \
+                       f'/{sub_dict["Index"]}/Stream{os.path.splitext(sub_dict["Path"])[-1]}'
 
         result = data.copy()
         result['Type'] = item['Type']
@@ -665,11 +678,12 @@ def list_episodes(data: dict):
             total_sec=total_sec,
             sub_file=sub_file,
             index=index,
-            size=source_info.get('Size', 0), # Jellyfin strm 没有这个键
+            size=size,  # Jellyfin strm 没有这个键
             media_title=media_title,
             intro_start=start_data.get(unique_key),
             intro_end=end_data.get(unique_key),
             order=order,
+            sub_inner_idx=sub_inner_idx,
         ))
         return result
 

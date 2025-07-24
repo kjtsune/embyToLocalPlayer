@@ -206,6 +206,8 @@ def playlist_add_mpv(mpv: MPV, data, eps_data=None, limit=10):
             try:
                 options = (f'force-media-title="{media_title}"'
                            f',osd-playing-msg="{media_title}",start=0{sub_cmd}{chap_cmd}')
+                if sub_inner_idx := ep.get('sub_inner_idx'):
+                    options += f',sid={sub_inner_idx}'
                 if insert:
                     mpv_cmd = ['loadfile', ep['media_path'], 'insert-at', '0', options]
                 else:
