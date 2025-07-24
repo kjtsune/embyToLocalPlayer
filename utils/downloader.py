@@ -20,17 +20,20 @@ class Downloader:
         self.download_only = False
         self.cancel = False
         self.pause = False
-        self.size = size or self.get_size()
+        self.size = size
         self.chunk_size = 1024 * 1024
         self.progress = 0
         if not save_path:
             os.path.exists(cache_path) or os.mkdir(cache_path)
 
     def get_size(self):
+        if self.size:
+            return self.size
         response = requests_urllib(self.url, http_proxy=configs.dl_proxy, res_only=True)
         return int(response.getheader('Content-Length'))
 
     def range_download(self, start: int, end: int, speed=0, update=False) -> int:
+        self.get_size()
         sleep = 1 / speed if speed else 0
         if start == 0:
             if safe_deleter(self.file):
@@ -75,6 +78,7 @@ class Downloader:
         return end
 
     def percent_download(self, start, end, speed=0, update=True):
+        self.get_size()
         self.file_is_busy = True
         logger.info(f'download: {self._id} _start {start} _end {end}')
         _start = int(float(self.size * start))
@@ -123,7 +127,7 @@ class DownloadManager:
 
     def _init_dl(self, data, check_only=False):
         url, _id, pos = data['stream_url'], data['fake_name'], data['position']
-        dl = self.tasks.get(_id) or Downloader(url, _id, cache_path=self.cache_path)
+        dl = self.tasks.get(_id) or Downloader(url, _id, cache_path=self.cache_path, size=data.get('size'))
         download_only = True if dl.download_only or data.get('download_only') else False
         dl.download_only = download_only
         if _id not in self.tasks and _id in self.db:
@@ -227,7 +231,7 @@ class DownloadManager:
         if dir_size > limit:
             logger.info('out of cache limit')
             dir_info.sort(key=lambda i: i['stat'].st_mtime)
-            self.delete(_id=dir_info[0])
+            self.delete(_id=dir_info[0]['_id'])
 
     def load_db(self):
         _db = load_json_file(self.db_path, 'dict')
@@ -358,7 +362,8 @@ def _prefetch_resume_tv(emby_thin: EmbyApiThin, startswith):
                         continue
                     try:
                         logger.info(f'prefetch {relative_path} \n{stream_url[:100]}')
-                        dl = Downloader(url=stream_url, _id=os.path.basename(file_path), save_path=null_file)
+                        dl = Downloader(url=stream_url, _id=os.path.basename(file_path), save_path=null_file,
+                                        size=ep.get('size'))
                         dl.percent_download(0, 0.05)
                         dl.percent_download(0.98, 1)
                     except Exception:

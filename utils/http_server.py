@@ -64,6 +64,13 @@ class UserScriptRequestHandler(BaseHTTPRequestHandler):
         self.wfile.write(json.dumps({'success': True}).encode('utf-8'))
         configs.update()
         if 'ToLocalPlayer' in self.path:
+            if data.get('showTaskManager'):
+                from utils.gui import show_task_manager
+                # multiprocessing.Process(target=show_task_manager, daemon=True).start()
+                # 多进程会复制 dl_manager 导致如果正在下载的话，会重复启动下载任务。
+                threading.Thread(target=show_task_manager, daemon=True).start()
+                # tkinter 不是线程安全的，可能会导致退出。
+                return True
             data = parse_received_data_emby(data) if self.path.startswith('/emby') else parse_received_data_plex(data)
             logger.info(f"server={data['server']}/{data.get('server_version')} {data['mount_disk_mode']=}")
             if configs.check_str_match(_str=data['netloc'], section='gui', option='except_host'):
@@ -90,6 +97,9 @@ class UserScriptRequestHandler(BaseHTTPRequestHandler):
                     if not configs.check_str_match(data['file_path'], 'gui', 'enable_path', log_by=False):
                         thread_dict['play'].start()
                         return True
+                if configs.raw.getboolean('gui', 'without_confirm', fallback=False):
+                    thread_dict['download_play'].start()
+                    return True
                 from utils.gui import show_ask_button
                 logger.info('show ask button')
                 if configs.platform != 'Darwin':

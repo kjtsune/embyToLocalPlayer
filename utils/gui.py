@@ -178,6 +178,12 @@ def play_by_timeout(root, sec=3):
     root.destroy()
 
 
+def show_task_manager():
+    root = tk.Tk()
+    app = App(root)
+    app.show_task_manager()
+    root.mainloop()
+
 if __name__ == '__main__':
     _root = tk.Tk()
     _app = App(_root)

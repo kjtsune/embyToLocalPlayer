@@ -379,6 +379,9 @@ class PrefetchManager(BaseInit):  # 未兼容播放器多开，暂不处理
                     prefetch_data['running'] = False
                     return
                 total_sec = ep['total_sec']
+                if total_sec == 86400:
+                    if mpv := self.player_kwargs.get('mpv'):
+                        total_sec = mpv.duration or 86400
                 position = stop_sec / total_sec
                 if position * 100 <= prefetch_percent:
                     continue
@@ -391,11 +394,15 @@ class PrefetchManager(BaseInit):  # 未兼容播放器多开，暂不处理
                     ep['gui_cmd'] = 'download_only'
                     requests_urllib('http://127.0.0.1:58000/pl', _json=ep)
                 elif prefetch_type == 'first_last':
+                    if ep['total_sec'] == 86400:
+                        # strm 媒体信息 无 -> 有：外挂字幕链接会失效。
+                        # 持久性缓存时会禁用播放列表：获取媒体信息来加速时的第二集播放。
+                        self.emby_thin.get_playback_info(ep['item_id'], timeout=60)
                     ep['gui_cmd'] = 'download_not_play'
                     requests_urllib('http://127.0.0.1:58000/pl', _json=ep)
                 else:
                     null_file = 'NUL' if os.name == 'nt' else '/dev/null'
-                    dl = Downloader(ep['stream_url'], ep['basename'], save_path=null_file)
+                    dl = Downloader(ep['stream_url'], ep['basename'], save_path=null_file, size=ep.get('size'))
                     threading.Thread(target=dl.percent_download, args=(0, 0.08), daemon=True).start()
                     threading.Thread(target=dl.percent_download, args=(0.98, 1), daemon=True).start()
                 done_list.append(key)

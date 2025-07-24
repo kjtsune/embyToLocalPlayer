@@ -183,7 +183,8 @@ def get_redirect_url(url, key_trim='PlaySessionId', follow_redirect=False):
     except Exception as e:
         logger.error(f'disable redirect: code={getattr(e, "code", None)} get_redirect_url: {str(e)[:100]}')
     logger.info(f'get_redirect_url: used time={str(time.time() - start)[:4]}')
-    redirect_url_cache[key] = jump_url
+    if jump_url != url:
+        redirect_url_cache[key] = jump_url
     return jump_url
 
 
