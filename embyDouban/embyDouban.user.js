@@ -3,7 +3,7 @@
 // @name:zh-CN   embyDouban
 // @name:en      embyDouban
 // @namespace    https://github.com/kjtsune/embyToLocalPlayer/tree/main/embyDouban
-// @version      2025.03.10
+// @version      2025.07.24
 // @description  emby 里展示: 豆瓣 Bangumi bgm.tv 评分 链接 (豆瓣评论可关)
 // @description:zh-CN emby 里展示: 豆瓣 Bangumi bgm.tv 评分 链接 (豆瓣评论可关)
 // @description:en  show douban Bangumi ratings in emby
@@ -18,33 +18,30 @@
 // @connect      api.bgm.tv
 // @connect      api.douban.com
 // @connect      movie.douban.com
+// @require      https://fastly.jsdelivr.net/gh/kjtsune/UserScripts@a4c9aeba777fdf8ca50e955571e054dca6d1af49/lib/basic-tool.js
+// @require      https://fastly.jsdelivr.net/gh/kjtsune/UserScripts@a4c9aeba777fdf8ca50e955571e054dca6d1af49/lib/my-storage.js
 // @license MIT
 // ==/UserScript==
 'use strict';
+/*global ApiClient*/
 
-setModeSwitchMenu('enableDoubanComment', '豆瓣评论已经', '', '开启')
-let enableDoubanComment = (localStorage.getItem('enableDoubanComment') === 'false') ? false : true;
+/// <reference path="./lib/basic-tool.js" />
+/*global MyLogger */ // myBool
+
+/// <reference path="./lib/my-storage.js" />
+/*global MyStorage*/
 
 let config = {
     logLevel: 2,
+    // 清除无效标签的正则匹配规则
+    tagsRegex: /\d{4}|TV|动画|小说|漫|轻改|游戏改|原创|[a-zA-Z]/,
+    // 标签数量限制，填0禁用标签功能。
+    tagsNum: 3,
 };
-let logger = {
-    error: function (...args) {
-        if (config.logLevel >= 1) {
-            console.log('%cerror', 'color: yellow; font-style: italic; background-color: blue;', ...args);
-        }
-    },
-    info: function (...args) {
-        if (config.logLevel >= 2) {
-            console.log('%cinfo', 'color: yellow; font-style: italic; background-color: blue;', ...args);
-        }
-    },
-    debug: function (...args) {
-        if (config.logLevel >= 3) {
-            console.log('%cdebug', 'color: yellow; font-style: italic; background-color: blue;', ...args);
-        }
-    },
-}
+
+let logger = new MyLogger(config)
+
+let enableDoubanComment = (localStorage.getItem('enableDoubanComment') === 'false') ? false : true;
 
 async function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
@@ -95,18 +92,6 @@ function getVisibleElement(elList) {
 
 }
 
-function cleanLocalStorage() {
-    let count = 0
-    for (i in localStorage) {
-        if (i.search(/^tt/) != -1 || i.search(/^\d{7}/) != -1) {
-            console.log(i);
-            count++;
-            localStorage.removeItem(i);
-        }
-    }
-    console.log(`remove done, count=${count}`)
-}
-
 function getURL_GM(url, data = null) {
     let method = (data) ? 'POST' : 'GET'
     return new Promise(resolve => GM.xmlHttpRequest({
@@ -132,27 +117,6 @@ async function getJSON_GM(url, data = null) {
     const res = await getURL_GM(url, data);
     if (res) {
         return JSON.parse(res);
-    }
-}
-
-// async function getJSONP_GM(url) {
-//     const data = await getURL_GM(url);
-//     if (data) {
-//         const end = data.lastIndexOf(')');
-//         const [, json] = data.substring(0, end).split('(', 2);
-//         return JSON.parse(json);
-//     }
-// }
-
-async function getJSON(url) {
-    try {
-        const response = await fetch(url);
-        if (response.status >= 200 && response.status < 400)
-            return await response.json();
-        console.error(`Error fetching ${url}:`, response.status, response.statusText, await response.text());
-    }
-    catch (e) {
-        console.error(`Error fetching ${url}:`, e);
     }
 }
 
@@ -216,8 +180,6 @@ async function getDoubanInfo(imdbId) {
 function insertDoubanComment(doubanId, doubanComment) {
     console.log('%c%o%s', 'color:orange;', 'start add comment ', doubanId)
     if (!enableDoubanComment) { return; }
-    let commentKey = `${doubanId}Comment`;
-    doubanComment = doubanComment || localStorage.getItem(commentKey);
     let el = getVisibleElement(document.querySelectorAll('div#doubanComment'));
     if (el || isEmpty(doubanComment)) {
         console.log('%c%s', 'color: orange', 'skip add doubanComment', el, doubanComment);
@@ -234,7 +196,6 @@ function insertDoubanComment(doubanId, doubanComment) {
 }
 
 function insertDoubanScore(doubanId, rating, socreIconHrefClass) {
-    rating = rating || localStorage.getItem(doubanId);
     console.log('%c%s', 'color: orange;', 'start ', doubanId, rating);
     let el = getVisibleElement(document.querySelectorAll('a#doubanScore'));
     if (el || !rating) {
@@ -273,40 +234,43 @@ async function insertDoubanMain(linkZone) {
     let socreIconHrefClass = 'class="button-link button-link-color-inherit emby-button" style="font-weight:inherit;" target="_blank"';
     imdbIconLinkAdder(imdbButton.href, socreIconHrefClass);
 
-    if (imdbId in localStorage) {
-        var doubanId = localStorage.getItem(imdbId);
-        if (!doubanId) { return; }
-    } else {
-        await getDoubanInfo(imdbId).then(function (data) {
-            if (!isEmpty(data)) {
-                let doubanId = data.id;
-                localStorage.setItem(imdbId, doubanId);
-                if (data.rating && !isEmpty(data.rating.average)) {
-                    insertDoubanScore(doubanId, data.rating.average, socreIconHrefClass);
-                    localStorage.setItem(doubanId, data.rating.average);
-                    localStorage.setItem(doubanId + 'Info', JSON.stringify(data));
-                }
-                if (enableDoubanComment) {
-                    insertDoubanComment(doubanId, data.comment);
-                    localStorage.setItem(doubanId + 'Comment', data.comment);
-                }
-            }
-            console.log('%c%o%s', 'background:yellow;', data, ' result and send a requests')
-        });
-        var doubanId = localStorage.getItem(imdbId);
+    let imdbDoubanDb = new MyStorage('imdb|douban');
+    let doubanDb = new MyStorage('douban');
+
+    let doubanId = imdbDoubanDb.get(imdbId);
+
+    if (doubanId == '_') { return; }
+
+    let data = doubanDb.get(doubanId);
+    if (isEmpty(data)) {
+        data = await getDoubanInfo(imdbId);
+        console.log('%c%o%s', 'background:yellow;', data, ' result and send a requests')
+        if (isEmpty(data)) {
+            imdbDoubanDb.set(imdbId, '_');
+            return;
+        }
+        doubanId = data.id;
+        imdbDoubanDb.set(imdbId, doubanId);
+        doubanDb.set(doubanId, data);
     }
-    console.log('%c%o%s', 'color:orange;', 'douban id ', doubanId, String(imdbId));
-    if (!doubanId) {
-        localStorage.setItem(imdbId, '');
-        return;
-    }
-    let buttonClass = imdbButton.className;
-    let doubanString = `<a is="emby-linkbutton" class="${buttonClass}" 
+    if (!isEmpty(data)) {
+        insertDoubanScore(doubanId, data.rating.average, socreIconHrefClass);
+        if (enableDoubanComment) {
+            insertDoubanComment(doubanId, data.comment);
+        }
+
+        let buttonClass = imdbButton.className;
+        let doubanString = `<a is="emby-linkbutton" class="${buttonClass}" 
     href="https://movie.douban.com/subject/${doubanId}/" target="_blank">
     <i class="md-icon button-icon button-icon-left">link</i>Douban</a>`;
-    imdbButton.insertAdjacentHTML('beforebegin', doubanString);
-    insertDoubanScore(doubanId, undefined, socreIconHrefClass);
-    insertDoubanComment(doubanId);
+        imdbButton.insertAdjacentHTML('beforebegin', doubanString);
+    }
+    console.log('%c%o%s', 'color:orange;', 'douban id ', doubanId, String(imdbId));
+    if (!imdbDoubanDb.get(imdbId)) {
+        imdbDoubanDb.set(imdbId, '_');
+        return;
+    }
+
 }
 
 function insertBangumiByPath(idNode) {
@@ -330,6 +294,13 @@ function insertBangumiScore(bgmObj, infoTable, linkZone) {
         yearDiv.insertAdjacentHTML('beforebegin', `<div class="starRatingContainer mediaInfoItem bgm">${bgmIco} 
             <a id="bgmScore" href="${bgmHref}" ${socreIconHrefClass}>${bgmObj.score}</a></div>`);
         console.log('%c%s', 'color: orange;', 'insert bgmScore ', bgmObj.score);
+        let tags = bgmObj.tags;
+        if (tags && tags.length > 0 && config.tagsNum > 0) {
+            tags = tags.filter(name => !config.tagsRegex.test(name)).slice(0, config.tagsNum);
+            let tagsHtml = `<div class="mediaInfoItem">${tags.join(', ')}</div>`
+            yearDiv.insertAdjacentHTML('afterend', tagsHtml);
+
+        }
     }
     let tmdbButton = linkZone.querySelector('a[href^="https://www.themovie"]');
     let bgmButton = linkZone.querySelector('a[href^="https://bgm.tv"]');
@@ -351,6 +322,12 @@ function checkIsExpire(key, expireDay = 1) {
         return false;
     }
 
+}
+
+async function cleanBgmTags(tags) {
+    tags = tags.filter(item => item.count >= 10 && !(config.tagsRegex.test(item.name)));
+    let namesList = tags.map(item => item.name);
+    return namesList;
 }
 
 async function insertBangumiMain(infoTable, linkZone) {
@@ -378,29 +355,19 @@ async function insertBangumiMain(infoTable, linkZone) {
     if (!tmdbButton) return;
     let tmdbId = tmdbButton.href.match(/...\d+/);
 
-    let tmdbExpireKey = tmdbId + 'expire'
     let year = infoTable.querySelector('div[class="mediaInfoItem"]').textContent.match(/^\d{4}/);
     let expireDay = (Number(year) < new Date().getFullYear() && new Date().getMonth() + 1 != 1) ? 30 : 3
-    let needUpdate = false;
-    if (tmdbExpireKey in localStorage) {
-        if (checkIsExpire(tmdbExpireKey, expireDay)) {
-            needUpdate = true;
-            localStorage.setItem(tmdbExpireKey, JSON.stringify(Date.now()));
-        }
-    } else {
-        localStorage.setItem(tmdbExpireKey, JSON.stringify(Date.now()));
-    }
 
-    let tmdbBgmKey = tmdbId + 'bgm';
-    let bgmObj = localStorage.getItem(tmdbBgmKey);
-    if (bgmObj && !needUpdate) {
-        bgmObj = JSON.parse(bgmObj)
+    let tmdbBgmDb = new MyStorage('tmdb|bgm', expireDay);
+
+    let bgmObj = tmdbBgmDb.get(tmdbId);
+    if (bgmObj) {
         insertBangumiScore(bgmObj, infoTable, linkZone);
         return;
     }
 
-    let tmdbNotBgmKey = tmdbId + 'NotBgm';
-    if (!checkIsExpire(tmdbNotBgmKey)) {
+    let tmdbNotBgmDb = new MyStorage('tmdb|NotBgm', 1);
+    if (tmdbNotBgmDb.get(tmdbId)) {
         return;
     }
     let userId = ApiClient._serverInfo.UserId;
@@ -434,25 +401,30 @@ async function insertBangumiMain(infoTable, linkZone) {
     premiereDate.setDate(premiereDate.getDate() + 4);
     let endDate = premiereDate.toISOString().slice(0, 10);
 
-    logger.info('bgm ->', originalTitle, startDate, endDate);
-    let bgmInfo = await getJSON_GM('https://api.bgm.tv/v0/search/subjects?limit=10', JSON.stringify({
-        'keyword': originalTitle,
-        // "keyword": 'titletitletitletitletitletitletitle',
-        'filter': {
-            'type': [
-                2
-            ],
-            'air_date': [
-                `>=${startDate}`,
-                `<${endDate}`
-            ],
-            'nsfw': true
-        }
-    }))
-    logger.info('bgmInfo', bgmInfo['data'])
-    bgmInfo = (bgmInfo['data']) ? bgmInfo['data'][0] : null;
+    logger.info('bgm ->', originalTitle, title, startDate, endDate);
+    let bgmInfo;
+    for (const _t of [originalTitle, title]) {
+        bgmInfo = await getJSON_GM('https://api.bgm.tv/v0/search/subjects?limit=10', JSON.stringify({
+            'keyword': _t,
+            // "keyword": 'titletitletitletitletitletitletitle',
+            'filter': {
+                'type': [
+                    2
+                ],
+                'air_date': [
+                    `>=${startDate}`,
+                    `<${endDate}`
+                ],
+                'nsfw': true
+            }
+        }))
+        logger.info('bgmInfo', bgmInfo['data'])
+        bgmInfo = (bgmInfo['data']) ? bgmInfo['data'][0] : null;
+        if (bgmInfo) { break; }
+    }
+
     if (!bgmInfo) {
-        localStorage.setItem(tmdbNotBgmKey, JSON.stringify(Date.now()));
+        tmdbNotBgmDb.set(tmdbId, true);
         logger.error('getJSON_GM not bgmInfo return');
         return;
     };
@@ -460,12 +432,13 @@ async function insertBangumiMain(infoTable, linkZone) {
     let trust = false;
     if (textSimilarity(originalTitle, bgmInfo['name']) < 0.4 && (textSimilarity(title, bgmInfo['name_cn'])) < 0.4
         && (textSimilarity(title, bgmInfo['name'])) < 0.4) {
-        localStorage.setItem(tmdbNotBgmKey, JSON.stringify(Date.now()));
+        tmdbNotBgmDb.set(tmdbId, true);
         logger.error('not bgmObj and title not Similarity, skip');
     } else {
         trust = true
     }
     let score = bgmInfo.score ? bgmInfo.score : bgmInfo.rating?.score;
+    let tags = bgmInfo.tags ? await cleanBgmTags(bgmInfo.tags) : [];
     logger.info(bgmInfo)
     bgmObj = {
         id: bgmInfo['id'],
@@ -473,8 +446,9 @@ async function insertBangumiMain(infoTable, linkZone) {
         name: bgmInfo['name'],
         name_cn: bgmInfo['name_cn'],
         trust: trust,
+        tags: tags,
     }
-    localStorage.setItem(tmdbBgmKey, JSON.stringify(bgmObj));
+    tmdbBgmDb.set(tmdbId, bgmObj)
     insertBangumiScore(bgmObj, infoTable, linkZone);
 }
 
@@ -493,7 +467,12 @@ function cleanDoubanError() {
 
     let count = 0
     for (let i in localStorage) {
-        if (i.search(/^tt\d+/) != -1 && localStorage.getItem(i) === '') {
+        if (
+            i.search(/^tt\d+$/) !== -1 ||
+            /^\d{7,9}(Info|Comment)?$/.test(i) ||
+            /^(ie|tv)\/\d{4,7}(expire|bgm|NotBgm)$/.test(i) ||
+            (i.startsWith('imdb|douban|tt') && localStorage.getItem(i) === '_')
+        ) {
             console.log(i);
             count++;
             localStorage.removeItem(i);
@@ -502,6 +481,7 @@ function cleanDoubanError() {
     logger.info(`cleanDoubanError done, count=${count}`);
 }
 
+setModeSwitchMenu('enableDoubanComment', '豆瓣评论已经', '', '开启')
 var runLimit = 50;
 
 async function main() {
