@@ -212,6 +212,7 @@ def playlist_add_mpv(mpv: MPV, data, eps_data=None, limit=10):
                     mpv_cmd = ['loadfile', ep['media_path'], 'insert-at', '0', options]
                 else:
                     mpv_cmd = ['loadfile', ep['media_path'], 'append', '-1', options]
+                logger.debug(options)
                 if not new_loadfile_cmd:
                     del mpv_cmd[-2]
                     if insert:
@@ -735,12 +736,12 @@ def stop_sec_pot(pid, stop_sec_only=True, check_only=False, **_):
     name_total_sec_dict = {}
     while True:
         if not process_is_running_by_pid(pid):
-            logger.debug('pot not running')
+            logger.all('pot not running')
             break
         if check_only and stop_sec == 'check_only':
             return True
         potplayer_time_title_updater(pid)
-        logger.debug(f'pot stop, {stop_sec=}')
+        logger.all(f'pot stop, {stop_sec=}')
         time.sleep(0.3)
     if check_only:
         return False

@@ -30,7 +30,8 @@ class Downloader:
         if self.size:
             return self.size
         response = requests_urllib(self.url, http_proxy=configs.dl_proxy, res_only=True)
-        return int(response.getheader('Content-Length'))
+        self.size = int(response.getheader('Content-Length'))
+        return self.size
 
     def range_download(self, start: int, end: int, speed=0, update=False) -> int:
         self.get_size()
@@ -46,13 +47,13 @@ class Downloader:
         except Exception:
             logger.error(self._id, 'connect init error')
             return start
-        logger.debug(headers)
+        logger.trace(headers)
         h_size = int(response.getheader('Content-Length'))
-        logger.debug('total_size', self.size, 'size', h_size, 'size_mb', h_size // 1024 // 1024, f'{open_mode=}')
+        logger.trace('total_size', self.size, 'size', h_size, 'size_mb', h_size // 1024 // 1024, f'{open_mode=}')
         downloaded_size = 0
         with open(self.file, open_mode) as f:
             f.seek(header_start)
-            logger.debug(f'seek {header_start=}')
+            logger.trace(f'seek {header_start=}')
             try:
                 while chunk := response.read(self.chunk_size):
                     if self.cancel or self.pause:
@@ -94,7 +95,7 @@ class Downloader:
             end_with = self.range_download(_start, _end, speed=speed, update=update)
         if update:
             self.progress = end
-            logger.debug(self._id, end, 'done')
+            logger.trace(self._id, end, 'done')
         self.file_is_busy = False
         return True
 
@@ -135,7 +136,7 @@ class DownloadManager:
         if not check_only:
             self.db.update({_id: self.db_single_dict(dl) for _id, dl in self.tasks.items()})
             self.tasks[_id] = dl
-        logger.debug(f'init_dl {dl.download_only=}')
+        logger.trace(f'init_dl {dl.download_only=}')
         return url, _id, pos, dl
 
     @staticmethod
@@ -210,7 +211,7 @@ class DownloadManager:
 
         operate = data['operate'] if not resume_from_db else 'resume'
         data_list = data['data_list'] if not resume_from_db else data_by_db()
-        logger.debug(f'{operate=}\n{data_list=}')
+        logger.trace(f'{operate=}\n{data_list=}')
         for data in data_list:
             url, _id, pos, dl = self._init_dl(data)
             if operate == 'pause':
@@ -254,7 +255,7 @@ class DownloadManager:
             if self.tasks:
                 task_done = [_id for (_id, dl) in self.tasks.items() if dl.progress == 1 or dl.pause]
                 self.save_db()
-                logger.debug('update db loop')
+                logger.trace('update db loop')
                 self.tasks = {k: v for k, v in self.tasks.items() if k not in task_done}
                 times += 1
                 if times > 10:

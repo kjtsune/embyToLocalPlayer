@@ -201,8 +201,7 @@ def translate_path_by_ini(file_path, debug=False):
                 break
             else:
                 # path_check = True and debug = True and exists = False
-                _log = _logger.info if debug else _logger.debug
-                _log('debug: dev > path_check: fail >', tmp_path)
+                _logger.debug('dev > path_check: fail >', tmp_path)
     return file_path if file_path.startswith('http') else unicodedata.normalize('NFC', file_path)
 
 

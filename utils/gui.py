@@ -30,7 +30,7 @@ class App:
         screenwidth = self.root.winfo_screenwidth()
         screenheight = self.root.winfo_screenheight()
         align_str = '%dx%d+%d+%d' % (width, height, (screenwidth - width) / 2, (screenheight - height) / 2)
-        logger.debug(f'{align_str=}')
+        logger.trace(f'{align_str=}')
         self.width = width
         self.height = height
         self.root.geometry(align_str)
@@ -124,7 +124,7 @@ class App:
         # for x in range(50):
         #     list_box.insert(tkinter.END, str(x))
         for _ in item_list:
-            logger.debug(_)
+            logger.all(_)
             list_box.insert(tk.END, _)
 
         list_box['borderwidth'] = '0px'

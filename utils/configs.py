@@ -56,6 +56,16 @@ if mini_conf().get('dev', 'log_file', fallback=''):
     sys.stdout = Stdout()
     sys.stderr = sys.stdout
 
+LOG_LEVELS = {
+    'ALL': 0,
+    'TRACE': 5,
+    'DEBUG': 10,
+    'INFO': 20,
+    'WARNING': 30,
+    'ERROR': 40,
+    'CRITICAL': 50
+}
+
 
 class MyLogger:
     need_mix = True
@@ -66,7 +76,7 @@ class MyLogger:
     _log_queue = queue.SimpleQueue()
 
     def __init__(self):
-        self.debug_mode = configs.debug_mode
+        self.level = configs.log_level
 
     @staticmethod
     def log_printer_thread_start():
@@ -90,7 +100,6 @@ class MyLogger:
                 .replace(MyLogger.netloc, MyLogger.netloc_replace)
                 .replace(MyLogger.user_name, '_hide_user_')
                 for i in args]
-
     @staticmethod
     def log(*args, end=None, silence=False):
         if silence:
@@ -99,17 +108,26 @@ class MyLogger:
         args = ' '.join(str(i) for i in args)
         MyLogger._log_queue.put((t + args, end))
 
+    def _log(self, *args, level=20, end=None, silence=False):
+        if level >= self.level:
+            self.log(*args, end=end, silence=silence)
+
+    def all(self, *args, end=None, silence=False):
+        self._log(*args, level=0, end=end, silence=silence)
+
+    def trace(self, *args, end=None, silence=False):
+        self._log(*args, level=5, end=end, silence=silence)
+
+    def debug(self, *args, end=None, silence=False):
+        self._log(*args, level=10, end=end, silence=silence)
+
     def info(self, *args, end=None, silence=False):
         if not silence and MyLogger.need_mix:
             args = self.mix_args_str(*args)
-        self.log(*args, end=end, silence=silence)
-
-    def debug(self, *args, end=None, silence=False):
-        if self.debug_mode:
-            self.log(*args, end=end, silence=silence)
+        self._log(*args, level=20, end=end, silence=silence)
 
     def error(self, *args, end=None, silence=False):
-        self.log(*args, end=end, silence=silence)
+        self._log(*args, level=40, end=end, silence=silence)
 
 
 MyLogger.log_printer_thread_start()
@@ -126,7 +144,8 @@ class Configs:
         self.raw: ConfigParser = self.update()
         self.fullscreen = self.raw.getboolean('emby', 'fullscreen', fallback=True)
         self.speed_limit = self.raw.getfloat('dev', 'speed_limit', fallback=0)
-        self.debug_mode = self.raw.getboolean('dev', 'debug', fallback=False)
+        self.log_level = self.raw.get('dev', 'log_level', fallback='INFO')
+        self.log_level = LOG_LEVELS.get(self.log_level.upper(), LOG_LEVELS['INFO'])
         self.disable_audio = self.raw.getboolean('dev', 'disable_audio', fallback=False)  # test in vm
         self.gui_is_enable = self.raw.getboolean('gui', 'enable', fallback=False)
         self.cache_path = self.raw.get('gui', 'cache_path', fallback=None)
@@ -135,7 +154,7 @@ class Configs:
         self.dl_proxy = self._get_proxy('download')
         self.script_proxy = self._get_proxy('script')
         self.player_proxy = self._get_proxy('player')
-        if self.debug_mode:
+        if self.log_level < 20:
             print('dl_proxy:', self.dl_proxy)
             print('cache_db:', self.cache_db)
 

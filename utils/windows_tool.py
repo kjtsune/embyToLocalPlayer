@@ -151,7 +151,7 @@ def find_pid_by_windows_title(title):
                 target_pid = ctypes.c_ulong()
                 user32.GetWindowThreadProcessId(hwnd, ctypes.byref(target_pid))
                 pid = target_pid.value
-                logger.debug(f'{title=} {pid=}')
+                logger.trace(f'{title=} {pid=}')
         return True
 
     proc = EnumWindowsProc(for_each_window)
