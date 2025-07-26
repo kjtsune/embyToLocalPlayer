@@ -21,12 +21,12 @@ def _get_sub_order_by_ini(_sub_list):
 def subtitle_checker(media_streams, sub_index, mount_disk_mode, log=False):
     sub_inner_idx = 0
     sub_dict = {}
-    if sub_index == -1:
+    if sub_index in (-1, -3):  # -3 用于播放列表仅检测外挂字幕，内置字幕由播放器决定
         sub_dict_list = [s for s in media_streams if s['Type'] == 'Subtitle']
         sub_ext_list = [s for s in sub_dict_list if s['IsExternal']]
         sub_inner_list = [s for s in sub_dict_list if not s['IsExternal']]
 
-        if not sub_ext_list and sub_inner_list:
+        if sub_index != -3 and not sub_ext_list and sub_inner_list:
             _get_sub_order_by_ini(sub_inner_list)
             sub_inner_match = [i for i in sub_inner_list if i['Order'] != 0]
             if sub_inner_match:  # 可能影响多版本补充备选时的字幕顺序，问题不大，先不管。
@@ -608,7 +608,7 @@ def list_episodes(data: dict):
 
     title_data, start_data, end_data = title_intro_index_map()
     pretty_title = configs.raw.getboolean('dev', 'pretty_title', fallback=True)
-    need_check_inner_sub = {True: -1, False: -2}[bool(data.get('sub_inner_idx'))]
+    need_check_inner_sub = {True: -1, False: -3}[bool(data.get('sub_inner_idx'))]
 
     def parse_item(item, order):
         source_info = item['MediaSources'][0]
