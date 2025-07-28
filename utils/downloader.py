@@ -2,11 +2,12 @@ import os.path
 import threading
 import time
 import typing
+import urllib.parse
 
 from utils.configs import configs, MyLogger
 from utils.emby_api_thin import EmbyApiThin
 from utils.net_tools import requests_urllib, tg_notify
-from utils.tools import load_json_file, dump_json_file, scan_cache_dir, safe_deleter
+from utils.tools import load_json_file, dump_json_file, scan_cache_dir, safe_deleter, version_prefer_emby
 
 logger = MyLogger()
 
@@ -112,19 +113,27 @@ class Downloader:
 
 
 class DownloadManager:
-    def __init__(self, cache_path, speed_limit=0):
+    def __init__(self, cache_path, speed_limit=0, max_concurrent=3, per_domain_limit=2):
         self.cache_path = cache_path
         self.tasks = {}
         self.db = {}
         self.db_path = configs.cache_db
         self.update_loop_lock = False
         self.speed_limit = speed_limit
+        self.download_semaphore = threading.Semaphore(max_concurrent)
+        self.per_domain_limit = per_domain_limit
+        self.domain_semaphores = {}
         if configs.gui_is_enable:
             os.path.exists(cache_path) or os.mkdir(cache_path)
             self.load_db()
             threading.Thread(target=self.update_db_loop, daemon=True).start()
         if configs.raw.getboolean('gui', 'auto_resume', fallback=False):
             threading.Thread(target=self.resume_or_pause, kwargs={'resume_from_db': True}).start()
+
+    def get_domain_semaphore(self, domain: str):
+        if domain not in self.domain_semaphores:
+            self.domain_semaphores[domain] = threading.BoundedSemaphore(self.per_domain_limit)
+        return self.domain_semaphores[domain]
 
     def _init_dl(self, data, check_only=False):
         url, _id, pos = data['stream_url'], data['fake_name'], data['position']
@@ -143,6 +152,14 @@ class DownloadManager:
     def db_single_dict(dl):
         return dict(progress=dl.progress, download_only=dl.download_only, stream_url=dl.url)
 
+    def _percent_download_with_limit(self, dl: Downloader, start, end, update=True):
+        """受全局与域名并行下载限制的下载包装"""
+        domain = urllib.parse.urlparse(dl.url).netloc
+        domain_semaphore = self.get_domain_semaphore(domain)
+        with self.download_semaphore, domain_semaphore:
+            done = dl.percent_download(start=start, end=end, speed=self.speed_limit, update=update)
+            return done
+
     def download_only(self, data):
         url, _id, pos, dl = self._init_dl(data)
         if dl.progress == 1:
@@ -151,7 +168,7 @@ class DownloadManager:
         dl.download_only = True
         if dl.file_is_busy:
             return
-        if dl.percent_download(dl.progress, 1, speed=self.speed_limit):
+        if self._percent_download_with_limit(dl, dl.progress, 1):
             dl.download_only = False
 
     def play_check(self, data):
@@ -178,7 +195,7 @@ class DownloadManager:
             logger.info(f'{pos=} > {dl.progress} skip play')
         if not dl.file_is_busy and dl.progress != 1:
             logger.info('start download')
-            dl.percent_download(dl.progress, 1, speed=self.speed_limit)
+            self._percent_download_with_limit(dl, dl.progress, 1)
 
     def delete(self, data=None, _id: typing.Union[str, list] = None):
         self.update_loop_lock = True
@@ -221,12 +238,11 @@ class DownloadManager:
                     continue
                 elif dl.progress == 0:
                     dl.download_fist_last()
-                threading.Thread(target=dl.percent_download,
-                                 kwargs=dict(start=dl.progress, end=1, speed=self.speed_limit)).start()
+                threading.Thread(target=self._percent_download_with_limit,
+                                 kwargs=dict(dl=dl, start=dl.progress, end=1)).start()
 
     def cache_size_limit(self):
         limit = int(configs.raw.getint('gui', 'cache_size_limit') * 1024 ** 3)
-        # i: os.DirEntry
         dir_info = scan_cache_dir()
         dir_size = sum([i['stat'].st_size for i in dir_info])
         if dir_size > limit:
@@ -269,15 +285,18 @@ def prefetch_resume_tv():
     api_dict = configs.get_server_api_by_ini()
     for setting_single in settings_all:
         name, *startswith = setting_single
+        fetch_type = ''
+        if startswith[0] == 'first_last':
+            fetch_type = 'first_last'
         if name not in api_dict:
             logger.info(f'ini incorrect: {name} not set in [dev] > server_data_group, see FAQ')
             continue
         logger.info(f'prefetch conf: {name=} {startswith=}')
         emby_thin = api_dict[name]
-        threading.Thread(target=_prefetch_resume_tv, args=(emby_thin, startswith), daemon=True).start()
+        threading.Thread(target=_prefetch_resume_tv, args=(emby_thin, startswith, fetch_type), daemon=True).start()
 
 
-def _prefetch_resume_tv(emby_thin: EmbyApiThin, startswith):
+def _prefetch_resume_tv(emby_thin: EmbyApiThin, startswith, fetch_type=''):
     startswith = tuple(startswith)
     null_file = 'NUL' if os.name == 'nt' else '/dev/null'
 
@@ -300,12 +319,14 @@ def _prefetch_resume_tv(emby_thin: EmbyApiThin, startswith):
         resume_ids = [i['Id'] for i in items_all]
         item_done_stat = {k: v for k, v in item_done_stat.items() if k in resume_ids}
         notify_item_list = []
-        for ep in items_all:
+        for ep_index, ep in enumerate(items_all):
             item_id = ep['Id']
+            ep_file_path = ep['Path']
+            ep_basename = os.path.basename(ep_file_path)
             source_info = ep['MediaSources'][0] if 'MediaSources' in ep else ep
-            file_path = source_info['Path']
-            is_strm = file_path.startswith('http') or ep['Path'].endswith('.strm')
-            if not file_path.startswith(startswith) and '/' not in startswith and not is_strm:
+            source_path = source_info['Path']
+            is_strm = source_path.startswith('http') or ep_file_path.endswith('.strm')
+            if not ep_file_path.startswith(startswith) and '/' not in startswith and not is_strm:
                 continue
             if item_id in strm_done_list:
                 continue
@@ -329,8 +350,19 @@ def _prefetch_resume_tv(emby_thin: EmbyApiThin, startswith):
                 item_url = f"[emby]({host}/web/index.html#!/item?id={item_id}&serverId={ep['ServerId']})"
                 notify_msg = f"{image}{ep['SeriesName']} \| `{time.ctime()}` \| {item_url}"
 
+                media_sources = playback_info['MediaSources']
+                ep_source_name = [m['Name'] for m in media_sources if m['Name'] in ep_basename][0]
+                if fetch_type == 'fetch_type':
+                    playback_info['MediaSources'] = [version_prefer_emby(media_sources)]
+
+
                 for source_info in playback_info['MediaSources']:
-                    file_path = source_info['Path']
+                    source_path = source_info['Path']
+                    file_path = ep_file_path
+                    is_http_source = source_path.startswith('http')
+                    if is_strm and is_http_source and source_info['Name'] not in ep_file_path:
+                        file_path = ep_file_path.replace(ep_source_name, source_info['Name'])
+                    fake_name = os.path.splitdrive(file_path)[1].replace('/', '__').replace('\\', '__')
                     container = os.path.splitext(file_path)[-1]
                     source_id = source_info['Id']
                     if source_id in item_done_stat[item_id]:
@@ -342,6 +374,10 @@ def _prefetch_resume_tv(emby_thin: EmbyApiThin, startswith):
                     stream_url = f'{host}/emby/videos/{item_id}/stream{container}' \
                                  f'?DeviceId=embyToLocalPlayer&MediaSourceId={source_id}&Static=true' \
                                  f'&PlaySessionId={play_session_id}&api_key={emby_thin.api_key}'
+                    strm_direct = configs.check_str_match(host, 'dev', 'strm_direct_host', log=False)
+                    is_http_direct_strm = is_strm and strm_direct and is_http_source
+                    if is_http_direct_strm:
+                        stream_url = source_path
                     if stream_redirect := configs.ini_str_split('dev', 'stream_redirect'):
                         stream_redirect = zip(stream_redirect[0::2], stream_redirect[1::2])
                         for (_raw, _jump) in stream_redirect:
@@ -357,6 +393,11 @@ def _prefetch_resume_tv(emby_thin: EmbyApiThin, startswith):
                     if configs.check_str_match(host, 'dev', 'stream_prefix', log=False):
                         stream_prefix = configs.ini_str_split('dev', 'stream_prefix')[0].strip('/')
                         stream_url = f'{stream_prefix}{stream_url}'
+                    if fetch_type == 'first_last' and ep_index < 2:
+                        ep['stream_url'], ep['fake_name'], ep['position'] = stream_url, fake_name, 0.1
+                        ep['gui_cmd'] = 'download_not_play'
+                        requests_urllib('http://127.0.0.1:58000/gui', _json=ep)
+                        continue
                     if is_strm:
                         strm_done_list.append(item_id)
                         logger.info(f'get playback info only, cuz is strm [{ep["Name"]}]{relative_path}')

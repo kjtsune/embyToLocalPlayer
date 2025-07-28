@@ -53,11 +53,18 @@ def tg_notify(msg, silence=False):
                             'parse_mode': 'MarkdownV2'}, decode=True, timeout=8)
 
 
+def safe_url(url):
+    parts = urllib.parse.urlsplit(url)
+    return urllib.parse.urlunsplit(
+        (parts.scheme, parts.netloc, urllib.parse.quote(parts.path), parts.query, parts.fragment))
+
+
 def requests_urllib(host, params=None, _json=None, decode=False, timeout=5.0, headers=None, req_only=False,
                     http_proxy='', get_json=False, save_path='', retry=5, silence=False, res_only=False):
     _json = json.dumps(_json).encode('utf-8') if _json else None
     params = urllib.parse.urlencode(params) if params else None
     host = host + '?' + params if params else host
+    host = safe_url(host)
     req = urllib.request.Request(host)
     http_proxy = http_proxy or configs.script_proxy
     if http_proxy and not host.startswith(('http://127.0.0.1', 'http://localhost')):

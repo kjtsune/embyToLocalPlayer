@@ -152,7 +152,8 @@ class BangumiApi:
             bgm_date = ep.get('airdate') or ep.get('date')
             if not bgm_date:
                 continue
-            if abs((datetime.datetime.fromisoformat(bgm_date) - dates[date_idx]).days) <= fuzzy_days:
+            # bgm 少部分 date 是 '1999-9-20'
+            if abs((datetime.datetime.strptime(bgm_date[:10], '%Y-%m-%d') - dates[date_idx]).days) <= fuzzy_days:
                 res.append(ep)
                 date_idx += 1
             if date_idx == len(dates):
