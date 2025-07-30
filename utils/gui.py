@@ -4,7 +4,7 @@ import tkinter.font as tk_front
 
 from utils.configs import configs, MyLogger
 from utils.net_tools import requests_urllib
-from utils.tools import load_json_file, scan_cache_dir
+from utils.tools import scan_cache_dir, load_dict_jsons_in_folder
 
 logger = MyLogger()
 
@@ -94,7 +94,8 @@ class App:
                             ])
 
     def show_task_manager(self, sort=None):
-        db = load_json_file(configs.cache_db)
+        db = load_dict_jsons_in_folder(configs.cache_path, required_key='_id')
+        db = {i['_id']: i for i in db}
         file_list = [i for i in scan_cache_dir() if i['_id'] in db]
         [i.update(db[i['_id']]) for i in file_list]
         if sort == 'name':

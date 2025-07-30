@@ -143,7 +143,7 @@ class Configs:
         self.path = [i for i in self.path if os.path.exists(i)][0]
         self.raw: ConfigParser = self.update()
         self.fullscreen = self.raw.getboolean('emby', 'fullscreen', fallback=True)
-        self.speed_limit = self.raw.getfloat('dev', 'speed_limit', fallback=0)
+        self.speed_limit = self.raw.getfloat('gui', 'speed_limit', fallback=0)
         self.log_level = self.raw.get('dev', 'log_level', fallback='INFO')
         self.log_level = LOG_LEVELS.get(self.log_level.upper(), LOG_LEVELS['INFO'])
         self.disable_audio = self.raw.getboolean('dev', 'disable_audio', fallback=False)  # test in vm

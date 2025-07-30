@@ -61,6 +61,20 @@ def dump_json_file(obj, file, encoding='utf-8'):
         json.dump(obj, f, indent=2, ensure_ascii=False)
 
 
+def load_dict_jsons_in_folder(directory, required_key=None):
+    res = []
+    for filename in os.listdir(directory):
+        if not filename.lower().endswith('.json'):
+            continue
+
+        file_path = os.path.join(directory, filename)
+        js = load_json_file(file_path, error_return='dict')
+        if required_key and not required_key in js:
+            continue
+        res.append(js)
+
+    return res
+
 class ThreadWithReturnValue(threading.Thread):
     def __init__(self, group=None, target=None, name=None, args=(), kwargs=None, *, daemon=None):
         threading.Thread.__init__(self, group, target, name, args, kwargs, daemon=daemon)
