@@ -3,7 +3,7 @@
 // @name:zh-CN   embyToLocalPlayer
 // @name:en      embyToLocalPlayer
 // @namespace    https://github.com/kjtsune/embyToLocalPlayer
-// @version      2025.05.09
+// @version      2025.08.02
 // @description  Emby/Jellyfin 调用外部本地播放器，并回传播放记录。适配 Plex。
 // @description:zh-CN Emby/Jellyfin 调用外部本地播放器，并回传播放记录。适配 Plex。
 // @description:en  Play in an external player. Update watch history to Emby/Jellyfin server. Support Plex.
@@ -102,26 +102,63 @@
         _init_config_by_key('crackFullPath');
     }
 
+    let menuRegistry = [];
+    let registeredMenus = [];
+
     function switchLocalStorage(key, defaultValue = 'true', trueValue = 'true', falseValue = 'false') {
         if (key in localStorage) {
             let value = (localStorage.getItem(key) === trueValue) ? falseValue : trueValue;
             localStorage.setItem(key, value);
         } else {
-            localStorage.setItem(key, defaultValue)
+            localStorage.setItem(key, defaultValue);
         }
-        logger.info('switchLocalStorage ', key, ' to ', localStorage.getItem(key));
+        logger.info('switchLocalStorage', key, 'to', localStorage.getItem(key));
+    }
+
+    function registerAllMenus() {
+        registeredMenus.forEach(id => GM_unregisterMenuCommand(id));
+        registeredMenus = [];
+
+        menuRegistry.forEach(item => {
+            let id;
+
+            if (item.type === 'switch') {
+                let title = item.menuStart + item.switchNameMap[localStorage.getItem(item.storageKey)] + item.menuEnd;
+                id = GM_registerMenuCommand(title, () => {
+                    switchLocalStorage(item.storageKey);
+                    registerAllMenus(); // 刷新菜单显示
+                });
+            } else if (item.type === 'callback') {
+                id = GM_registerMenuCommand(item.title, item.callback);
+            }
+
+            registeredMenus.push(id);
+            item.menuId = id;
+        });
     }
 
     function setModeSwitchMenu(storageKey, menuStart = '', menuEnd = '', defaultValue = '关闭', trueValue = '开启', falseValue = '关闭') {
         let switchNameMap = { 'true': trueValue, 'false': falseValue, null: defaultValue };
-        let menuId = GM_registerMenuCommand(menuStart + switchNameMap[localStorage.getItem(storageKey)] + menuEnd, clickMenu);
 
-        function clickMenu() {
-            GM_unregisterMenuCommand(menuId);
-            switchLocalStorage(storageKey)
-            menuId = GM_registerMenuCommand(menuStart + switchNameMap[localStorage.getItem(storageKey)] + menuEnd, clickMenu);
-        }
+        menuRegistry.push({
+            type: 'switch',
+            storageKey,
+            menuStart,
+            menuEnd,
+            switchNameMap
+        });
 
+        registerAllMenus();
+    }
+
+    function setCallbackMenu(title, callback) {
+        menuRegistry.push({
+            type: 'callback',
+            title,
+            callback
+        });
+
+        registerAllMenus();
     }
 
     function removeErrorWindows() {
@@ -635,6 +672,13 @@
 
     setModeSwitchMenu('webPlayerEnable', '脚本在当前服务器 已', '', '启用', '禁用', '启用');
     setModeSwitchMenu('mountDiskEnable', '读取硬盘模式已经 ');
+
+    function showGuiMenu() {
+        sendDataToLocalServer({ 'showTaskManager': true }, 'embyToLocalPlayer');
+    }
+    if ('etlpTaskManager' in localStorage) {
+        setCallbackMenu('查看缓存任务', showGuiMenu);
+    }
 
     _init_config_main();
 })();
