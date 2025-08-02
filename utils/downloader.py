@@ -8,8 +8,8 @@ import urllib.parse
 from utils.configs import configs, MyLogger
 from utils.emby_api_thin import EmbyApiThin
 from utils.net_tools import requests_urllib, tg_notify
-from utils.tools import load_json_file, dump_json_file, scan_cache_dir, safe_deleter, version_prefer_emby, \
-    load_dict_jsons_in_folder
+from utils.tools import (load_json_file, dump_json_file, scan_cache_dir, safe_deleter, version_prefer_emby,
+                         load_dict_jsons_in_folder, create_sparse_file)
 
 logger = MyLogger()
 
@@ -84,7 +84,7 @@ class Downloader:
         else:
             lock_acquired = self.file_lock.acquire_lock(blocking=False)
             if lock_acquired:
-                logger.info(f'dl: Lock acquired for {_id}')
+                logger.info(f'dl: lock success: {_id}')
                 if self.restore_state():
                     pass
                 else:
@@ -94,13 +94,13 @@ class Downloader:
                 self.restore_state()
 
     def save_state(self):
-        state = dict(_id=self.id, url=self.url, size=self.size,
+        state = dict(_id=self.id, stream_url=self.url, size=self.size,
                      download_only=self.download_only, pause=self.pause,
                      progress=self.progress)
         dump_json_file(state, self.task_file)
 
     def restore_state(self, ):
-        state = load_json_file(self.task_file, error_return='dict')
+        state = load_json_file(self.task_file, error_return='dict', silence=True)
         self.progress = state.get('progress', self.progress)
         self.download_only = state.get('download_only', self.download_only)
         self.pause = state.get('pause', self.pause)
@@ -126,6 +126,22 @@ class Downloader:
             if safe_deleter(self.file):
                 logger.info(f'delete by start 0, {self.file}')
         open_mode = 'r+b' if os.path.exists(self.file) else 'wb'
+        if open_mode == 'wb' and configs.raw.getboolean('gui', 'sparse_file_by_server', fallback=False):
+            if server_href := configs.raw.get('dev', 'server_side_href', fallback=''):
+                _res = requests_urllib(f'{server_href}/action/sparse_file',
+                                       _json={'name': self.id, 'size': self.size}, get_json=True)
+                if not _res.get('sparse_file'):
+                    raise Exception('server sparse_file fail, check it.')
+                for _ in range(10):
+                    if os.path.exists(self.file):
+                        open_mode = 'r+b'
+                        break
+                    else:
+                        print('.', end='')
+                        time.sleep(0.3)
+        if open_mode == 'wb':
+            create_sparse_file(self.file, size=self.size)
+            open_mode = 'r+b'
         headers = {'Range': f'bytes={start}-{end}'}
         try:
             response = requests_urllib(self.url, headers=headers, http_proxy=configs.dl_proxy, res_only=True)
@@ -133,7 +149,12 @@ class Downloader:
             logger.error(self.id, 'connect init error')
             return start
         logger.trace(headers)
-        h_size = int(response.getheader('Content-Length'))
+        h_size = response.getheader('Content-Length', response.getheader('Content-Range'))
+        if ''.isdigit():
+            h_size = int(h_size)
+        else:
+            _s, _e = h_size.split(' ')[1].split('/')[0].split('-')
+            h_size = int(_e) - int(_s) + 1
         logger.trace('total_size', self.size, 'size', h_size, 'size_mb', h_size // 1024 // 1024, f'{open_mode=}')
         downloaded_size = 0
         with open(self.file, open_mode) as f:
@@ -168,7 +189,7 @@ class Downloader:
     def percent_download(self, start, end, speed=0, update=True):
         self.get_size()
         self.file_is_busy = True
-        logger.info(f'download: {self.id} _start {start} _end {end}')
+        logger.info(f'dl: start {int(start * 100)}% end {int(end * 100)}% \n{self.id}')
         _start = int(float(self.size * start))
         _end = int(float(self.size * end))
         end_with = self.range_download(_start, _end, speed=speed, update=update)
@@ -176,7 +197,7 @@ class Downloader:
             if self.cancel or self.pause:
                 self.file_is_busy = False
                 return
-            logger.info('percent download error found')
+            logger.info('dl: percent download error found')
             time.sleep(1)
             _start = end_with
             end_with = self.range_download(_start, _end, speed=speed, update=update)
@@ -191,7 +212,7 @@ class Downloader:
         self.percent_download(0.99, 1, update=False)
         self.progress = 0.01
 
-    def cancel_download(self):
+    def cancel_download(self, silence=False):
         self.cancel = True
         while self.file_is_busy:
             time.sleep(1)
@@ -204,7 +225,7 @@ class Downloader:
                 except Exception as e:
                     logger.info(f'dl: file is lock, can not delete on is machine, {str(e)[:30]}\n{self.id}')
                 done = True
-        done and logger.info(f'dl: delete done {self.id}')
+        done and not silence and logger.info(f'dl: delete done {self.id}')
         return done
 
 
@@ -222,8 +243,8 @@ class DownloadManager:
         if configs.gui_is_enable:
             os.path.exists(cache_path) or os.mkdir(cache_path)
             threading.Thread(target=self.update_db_loop, daemon=True).start()
-        if configs.raw.getboolean('gui', 'auto_resume', fallback=False):
-            threading.Thread(target=self.resume_or_pause, kwargs={'resume_from_db': True}).start()
+            if configs.raw.getboolean('gui', 'auto_resume', fallback=False):
+                threading.Thread(target=self.resume_or_pause, kwargs={'resume_from_db': True}).start()
 
     def get_domain_semaphore(self, domain: str):
         if domain not in self.domain_semaphores:
@@ -248,10 +269,6 @@ class DownloadManager:
         logger.trace(f'init_dl {dl.download_only=}')
         return url, _id, pos, dl
 
-    @staticmethod
-    def db_single_dict(dl):
-        return dict(progress=dl.progress, download_only=dl.download_only, stream_url=dl.url)
-
     def _percent_download_with_limit(self, dl: Downloader, start, end, update=True):
         domain = urllib.parse.urlparse(dl.url).netloc
         domain_semaphore = self.get_domain_semaphore(domain)
@@ -262,13 +279,14 @@ class DownloadManager:
     def download_only(self, data):
         url, _id, pos, dl = self._init_dl(data)
         if not dl.file_lock.has_lock:
-            logger.info(f'dlm: already locked, skip. {_id}')
+            logger.info(f'dlm: skip, already locked. {_id}')
             return
         if dl.progress == 1:
-            logger.info(f'{_id} already done')
+            logger.info(f'dlm: skip, already done {_id}')
             return
         dl.download_only = True
         if dl.file_is_busy:
+            logger.info(f'dlm: skip, already downloading {_id}')
             return
         if self._percent_download_with_limit(dl, dl.progress, 1):
             dl.download_only = False
@@ -276,8 +294,10 @@ class DownloadManager:
     def play_check(self, data):
         url, _id, pos, dl = self._init_dl(data, check_only=True)
         if not dl.download_only and dl.progress > pos:
-            logger.info(f'play_check {dl.download_only=}')
             data['media_path'] = dl.file
+        if not os.path.exists(dl.file):
+            dl.cancel_download(silence=True)
+        logger.info(f'dlm: play_check {dl.download_only=} {dl.progress=}')
         data['gui_cmd'] = 'play'
         requests_urllib('http://127.0.0.1:58000/gui', _json=data)
 
@@ -305,22 +325,25 @@ class DownloadManager:
                 return
             if read_only:
                 return
-            self._percent_download_with_limit(dl, dl.progress, 1)
             logger.info(f'dlm: start download {dl.id}')
+            self._percent_download_with_limit(dl, dl.progress, 1)
 
     def delete(self, data=None, _id: typing.Union[str, list] = None):
         self.update_loop_lock = True
-        if data:
+        dl = None
+        if data:  # delete current
             url, _id, pos, dl = self._init_dl(data)
-            dl.cancel_download()
         _ids = _id if isinstance(_id, list) else [_id]
-        logger.info(f'ready to delete: {_ids=}')
+        logger.info(f'dlm: delete ids: {_ids=}')
         for _id in _ids:
             if _id in self.tasks:
                 _dl = self.tasks[_id]
                 _dl.cancel_download()
                 del self.tasks[_id]
             else:
+                if dl:  # delete current but not in tasks
+                    dl.cancel_download()
+                    break
                 *_, _dl = self._get_fake_init_dl(_id=_id)
                 _dl.cancel_download()
         self.update_loop_lock = False
@@ -337,7 +360,7 @@ class DownloadManager:
         def fake_tasks_info():
             r = []
             for js in self.get_all_json_task():
-                _d = self._get_fake_init_dl(_id=js['_id'], url=js['url'], get_fake_data=True)
+                _d = self._get_fake_init_dl(_id=js['_id'], url=js['stream_url'], get_fake_data=True)
                 r.append(_d)
             return r
 
@@ -351,6 +374,7 @@ class DownloadManager:
             if operate == 'pause':
                 dl.pause = True
             elif operate == 'resume':
+                dl.pause = False
                 if dl.progress == 1:
                     continue
                 elif dl.progress == 0:
@@ -503,6 +527,8 @@ def _prefetch_resume_tv(emby_thin: EmbyApiThin, startswith, fetch_type=''):
                         stream_prefix = configs.ini_str_split('dev', 'stream_prefix')[0].strip('/')
                         stream_url = f'{stream_prefix}{stream_url}'
                     if fetch_type == 'first_last' and ep_index < 2:
+                        if not configs.gui_is_enable:
+                            continue
                         ep['stream_url'], ep['fake_name'], ep['position'] = stream_url, fake_name, 0.1
                         ep['gui_cmd'] = 'download_not_play'
                         requests_urllib('http://127.0.0.1:58000/gui', _json=ep)

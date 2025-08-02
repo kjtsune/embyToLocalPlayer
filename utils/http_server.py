@@ -16,7 +16,8 @@ from utils.net_tools import update_server_playback_progress, sync_third_party_fo
 from utils.player_manager import PlayerManager
 from utils.players import start_player_func_dict, stop_sec_func_dict
 from utils.tools import (configs, MyLogger, open_local_folder, play_media_file,
-                         activate_window_by_pid, get_player_cmd, ThreadWithReturnValue)
+                         activate_window_by_pid, get_player_cmd, ThreadWithReturnValue,
+                         create_sparse_file)
 from utils.trakt_sync import trakt_api_client
 
 player_is_running = False
@@ -51,19 +52,20 @@ def run_server(ip='127.0.0.1', port=58000):
 
 class UserScriptRequestHandler(BaseHTTPRequestHandler):
 
-    def _set_headers(self):
-        self.send_response(200)
+    def _post_resopne(self, msg=None, status=200):
+        self.send_response(status)
         self.send_header('Content-type', 'application/json')
         self.send_header('Access-Control-Allow-Origin', '*')
         self.end_headers()
+        msg = msg or {'msg': 'default'}
+        self.wfile.write(json.dumps(msg).encode('utf-8'))
 
     def do_POST(self):
         length = int(self.headers.get('content-length'))
         data = json.loads(self.rfile.read(length))
-        self._set_headers()
-        self.wfile.write(json.dumps({'success': True}).encode('utf-8'))
         configs.update()
         if 'ToLocalPlayer' in self.path:
+            self._post_resopne()
             if data.get('showTaskManager'):
                 from utils.gui import show_task_manager
                 # multiprocessing.Process(target=show_task_manager, daemon=True).start()
@@ -87,6 +89,17 @@ class UserScriptRequestHandler(BaseHTTPRequestHandler):
             'resume_or_pause': threading.Thread(target=dl_manager.resume_or_pause, args=(data,)),
         }
         [setattr(t, 'daemon', True) for t in thread_dict.values()]
+
+        if self.path.startswith('/action'):
+            if self.path.endswith('sparse_file'):
+                cache_dir = configs.raw.get('gui', 'server_cache_path', fallback='')
+                if not cache_dir:
+                    logger.error('gui[server_cache_path] missing, check it')
+                    return
+                create_sparse_file(os.path.join(cache_dir, data['name']), data['size'])
+                return self._post_resopne({'sparse_file': True})
+
+        self._post_resopne()
         if self.path in ('/gui', '/dl', '/pl'):
             gui_cmd = data['gui_cmd']
             logger.info(self.path, gui_cmd)
@@ -114,7 +127,7 @@ class UserScriptRequestHandler(BaseHTTPRequestHandler):
             play_media_file(data)
         else:
             logger.error(self.path, ' not allow')
-            return json.dumps({'success': True}).encode('utf-8')
+            self._post_resopne({'msg': f'{self.path} not allow'})
 
     def do_OPTIONS(self):
         pass

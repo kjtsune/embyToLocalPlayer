@@ -45,12 +45,12 @@ def scan_cache_dir():
     return [dict(_id=i.name, path=i.path, stat=i.stat()) for i in os.scandir(configs.cache_path) if i.is_file()]
 
 
-def load_json_file(file, error_return='list', encoding='utf-8'):
+def load_json_file(file, error_return='list', encoding='utf-8', silence=False):
     try:
         with open(file, encoding=encoding) as f:
             _json = json.load(f)
     except (FileNotFoundError, ValueError):
-        print(f'load json file fail, fallback to {error_return}')
+        silence or _logger.info(f'load json file fail, fallback to {error_return}\n{file}')
         return dict(list=[], dict={})[error_return]
     else:
         return _json
@@ -74,6 +74,59 @@ def load_dict_jsons_in_folder(directory, required_key=None):
         res.append(js)
 
     return res
+
+
+def create_sparse_file(path: str, size: int):
+    if os.path.exists(path):
+        raise FileExistsError('create_sparse_file: file should not exists')
+    if os.name != 'nt':
+        with open(path, 'wb') as f:
+            f.seek(size - 1)
+            f.write(b'\0')
+        return
+
+    import ctypes
+    from ctypes import wintypes
+
+    with open(path, 'wb') as f:
+        pass
+
+    FSCTL_SET_SPARSE = 0x900C4
+    GENERIC_WRITE = 0x40000000
+    OPEN_EXISTING = 3
+
+    handle = ctypes.windll.kernel32.CreateFileW(
+        wintypes.LPCWSTR(path),
+        GENERIC_WRITE,
+        0,
+        None,
+        OPEN_EXISTING,
+        0,
+        None
+    )
+
+    if handle == -1 or handle == ctypes.c_void_p(-1).value:
+        raise OSError('无法打开文件以设置稀疏属性')
+
+    bytes_returned = wintypes.DWORD(0)
+    res = ctypes.windll.kernel32.DeviceIoControl(
+        handle,
+        FSCTL_SET_SPARSE,
+        None, 0,
+        None, 0,
+        ctypes.byref(bytes_returned),
+        None
+    )
+
+    ctypes.windll.kernel32.CloseHandle(handle)
+
+    if not res:
+        raise OSError('设置稀疏属性失败')
+
+    with open(path, 'r+b') as f:
+        f.seek(size - 1)
+        f.write(b'\0')
+
 
 class ThreadWithReturnValue(threading.Thread):
     def __init__(self, group=None, target=None, name=None, args=(), kwargs=None, *, daemon=None):

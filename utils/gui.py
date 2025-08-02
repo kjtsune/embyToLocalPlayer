@@ -138,17 +138,17 @@ class App:
             nonlocal id_list
             operate_id_index_list = []
             for _i in list_box.curselection()[::-1]:
-                logger.info(list_box.get(_i))
+                logger.debug(f'gui: select {list_box.get(_i)}')
                 if operate == 'delete':
                     list_box.delete(_i)
                 operate_id_index_list.append(id_list[_i])
+            logger.info(f'gui: {operate} {operate_id_index_list}')
             if operate == 'delete':
                 id_list = [i for i in id_list if i not in operate_id_index_list]
                 data = dict(_id=operate_id_index_list)
                 self.send_data_with_cmd(data=data, gui_cmd='delete_by_id', destroy=False)
             elif operate in ['resume', 'pause']:
                 data_list = []
-                logger.info(f'{operate_id_index_list=}')
                 for _id in operate_id_index_list:
                     _dict = dict(fake_name=_id, position=None)
                     _dict.update(db[_id])
