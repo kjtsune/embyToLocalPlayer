@@ -41,6 +41,9 @@ def init_player_instance(function, **kwargs):
             break
         except Exception as e:
             logger.error(f'{str(e)[:40]} init_player: {init_times=}')
+            if function is MPV:
+                logger.error('may need set or unset static pipe -> dev[mpv_input_ipc_server] = <pipe_path>.'
+                             '\nstatic pipe required by some lua script, but not support multi mpv instance')
             init_times += 1
     return player
 
@@ -53,7 +56,16 @@ def mpv_player_start(cmd, start_sec=None, sub_file=None, media_title=None, get_s
     is_mpvnet = True if 'mpvnet' in cmd[0] else False
     pipe_name = get_pipe_or_port_str(get_pipe=True)
     cmd_pipe = fr'\\.\pipe\{pipe_name}' if os.name == 'nt' else f'/tmp/{pipe_name}.pipe'
-    pipe_name = pipe_name if os.name == 'nt' else cmd_pipe
+    if conf_pipe := configs.raw.get('dev', 'mpv_input_ipc_server', fallback=''):
+        if os.name == 'nt':
+            pipe_name = conf_pipe.replace(r'\\.\pipe', '').strip('/\\').replace('/', '\\')
+            cmd_pipe = fr'\\.\pipe\{pipe_name}'
+        else:
+            pipe_name = conf_pipe
+            cmd_pipe = conf_pipe if conf_pipe.startswith('/') else f'/tmp/{pipe_name}'
+        logger.warn(f'mpv static pipe found, not support multi instance: {cmd_pipe=}')
+    else:
+        pipe_name = pipe_name if os.name == 'nt' else cmd_pipe
     osd_title = '${path}' if mount_disk_mode else media_title
     if sub_inner_idx:= data.get('sub_inner_idx'):
         cmd.append(f'--sid={sub_inner_idx}')
@@ -175,6 +187,8 @@ def playlist_add_mpv(mpv: MPV, data, eps_data=None, limit=10):
         except Exception:
             pass
 
+    gui_without_confirm = data.get('gui_without_confirm')
+
     def loop_episodes(eps, insert=False):
         for ep in eps:
             basename = ep['basename']
@@ -212,6 +226,8 @@ def playlist_add_mpv(mpv: MPV, data, eps_data=None, limit=10):
                     mpv_cmd = ['loadfile', ep['media_path'], 'insert-at', '0', options]
                 else:
                     mpv_cmd = ['loadfile', ep['media_path'], 'append', '-1', options]
+                    if gui_without_confirm:
+                        mpv_cmd[1] = os.path.join(configs.cache_path, ep['fake_name'])
                 logger.debug(options)
                 if not new_loadfile_cmd:
                     del mpv_cmd[-2]
@@ -275,7 +291,8 @@ def stop_sec_mpv(mpv: MPV, stop_sec_only=True, **_):
         if total_sec := mpv.command('get_property', 'duration'):
             _t = mpv.command('get_property', 'media-title')
             name_total_sec_dict[_t] = total_sec
-            logger.info(f'mpv: get strm file {total_sec=}')
+            if '.strm' in _t:
+                logger.info(f'mpv: get strm file {total_sec=}')
 
     while True:
         try:

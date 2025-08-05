@@ -126,6 +126,9 @@ class MyLogger:
             args = self.mix_args_str(*args)
         self._log(*args, level=20, end=end, silence=silence)
 
+    def warn(self, *args, end=None, silence=False):
+        self._log(*args, level=30, end=end, silence=silence)
+
     def error(self, *args, end=None, silence=False):
         self._log(*args, level=40, end=end, silence=silence)
 
