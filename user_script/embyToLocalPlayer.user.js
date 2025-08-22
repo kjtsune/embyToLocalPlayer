@@ -166,7 +166,7 @@
         let state = false;
         for (let index = 0; index < okButtonList.length; index++) {
             const element = okButtonList[index];
-            if (element.textContent.search(/(了解|好的|知道|Got It)/) != -1) {
+            if (element.textContent.search(/(了解|好的|知道|明白|Got It)/) != -1) {
                 element.click();
                 if (isHidden(element)) { continue; }
                 state = true;
