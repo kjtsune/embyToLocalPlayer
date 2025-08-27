@@ -21,28 +21,36 @@ def _get_sub_order_by_ini(_sub_list):
 def subtitle_checker(media_streams, sub_index, mount_disk_mode, log=False):
     sub_inner_idx = 0
     sub_dict = {}
-    if sub_index in (-1, -3):  # -3 用于播放列表仅检测外挂字幕，内置字幕由播放器决定
-        sub_dict_list = [s for s in media_streams if s['Type'] == 'Subtitle']
-        sub_ext_list = [s for s in sub_dict_list if s['IsExternal']]
-        sub_inner_list = [s for s in sub_dict_list if not s['IsExternal']]
+    # sub_index > 0 选中字幕；-1 未选中字幕；-3 用于播放列表仅检测外挂字幕，内置字幕由播放器决定
+    sub_dict_list = [s for s in media_streams if s['Type'] == 'Subtitle']
+    sub_ext_list = [s for s in sub_dict_list if s['IsExternal']]
+    sub_inner_list = [s for s in sub_dict_list if not s['IsExternal']]
 
-        if sub_index != -3 and not sub_ext_list and sub_inner_list:
-            _get_sub_order_by_ini(sub_inner_list)
-            sub_inner_match = [i for i in sub_inner_list if i['Order'] != 0]
-            if sub_inner_match:  # 可能影响多版本补充备选时的字幕顺序，问题不大，先不管。
-                sub_inner_match.sort(key=lambda s: s['Order'])
-                sub_inner_match = sub_inner_match[0]
-                sub_inner_idx = sub_inner_list.index(sub_inner_match) + 1
-                log and logger.info(
-                    f"subtitles: cuz unspecified and not external -> subtitle_priority: --sid={sub_inner_idx} "
-                    f"(mpv only): {sub_inner_match.get('Title', '')},{sub_inner_match['DisplayTitle']}")
+    if sub_index == -1 and not sub_ext_list and sub_inner_list:
+        _get_sub_order_by_ini(sub_inner_list)
+        sub_inner_match = [i for i in sub_inner_list if i['Order'] != 0]
+        if sub_inner_match:  # 可能影响多版本补充备选时的字幕顺序，问题不大，先不管。
+            sub_inner_match.sort(key=lambda s: s['Order'])
+            sub_inner_match = sub_inner_match[0]
+            sub_inner_idx = sub_inner_list.index(sub_inner_match) + 1
+            log and logger.info(
+                f"subtitles: cuz unspecified and not external -> subtitle_priority: --sid={sub_inner_idx} "
+                f"(mpv only): {sub_inner_match.get('Title', '')},{sub_inner_match['DisplayTitle']}")
 
-        if not mount_disk_mode:
-            _get_sub_order_by_ini(sub_ext_list)
-            sub_ext_list = [i for i in sub_ext_list if i['Order'] != 0]
-            sub_ext_list.sort(key=lambda s: s['Order'])
-            sub_dict = sub_ext_list[0] if sub_ext_list else {}
-            sub_index = sub_dict.get('Index', sub_index)
+    if sub_index > 0:
+        sub_dict = media_streams[sub_index]
+        select_external = sub_dict.get('IsExternal')
+        if not select_external:
+            sub_inner_idx = sub_inner_list.index(sub_dict) + 1
+        if select_external and mount_disk_mode:
+            sub_dict = {}
+
+    if sub_index in (-1, -3) and not mount_disk_mode:
+        _get_sub_order_by_ini(sub_ext_list)
+        sub_ext_list = [i for i in sub_ext_list if i['Order'] != 0]
+        sub_ext_list.sort(key=lambda s: s['Order'])
+        sub_dict = sub_ext_list[0] if sub_ext_list else {}
+        sub_index = sub_dict.get('Index', sub_index)
 
     return sub_index, sub_inner_idx, sub_dict
 
@@ -96,6 +104,7 @@ def parse_received_data_emby(received_data):
 
     if is_strm and is_http_source and len(media_sources) > 1 and media_source_info['Name'] not in file_path:
         basename = os.path.basename(file_path)
+        # Season 0/S0E04-ver-a.strm Specials/S0E04-ver-b.strm 这种情况也可能导致路径文件夹名称拼装错误。
         for _m in media_sources:
             if _m['Name'] in basename:  # S01E01.mkv 这种无解
                 file_path = file_path.replace(_m['Name'], media_source_info['Name'])
@@ -158,10 +167,8 @@ def parse_received_data_emby(received_data):
         else:
             media_path = stream_url
 
-    # 避免将内置字幕转为外挂字幕，内置字幕选择由播放器决定
     media_streams = media_source_info['MediaStreams']
-
-    sub_index = sub_index if sub_index < 0 or media_streams[sub_index]['IsExternal'] else -2
+    # mpv 可传递首集内封字幕选中序号，其他播放器由播放器自身规则决定。
     sub_index, sub_inner_idx, sub_dict = subtitle_checker(media_streams, sub_index, mount_disk_mode, log=True)
     sub_jellyfin_str = '' if is_emby \
         else f'{item_id[:8]}-{item_id[8:12]}-{item_id[12:16]}-{item_id[16:20]}-{item_id[20:]}/'
