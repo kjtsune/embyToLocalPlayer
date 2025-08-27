@@ -493,8 +493,8 @@ def show_confirm_button(message, width, height, result, fallback, timeout=3):
     return res
 
 
-def debug_beep_win32():
-    if configs.debug_mode and os.name == 'nt':
+def debug_beep_win32(skip_debug=False):
+    if os.name == 'nt' and (skip_debug or configs.debug_mode):
         import winsound
 
         winsound.Beep(500, 2000)

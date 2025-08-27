@@ -58,7 +58,7 @@ class BaseManager(BaseInit):
 
     def playlist_add(self, eps_data=None):
         limit = configs.raw.getint('playlist', 'item_limit', fallback=-1)
-        if self.data.get('gui_cmd'):
+        if self.data.get('gui_cmd') and not self.data.get('gui_without_confirm'):
             logger.info('disable playlist: cuz gui_cmd found')
             limit = 0
         if limit >= 0:
@@ -277,6 +277,8 @@ class PrefetchManager(BaseInit):  # 未兼容播放器多开，暂不处理
         stop_sec_dict = prefetch_data['stop_sec_dict']
         prefetch_data['on'] = True
         while prefetch_data['on']:
+            if self.data.get('gui_without_confirm'):
+                return
             for key, stop_sec in stop_sec_dict.copy().items():
                 ep = self.playlist_data.get(key)
                 if not ep:
@@ -350,11 +352,10 @@ class PrefetchManager(BaseInit):  # 未兼容播放器多开，暂不处理
     def prefetch_next_ep_loop(self):
         prefetch_percent = configs.raw.getfloat('playlist', 'prefetch_percent', fallback=100)
         prefetch_type = configs.raw.get('playlist', 'prefetch_type', fallback='null')
-        if prefetch_data['running'] or prefetch_percent == 100:
+        if prefetch_percent == 100:
             return
         if len(self.playlist_data) == 1:
             return
-        prefetch_data['running'] = True
         prefetch_data['on'] = True
         stop_sec_dict = prefetch_data['stop_sec_dict']
         done_list = prefetch_data['done_list']
@@ -371,22 +372,25 @@ class PrefetchManager(BaseInit):  # 未兼容播放器多开，暂不处理
                 if not key or not stop_sec or key in done_list:
                     continue
                 if prefetch_host and not configs.check_str_match(ep['netloc'], 'playlist', 'prefetch_host',
-                                                                 log_by=False):
-                    prefetch_data['running'] = False
+                                                                 log_by=False) or not prefetch_host:
                     return
                 if prefetch_path and not any(p in ep['file_path'] for p in prefetch_path):
                     logger.info(f'{ep["file_path"]} not contain {prefetch_path=} skip prefetch')
-                    prefetch_data['running'] = False
                     return
                 total_sec = ep['total_sec']
                 if total_sec == 86400:
                     if mpv := self.player_kwargs.get('mpv'):
-                        total_sec = mpv.duration or 86400
+                        try:
+                            total_sec = mpv.duration or 86400
+                        except Exception:
+                            logger.info('prefetch_next_ep_loop: mpv exit')
+                            break
                 position = stop_sec / total_sec
                 if position * 100 <= prefetch_percent:
                     continue
                 list_playlist_data = list(self.playlist_data.values())
                 if ep == list_playlist_data[-1]:
+                    logger.warn('prefetch_next_ep_loop: ep == list_playlist_data[-1]')
                     break
                 next_ep_index = list_playlist_data.index(ep) + 1
                 ep = list_playlist_data[next_ep_index]
@@ -394,11 +398,12 @@ class PrefetchManager(BaseInit):  # 未兼容播放器多开，暂不处理
                     ep['gui_cmd'] = 'download_only'
                     requests_urllib('http://127.0.0.1:58000/pl', _json=ep)
                 elif prefetch_type == 'first_last':
-                    if ep['total_sec'] == 86400:
-                        # strm 媒体信息 无 -> 有：外挂字幕链接会失效。
-                        # 持久性缓存时会禁用播放列表：获取媒体信息来加速时的第二集播放。
-                        self.emby_thin.get_playback_info(ep['item_id'], timeout=60)
+                    # if ep['total_sec'] == 86400:
+                    #     # strm 媒体信息 无 -> 有：外挂字幕链接会失效。
+                    #     # 持久性缓存时会禁用播放列表：获取媒体信息来加速时的第二集播放。
+                    #     self.emby_thin.get_playback_info(ep['item_id'], timeout=60)
                     ep['gui_cmd'] = 'download_not_play'
+                    # ep['stream_url'] = get_redirect_url(ep['stream_url'], follow_redirect=True)
                     requests_urllib('http://127.0.0.1:58000/pl', _json=ep)
                 else:
                     null_file = 'NUL' if os.name == 'nt' else '/dev/null'
@@ -407,7 +412,7 @@ class PrefetchManager(BaseInit):  # 未兼容播放器多开，暂不处理
                     threading.Thread(target=dl.percent_download, args=(0.98, 1), daemon=True).start()
                 done_list.append(key)
             time.sleep(5)
-        prefetch_data['running'] = False
+        logger.info('prefetch_next_ep_loop: exit')
 
 
 class PlayerManager(BaseManager, PrefetchManager):

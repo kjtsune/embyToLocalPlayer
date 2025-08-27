@@ -190,10 +190,10 @@ class BangumiApi:
                 return current_id
             fist_part = True
             while True:
-                if not fist_part:
-                    current_info = self.get_subject(current_id)
-                    if current_info['platform'] not in platform_allow:
-                        break
+                # if not fist_part:
+                #     current_info = self.get_subject(current_id)
+                #     if current_info['platform'] not in platform_allow: # TV 的续集可能是 OVA，导致匹配失败
+                #         break
                 episodes, match_dates_success = custom_get_episodes(current_id)
                 if match_dates_success:
                     if ep_num_list:

@@ -15,7 +15,7 @@ from utils.python_mpv_jsonipc import MPV
 from utils.tools import activate_window_by_pid
 
 logger = MyLogger()
-prefetch_data = dict(on=True, running=False, stop_sec_dict={}, done_list=[])
+prefetch_data = dict(on=True, stop_sec_dict={}, done_list=[])
 pipe_port_stack = list(reversed(range(25)))
 mpv_play_speed = {'media_title': 'speed'}
 

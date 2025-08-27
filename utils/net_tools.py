@@ -55,17 +55,24 @@ def tg_notify(msg, silence=False):
 
 def safe_url(url):
     parts = urllib.parse.urlsplit(url)
-    return urllib.parse.urlunsplit(
-        (parts.scheme, parts.netloc, urllib.parse.quote(parts.path), parts.query, parts.fragment))
+    quoted_path = urllib.parse.quote(parts.path, safe="/%")
+    return urllib.parse.urlunsplit((
+        parts.scheme,
+        parts.netloc,
+        quoted_path,
+        parts.query,
+        parts.fragment,
+    ))
 
 
 def requests_urllib(host, params=None, _json=None, decode=False, timeout=5.0, headers=None, req_only=False,
-                    http_proxy='', get_json=False, save_path='', retry=5, silence=False, res_only=False):
+                    http_proxy='', get_json=False, save_path='', retry=5, silence=False, res_only=False,
+                    method=None):
     _json = json.dumps(_json).encode('utf-8') if _json else None
     params = urllib.parse.urlencode(params) if params else None
     host = host + '?' + params if params else host
     host = safe_url(host)
-    req = urllib.request.Request(host)
+    req = urllib.request.Request(host, method=method)
     http_proxy = http_proxy or configs.script_proxy
     if http_proxy and not host.startswith(('http://127.0.0.1', 'http://localhost')):
         if 'plex.direct' not in host:
@@ -172,7 +179,7 @@ def get_redirect_url(url, key_trim='PlaySessionId', follow_redirect=False):
     try:
         redirect_handler = FollowHTTPRedirectHandler if follow_redirect else SkipHTTPRedirectHandler
         # FollowHTTPRedirectHandler, # 系统代理有可能很慢，默认不启用
-        timeout = 30 if follow_redirect else 3
+        timeout = 30 if follow_redirect else 5
         handlers = [
             urllib.request.HTTPSHandler(context=ssl_context),
             redirect_handler,

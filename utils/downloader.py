@@ -115,8 +115,11 @@ class Downloader:
     def get_size(self):
         if self.size:
             return self.size
-        response = requests_urllib(self.url, http_proxy=configs.dl_proxy, res_only=True)
-        self.size = int(response.getheader('Content-Length'))
+        resp = requests_urllib(self.url, http_proxy=configs.dl_proxy, res_only=True, method='HEAD', timeout=10)
+        length = resp.getheader('Content-Length')
+        if not length:
+            print(resp.headers)
+        self.size = int(length)
         return self.size
 
     def range_download(self, start: int, end: int, speed=0, update=False) -> int:
@@ -144,13 +147,13 @@ class Downloader:
             open_mode = 'r+b'
         headers = {'Range': f'bytes={start}-{end}'}
         try:
-            response = requests_urllib(self.url, headers=headers, http_proxy=configs.dl_proxy, res_only=True)
-        except Exception:
-            logger.error(self.id, 'connect init error')
+            resp = requests_urllib(self.url, headers=headers, http_proxy=configs.dl_proxy, res_only=True, timeout=10)
+        except Exception as e:
+            logger.error(f'dl: range_download error {self.id} {str(e)[:50]}')
             return start
         logger.trace(headers)
-        h_size = response.getheader('Content-Length', response.getheader('Content-Range'))
-        if ''.isdigit():
+        h_size = resp.getheader('Content-Length', resp.getheader('Content-Range'))
+        if h_size.isdigit():
             h_size = int(h_size)
         else:
             _s, _e = h_size.split(' ')[1].split('/')[0].split('-')
@@ -161,7 +164,7 @@ class Downloader:
             f.seek(start)
             logger.trace(f'seek {start=}')
             try:
-                while chunk := response.read(self.chunk_size):
+                while chunk := resp.read(self.chunk_size):
                     if self.cancel or self.pause:
                         return start
                     f.write(chunk)
@@ -176,13 +179,13 @@ class Downloader:
                     if start > end:
                         break
                     sleep and time.sleep(sleep)
-            except Exception:
-                logger.error(self.id, 'internet interrupt! retry')
+            except Exception as e:
+                logger.error(f'dl: retry: {self.id} {str(e)[:50]}')
                 return start
         if start > end + 1:
             raise ConnectionError(f'dl: {start=} is greater than {end=}, something wrong, check it')
         if downloaded_size < h_size:
-            logger.error(self.id, f'part download failed. Expected {h_size}, got {downloaded_size}. Retrying.')
+            logger.error(f'dl: retry: range download failed. Expected {h_size}, got {downloaded_size}. {self.id}')
             return start
         return end
 
@@ -193,12 +196,14 @@ class Downloader:
         _start = int(float(self.size * start))
         _end = int(float(self.size * end))
         end_with = self.range_download(_start, _end, speed=speed, update=update)
+        error_sleep = 1
         while end_with != _end:
             if self.cancel or self.pause:
                 self.file_is_busy = False
                 return
-            logger.info('dl: percent download error found')
-            time.sleep(1)
+            error_sleep *= 2
+            logger.info(f'dl: percent download error found, sleep {error_sleep}')
+            time.sleep(error_sleep)
             _start = end_with
             end_with = self.range_download(_start, _end, speed=speed, update=update)
         if update:
@@ -313,6 +318,8 @@ class DownloadManager:
             if play:
                 data['media_path'] = dl.file
                 data['gui_cmd'] = 'play'
+                if configs.raw.getboolean('gui', 'without_confirm', fallback=False):
+                    data['gui_without_confirm'] = True
                 requests_urllib('http://127.0.0.1:58000/dl', _json=data)
         else:
             if play:
@@ -369,15 +376,15 @@ class DownloadManager:
         logger.trace(f'{operate=}\n{data_list=}')
         for data in data_list:
             url, _id, pos, dl = self._init_dl(data)
+            if dl.progress == 1:
+                continue
             if not dl.file_lock.has_lock:
                 continue
             if operate == 'pause':
                 dl.pause = True
             elif operate == 'resume':
                 dl.pause = False
-                if dl.progress == 1:
-                    continue
-                elif dl.progress == 0:
+                if dl.progress == 0:
                     dl.download_fist_last()
                 threading.Thread(target=self._percent_download_with_limit,
                                  kwargs=dict(dl=dl, start=dl.progress, end=1)).start()
@@ -390,7 +397,8 @@ class DownloadManager:
         if dir_size > limit:
             logger.info('out of cache limit')
             dir_info.sort(key=lambda i: i['stat'].st_mtime)
-            self.delete(_id=dir_info[0]['_id'])
+            _id = dir_info[0]['_id']
+            self.delete(_id=_id)
 
     def update_db_loop(self):
         times = 0
@@ -399,14 +407,14 @@ class DownloadManager:
                 logger.info('update lock')
                 time.sleep(1)
                 continue
+            times += 1
+            if times > 10:
+                self.cache_size_limit()
+                times = 0
             for _id, dl in list(self.tasks.items()):
                 dl: Downloader
                 if dl.file_lock.has_lock:
-                    times += 1
                     dl.save_state()
-                    if times > 10:
-                        self.cache_size_limit()
-                        times = 0
                     if dl.progress == 1:
                         logger.info(f'{_id} completed, delete lock')
                         dl.mark_done()
