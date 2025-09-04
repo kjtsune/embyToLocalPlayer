@@ -357,7 +357,10 @@ def vlc_player_start(cmd: list, start_sec=None, sub_file=None, get_stop_sec=True
     is_nt = True if os.name == 'nt' else False
     port = get_pipe_or_port_str()
     if mount_disk_mode:
-        cmd[1] = f'file:///{cmd[1]}'
+        if os.path.splitext(cmd[1])[1]:
+            cmd[1] = f'file:///{cmd[1]}'
+        else:
+            cmd[1] = f'bluray:///{cmd[1]}'
         # base_name = os.path.basename(cmd[1])
         # media_title = base_name
     cmd = [cmd[0], '-I', 'qt', '--extraintf', 'http', '--http-host', '127.0.0.1',
