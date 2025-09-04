@@ -234,13 +234,14 @@ def force_disk_mode_by_path(file_path):
     return check
 
 
-def use_dandan_exe_by_path(file_path,source_path=None):
+def use_dandan_exe_by_path(file_path, data=None):
     config = configs.raw
     dandan = config['dandan'] if 'dandan' in config.sections() else {}
     if not dandan or not file_path or not dandan.getboolean('enable'):
         return False
     enable_path = dandan.get('enable_path', '').replace('，', ',')
     enable_path = [i.strip() for i in enable_path.split(',') if i]
+    source_path = data.get('source_path')
     _file_path = f'{file_path} | {source_path}' if source_path else file_path
     path_match = [path in _file_path for path in enable_path]
     if any(path_match) or not enable_path:
@@ -272,23 +273,28 @@ def translate_path_by_ini(file_path, debug=False):
     return file_path if file_path.startswith('http') else unicodedata.normalize('NFC', file_path)
 
 
-def select_player_by_path(file_path, source_path=None):
-    data = configs.raw.get('dev', 'player_by_path', fallback='')
-    if not data:
+def select_player_by_path(file_path, data=None):
+    confs = configs.raw.get('dev', 'player_by_path', fallback='')
+    if not confs:
         return False
-    data = data.replace('：', ':').replace('，', ',').replace('；', ';')
-    data = [i.strip() for i in data.split(';') if i]
-    path_map = {}
-    for rule in data:
-        player, path = [i.strip() for i in rule.split(':', maxsplit=1)]
-        for p in [i.strip() for i in path.split(',') if i]:
-            path_map[p] = player
+    confs = confs.replace('：', ':').replace('，', ',').replace('；', ';')
+    confs = [i.strip() for i in confs.split(';') if i]
+    source_path = data.get('source_path')
     _file_path = f'{file_path} | {source_path}' if source_path else file_path
-    result = [player for path, player in path_map.items() if path in _file_path]
-    return result[0] if result else False
+    for conf in confs:
+        player, rule = [i.strip() for i in conf.split(':', maxsplit=1)]
+        ru_re = '|'.join([i.strip() for i in rule.split(',') if i])
+        if '__bdmv' in ru_re and data and (
+                data.get('Container') == 'bluray' or data.get('VideoType') == 'BluRay'):
+            _logger.info(f'select {player}, cuz is bdmv')
+            return player
+        if re.search(ru_re, _file_path, re.I):
+            _logger.info(f'select {player}, cuz re {ru_re}')
+            return player
+    return False
 
 
-def get_player_cmd(media_path, file_path, source_path=None):
+def get_player_cmd(media_path, file_path, data=None):
     # emby source_path 是 strm 的内容
     config = configs.raw
     player = config['emby']['player']
@@ -296,8 +302,8 @@ def get_player_cmd(media_path, file_path, source_path=None):
         exe = config['exe'][player]
     except KeyError:
         raise ValueError(f'{player=}, {player} not found, check config ini file') from None
-    exe = config['dandan']['exe'] if use_dandan_exe_by_path(file_path,source_path=source_path) else exe
-    if player_by_path := select_player_by_path(file_path, source_path=source_path):
+    exe = config['dandan']['exe'] if use_dandan_exe_by_path(file_path, data=data) else exe
+    if player_by_path := select_player_by_path(file_path, data=data):
         exe = config['exe'][player_by_path]
     result = [exe, media_path]
     _logger.info('command line:', result)
