@@ -264,13 +264,16 @@ def translate_path_by_ini(file_path, debug=False):
             if not path_check:
                 file_path = os.path.abspath(tmp_path)
                 break
-            elif os.path.exists(tmp_path):
-                file_path = os.path.abspath(tmp_path)
-                break
-            else:
-                # path_check = True and debug = True and exists = False
-                _logger.debug('dev > path_check: fail >', tmp_path)
-    return file_path if file_path.startswith('http') else unicodedata.normalize('NFC', file_path)
+            nfc_nfd = [unicodedata.normalize('NFC', tmp_path), unicodedata.normalize('NFD', tmp_path)]
+            if nfc_nfd[0] == nfc_nfd[1]:
+                nfc_nfd = nfc_nfd[:1]
+            for _tmp_path in nfc_nfd:
+                if os.path.exists(_tmp_path):
+                    file_path = os.path.abspath(_tmp_path)
+                    break
+                else:
+                    _logger.info(f'path_check: file not found\n{_tmp_path}')
+    return file_path
 
 
 def select_player_by_path(file_path, data=None):
