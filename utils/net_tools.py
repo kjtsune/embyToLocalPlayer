@@ -187,18 +187,19 @@ def get_redirect_url(url, key_trim='PlaySessionId', follow_redirect=False):
         opener = urllib.request.build_opener(*handlers)
         jump_url = opener.open(requests_urllib(url, req_only=True), timeout=timeout).url
     except urllib.error.HTTPError as e:
-        if e.code == 302:
-            jump_url = e.headers['Location']
-        elif e.code == 301:
-            jump_url = e.url
+        if e.code in [301, 302]:
+            jump_url = e.headers['Location'] if e.url == url else e.url
         else:
             logger.error(f'{e.code=} get_redirect_url: {str(e)[:100]}')
             jump_url = e.url
     except Exception as e:
         logger.error(f'disable redirect: code={getattr(e, "code", None)} get_redirect_url: {str(e)[:100]}')
-    logger.info(f'get_redirect_url: used time={str(time.time() - start)[:4]}')
+    _log = f'get_redirect_url: used time={str(time.time() - start)[:4]}'
     if jump_url != url:
+        logger.info(f'{_log} success')
         redirect_url_cache[key] = jump_url
+    else:
+        logger.info(f'{_log} fail\nredirect not found, may need to disable it')
     return jump_url
 
 
