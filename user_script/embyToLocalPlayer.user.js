@@ -3,7 +3,7 @@
 // @name:zh-CN   embyToLocalPlayer
 // @name:en      embyToLocalPlayer
 // @namespace    https://github.com/kjtsune/embyToLocalPlayer
-// @version      2025.08.02
+// @version      2025.09.15
 // @description  Emby/Jellyfin 调用外部本地播放器，并回传播放记录。适配 Plex。
 // @description:zh-CN Emby/Jellyfin 调用外部本地播放器，并回传播放记录。适配 Plex。
 // @description:en  Play in an external player. Update watch history to Emby/Jellyfin server. Support Plex.
@@ -37,6 +37,7 @@
         logLevel: 2,
         disableOpenFolder: undefined, // undefined 改为 true 则禁用打开文件夹的按钮。
         crackFullPath: undefined,
+        disableForLiveTv: undefined, // undefined 改为 true 则在浏览器里播放 IPTV。
     };
 
     const originFetch = fetch;
@@ -166,7 +167,7 @@
         let state = false;
         for (let index = 0; index < okButtonList.length; index++) {
             const element = okButtonList[index];
-            if (element.textContent.search(/(了解|好的|知道|明白|Got It)/) != -1) {
+            if (element.textContent.search(/.+/) != -1) {
                 element.click();
                 if (isHidden(element)) { continue; }
                 state = true;
@@ -215,7 +216,7 @@
     // 点击位置：Episodes 继续观看，如果是即将观看，可能只有一集的信息 | NextUp 新播放或媒体库播放 | Items 季播放。 只有 Episodes 返回所有集的数据。
     let playlistInfoCache = null;
     let resumeRawInfoCache = null;
-    let resumePlaybakCache = {};
+    let resumePlaybackCache = {};
     let resumeItemDataCache = {};
     let allPlaybackCache = {};
     let allItemDataCache = {};
@@ -225,7 +226,7 @@
 
     function cleanOptionalCache() {
         resumeRawInfoCache = null;
-        resumePlaybakCache = {};
+        resumePlaybackCache = {};
         resumeItemDataCache = {};
         allPlaybackCache = {};
         allItemDataCache = {};
@@ -388,15 +389,15 @@
     }
 
     async function getPlaybackWithCace(itemId) {
-        return apiClientGetWithCache(itemId, [resumePlaybakCache, allPlaybackCache], 'getPlaybackInfo');
+        return apiClientGetWithCache(itemId, [resumePlaybackCache, allPlaybackCache], 'getPlaybackInfo');
     }
 
     async function getItemInfoWithCace(itemId) {
         return apiClientGetWithCache(itemId, [resumeItemDataCache, allItemDataCache], 'getItem');
     }
 
-    async function dealWithPlaybakInfo(raw_url, url, options) {
-        console.time('dealWithPlaybakInfo');
+    async function dealWithPlaybackInfo(raw_url, url, options) {
+        console.time('dealWithPlaybackInfo');
         let rawId = url.match(/\/Items\/(\w+)\/PlaybackInfo/)[1];
         episodesInfoCache = episodesInfoCache[0] ? episodesInfoCache[1].clone() : null;
         let itemId = rawId;
@@ -405,7 +406,7 @@
             getItemInfoWithCace(itemId),
             episodesInfoCache?.json(),
         ]);
-        console.timeEnd('dealWithPlaybakInfo');
+        console.timeEnd('dealWithPlaybackInfo');
         episodesInfoData = (episodesInfoData && episodesInfoData.Items) ? episodesInfoData.Items : null;
         episodesInfoCache = episodesInfoData;
         let correctId = makeItemIdCorrect(itemId);
@@ -435,6 +436,7 @@
             alert('etlp: Does not support Trailers plugin. Please disable it.');
             return false;
         }
+        if (config.disableForLiveTv && mainEpInfo?.Type == 'TvChannel') { return 'disableForLiveTv'; }
         let notBackdrop = Boolean(playbackData.MediaSources[0].Path.search(/\Wbackdrop/i) == -1);
         if (notBackdrop) {
             let _req = options ? options : raw_url;
@@ -460,7 +462,7 @@
             localStorage.setItem(storageKey, JSON.stringify(resumeIds));
         }
 
-        for (let [globalCache, getFun] of [[resumePlaybakCache, getPlaybackWithCace], [resumeItemDataCache, getItemInfoWithCace]]) {
+        for (let [globalCache, getFun] of [[resumePlaybackCache, getPlaybackWithCace], [resumeItemDataCache, getItemInfoWithCace]]) {
             let cacheDataAcc = {};
             if (myBool(globalCache)) {
                 cacheDataAcc = globalCache;
@@ -573,7 +575,8 @@
         try {
             if (url.indexOf('/PlaybackInfo?UserId') != -1) {
                 if (url.indexOf('IsPlayback=true') != -1 && localStorage.getItem('webPlayerEnable') != 'true') {
-                    if (await dealWithPlaybakInfo(raw_url, url, options)) { return; } // Emby
+                    let dealRes = await dealWithPlaybackInfo(raw_url, url, options);
+                    if (dealRes && dealRes != 'disableForLiveTv') { return; }
                 } else {
                     let itemId = url.match(/\/Items\/(\w+)\/PlaybackInfo/)[1];
                     let resp = await originFetch(raw_url, options);
@@ -661,7 +664,7 @@
                 let options = {
                     headers: this._headers,
                 };
-                dealWithPlaybakInfo(pbUrl, pbUrl, options);
+                dealWithPlaybackInfo(pbUrl, pbUrl, options);
                 return;
             }
             originSend.apply(this, arguments);
