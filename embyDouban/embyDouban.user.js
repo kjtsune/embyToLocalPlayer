@@ -3,7 +3,7 @@
 // @name:zh-CN   embyDouban
 // @name:en      embyDouban
 // @namespace    https://github.com/kjtsune/embyToLocalPlayer/tree/main/embyDouban
-// @version      2025.07.24
+// @version      2025.09.17
 // @description  emby 里展示: 豆瓣 Bangumi bgm.tv 评分 链接 (豆瓣评论可关)
 // @description:zh-CN emby 里展示: 豆瓣 Bangumi bgm.tv 评分 链接 (豆瓣评论可关)
 // @description:en  show douban Bangumi ratings in emby
@@ -18,6 +18,7 @@
 // @connect      api.bgm.tv
 // @connect      api.douban.com
 // @connect      movie.douban.com
+// @connect      query.wikidata.org
 // @require      https://fastly.jsdelivr.net/gh/kjtsune/UserScripts@a4c9aeba777fdf8ca50e955571e054dca6d1af49/lib/basic-tool.js
 // @require      https://fastly.jsdelivr.net/gh/kjtsune/UserScripts@a4c9aeba777fdf8ca50e955571e054dca6d1af49/lib/my-storage.js
 // @license MIT
@@ -36,7 +37,7 @@ let config = {
     // 清除无效标签的正则匹配规则
     tagsRegex: /\d{4}|TV|动画|小说|漫|轻改|游戏改|原创|[a-zA-Z]/,
     // 标签数量限制，填0禁用标签功能。
-    tagsNum: 3,
+    tagsNum: 5,
 };
 
 let logger = new MyLogger(config)
@@ -92,12 +93,13 @@ function getVisibleElement(elList) {
 
 }
 
-function getURL_GM(url, data = null) {
+function getURL_GM(url, data = null, headers = {}) {
     let method = (data) ? 'POST' : 'GET'
     return new Promise(resolve => GM.xmlHttpRequest({
         method: method,
         url: url,
         data: data,
+        headers: headers,
         onload: function (response) {
             if (response.status >= 200 && response.status < 400) {
                 resolve(response.responseText);
@@ -113,8 +115,8 @@ function getURL_GM(url, data = null) {
     }));
 }
 
-async function getJSON_GM(url, data = null) {
-    const res = await getURL_GM(url, data);
+async function getJSON_GM(url, data = null, headers = {}) {
+    const res = await getURL_GM(url, data, headers);
     if (res) {
         return JSON.parse(res);
     }
@@ -147,32 +149,67 @@ function getEmbyTitle() {
     return '';
 }
 
+async function getDoubanAPI(query) {
+    return await getJSON_GM(`https://api.douban.com/v2/${query}`, 'apikey=0ab215a8b1977939201640fa14c66bab',
+        { 'Content-Type': 'application/x-www-form-urlencoded; charset=utf8', });
+}
+
+async function getDoubanId(imdbId, searchTitle = null) {
+
+    const data = await getDoubanAPI(`movie/imdb/${imdbId}`);
+    if (!isEmpty(data?.alt)) {
+        return data.alt.split('/').pop();
+    }
+
+    const wikidataUrl = 'https://query.wikidata.org/sparql?format=json&query=' +
+        encodeURIComponent(`SELECT * WHERE { ?s wdt:P345 "${imdbId}". OPTIONAL { ?s wdt:P4529 ?Douban_film_ID. } }`);
+    const wikidataRes = await getJSON_GM(wikidataUrl);
+    if (wikidataRes && wikidataRes.results.bindings.length) {
+        const item = wikidataRes.results.bindings[0];
+        if (item.Douban_film_ID) {
+            return item.Douban_film_ID.value;
+        }
+    }
+
+    if (searchTitle) {
+        const search = await getJSON_GM(`https://movie.douban.com/j/subject_suggest?q=${searchTitle}`);
+        if (search && search.length > 0 && search[0].id) {
+            let doubanId = search[0].id;
+            let doubanTitle = search[0].title;
+            let doubanSubTitle = search[0].sub_title;
+            if (textSimilarity(searchTitle, doubanTitle) < 0.4 && textSimilarity(searchTitle, doubanSubTitle) < 0.4) {
+                logger.info(`douban title not match emby:${searchTitle} douban:${doubanTitle} ${doubanSubTitle}`);
+                return;
+            }
+            return doubanId;
+        }
+    }
+
+    // const suggestUrl = `https://movie.douban.com/j/subject_suggest?q=${imdbId}`;
+    // const suggestRes = await getJSON_GM(suggestUrl);
+    // if (suggestRes && suggestRes.length) {
+    //     return suggestRes[0].id;
+    // }
+
+    return null;
+}
+
 async function getDoubanInfo(imdbId) {
     if (!imdbId) {
         return;
     }
-
     let embyTitle = getEmbyTitle();
-    // const search = await getJSON_GM(`https://movie.douban.com/j/subject_suggest?q=${id}`);
-    const search = await getJSON_GM(`https://movie.douban.com/j/subject_suggest?q=${embyTitle}`);
-    if (search && search.length > 0 && search[0].id) {
-        let doubanId = search[0].id;
-        let doubanTitle = search[0].title;
-        let doubanSubTitle = search[0].sub_title;
-        if (textSimilarity(embyTitle, doubanTitle) < 0.4 && textSimilarity(embyTitle, doubanSubTitle) < 0.4) {
-            logger.info(`douban title not match emby:${embyTitle} douban:${doubanTitle} ${doubanSubTitle}`);
-            return;
-        }
+    let doubanId = await getDoubanId(imdbId, embyTitle)
+    if (doubanId) {
         const abstract = await getJSON_GM(`https://movie.douban.com/j/subject_abstract?subject_id=${doubanId}`);
-        const average = abstract && abstract.subject && abstract.subject.rate ? abstract.subject.rate : '?';
-        const comment = abstract && abstract.subject && abstract.subject.short_comment && abstract.subject.short_comment.content;
+        const average = abstract?.subject?.rate || '?';
+        const comment = abstract?.subject?.short_comment?.content;
         return {
             id: doubanId,
             comment: comment,
             // url: `https://movie.douban.com/subject/${doubanId}/`,
-            rating: { numRaters: '', max: 10, average },
-            title: search[0].title,
-            sub_title: search[0].sub_title,
+            rating: average,
+            title: abstract?.subject?.title,
         };
     }
 }
@@ -242,6 +279,9 @@ async function insertDoubanMain(linkZone) {
     if (doubanId == '_') { return; }
 
     let data = doubanDb.get(doubanId);
+    if (!isEmpty(data) && data?.rating?.max) {
+        data = null; // 去除旧版数据
+    }
     if (isEmpty(data)) {
         data = await getDoubanInfo(imdbId);
         console.log('%c%o%s', 'background:yellow;', data, ' result and send a requests')
@@ -254,7 +294,7 @@ async function insertDoubanMain(linkZone) {
         doubanDb.set(doubanId, data);
     }
     if (!isEmpty(data)) {
-        insertDoubanScore(doubanId, data.rating.average, socreIconHrefClass);
+        insertDoubanScore(doubanId, data.rating, socreIconHrefClass);
         if (enableDoubanComment) {
             insertDoubanComment(doubanId, data.comment);
         }
@@ -297,7 +337,13 @@ function insertBangumiScore(bgmObj, infoTable, linkZone) {
         let tags = bgmObj.tags;
         if (tags && tags.length > 0 && config.tagsNum > 0) {
             tags = tags.filter(name => !config.tagsRegex.test(name)).slice(0, config.tagsNum);
-            let tagsHtml = `<div class="mediaInfoItem">${tags.join(', ')}</div>`
+            // let tagsHtml = `<div class="mediaInfoItem">${tags.join(', ')}</div>`
+            let tagsHtml = `
+  <div class="mediaInfoItem">
+    ${tags.map(tag => `<a href="https://bgm.tv/anime/tag/${encodeURIComponent(tag)}" ${socreIconHrefClass} target="_blank">${tag}</a>`).join(', ')}
+  </div>
+`;
+
             yearDiv.insertAdjacentHTML('afterend', tagsHtml);
 
         }
@@ -353,7 +399,8 @@ async function insertBangumiMain(infoTable, linkZone) {
 
     let tmdbButton = linkZone.querySelector('a[href^="https://www.themovie"]');
     if (!tmdbButton) return;
-    let tmdbId = tmdbButton.href.match(/...\d+/);
+    let tmdbId = String(tmdbButton.href.match(/...\d+/));
+    tmdbId = tmdbId.startsWith('tv') ? tmdbId : `mov${tmdbId}`
 
     let year = infoTable.querySelector('div[class="mediaInfoItem"]').textContent.match(/^\d{4}/);
     let expireDay = (Number(year) < new Date().getFullYear() && new Date().getMonth() + 1 != 1) ? 30 : 3
@@ -457,11 +504,12 @@ function cleanDoubanError() {
     let needClean = false;
     if (expireKey in localStorage) {
         if (checkIsExpire(expireKey, 3)) {
-            needClean = true
+            needClean = true;
             localStorage.setItem(expireKey, JSON.stringify(Date.now()));
         }
     } else {
         localStorage.setItem(expireKey, JSON.stringify(Date.now()));
+        needClean = true;
     }
     if (!needClean) return;
 
@@ -489,8 +537,10 @@ async function main() {
     let infoTable = getVisibleElement(document.querySelectorAll('div[class*="flex-grow detailTextContainer"]'));
     if (infoTable && linkZone) {
         if (!infoTable.querySelector('h3.itemName-secondary')) { // not eps page
-            insertDoubanMain(linkZone);
-            await insertBangumiMain(infoTable, linkZone)
+            await Promise.all([
+                insertDoubanMain(linkZone),
+                insertBangumiMain(infoTable, linkZone)
+            ]);
         } else {
             let bgmIdNode = document.evaluate('//div[contains(text(), "[bgm=")]', document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
             if (bgmIdNode) { insertBangumiByPath(bgmIdNode) };

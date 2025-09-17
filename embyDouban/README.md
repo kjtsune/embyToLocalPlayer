@@ -1,10 +1,11 @@
 ## embyDouban
 
-emby 里增加：豆瓣 Bangumi bgm.tv 评分 链接
+emby 里增加：豆瓣 Bangumi bgm.tv 评分 链接 标签
 
 - 豆瓣评论：点击油猴插件后能看到开关。
 - 豆瓣链接：评分可点击，或在底部 IMDb 链接前面。
 - 番组链接：评分可点击，或在底部 在 TMDB 链接前面。
+- 番组标签：评分右侧。可选设置：看脚本代码注释。
 
 ![](https://github.com/kjtsune/embyToLocalPlayer/raw/main/embyDouban/embyDouban.jpg)
 
