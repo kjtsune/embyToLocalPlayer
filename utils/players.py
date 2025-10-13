@@ -104,6 +104,41 @@ def mpv_player_start(cmd, start_sec=None, sub_file=None, media_title=None, get_s
         # cmd.append('--no-video')
     cmd = ['--mpv-' + i.replace('--', '', 1) if is_darwin and is_iina and i.startswith('--') else i for i in cmd]
     logger.info(f'{cmd[:2]}\nargs={cmd[2:]}')
+                         
+    # ===== iina 客户端复用/重启逻辑 =====
+    # 说明：macOS 下 iina 以 App 形式运行，可能已存在客户端；
+    # - 若已有客户端且本次启动不需要传递 start_sec/sub/mount_disk_mode 等特殊参数，优先尝试复用已有客户端打开文件（兼容性高、不中断播放）；
+    # - 若需传递 start_sec/sub 或 mount_disk_mode，复用可能无法传参或生效，故改为优雅关闭已有 IINA 再新建实例以保证参数生效（兼容性更好但更具破坏性）。
+    # 这是在实用性和功能完备性之间的折衷决策：默认尝试复用，不可用时回退到关闭并重启。
+    if is_iina and is_darwin:
+        try:
+            # 检查系统中是否已有 IINA 运行（使用 pgrep 精确匹配 IINA 进程名）
+            has_iina = subprocess.call(['pgrep', '-x', 'IINA'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL) == 0
+        except Exception:
+            has_iina = False
+
+        if has_iina:
+            # 如果不需要设置 start_sec、sub 或 mount_disk_mode，尝试复用已有客户端打开文件（尽量不破坏当前进程）
+            if (start_sec in (None, 0)) and not sub_file and not mount_disk_mode:
+                logger.info('IINA 已运行，尝试复用已有客户端打开文件')
+                try:
+                    # open -a 会让系统用已存在的 IINA 应用来打开文件（若 IINA 支持接收打开请求则会复用）
+                    subprocess.Popen(['open', '-a', 'IINA', data['media_path']])
+                    # 无法获取 mpv 对象/IPC，直接返回空字典以表明已处理（调用方需容忍无 mpv 返回）
+                    return {}
+                except Exception as e:
+                    logger.error(f'尝试复用 IINA 失败，改为关闭并重启: {e}')
+
+            # 否则优先通过优雅关闭现有 IINA 再新建以保证参数生效
+            logger.info('IINA 已运行，但需传递 start_sec/sub/mount_disk_mode，先关闭已有客户端再启动新实例')
+            try:
+                # 使用 AppleScript 命令优雅退出 IINA
+                subprocess.call(['osascript', '-e', 'tell application "IINA" to quit'])
+                # 给进程一点时间退出
+                time.sleep(1)
+            except Exception as e:
+                logger.error(f'关闭 IINA 失败：{e}')
+
     player = subprocess.Popen(cmd, env=os.environ)
     activate_window_by_pid(player.pid)
 
