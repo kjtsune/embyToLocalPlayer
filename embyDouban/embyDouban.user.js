@@ -3,9 +3,9 @@
 // @name:zh-CN   embyDouban
 // @name:en      embyDouban
 // @namespace    https://github.com/kjtsune/embyToLocalPlayer/tree/main/embyDouban
-// @version      2025.09.17
-// @description  emby 里展示: 豆瓣 Bangumi bgm.tv 评分 链接 (豆瓣评论可关)
-// @description:zh-CN emby 里展示: 豆瓣 Bangumi bgm.tv 评分 链接 (豆瓣评论可关)
+// @version      2025.09.18
+// @description  emby 里展示: 豆瓣 Bangumi bgm.tv 评分 链接 标签 (豆瓣评论可关)
+// @description:zh-CN emby 里展示: 豆瓣 Bangumi bgm.tv 评分 链接 标签 (豆瓣评论可关)
 // @description:en  show douban Bangumi ratings in emby
 // @author       Kjtsune
 // @match        *://*/web/index.html*
@@ -35,7 +35,7 @@
 let config = {
     logLevel: 2,
     // 清除无效标签的正则匹配规则
-    tagsRegex: /\d{4}|TV|动画|小说|漫|轻改|游戏改|原创|[a-zA-Z]/,
+    tagsRegex: /\d{4}|TV|动画|小说|漫|轻改|游戏改|原创|[a-zA-Z]|日本/,
     // 标签数量限制，填0禁用标签功能。
     tagsNum: 5,
 };
@@ -202,6 +202,7 @@ async function getDoubanInfo(imdbId) {
     let doubanId = await getDoubanId(imdbId, embyTitle)
     if (doubanId) {
         const abstract = await getJSON_GM(`https://movie.douban.com/j/subject_abstract?subject_id=${doubanId}`);
+        if (isEmpty(abstract)) { return; }
         const average = abstract?.subject?.rate || '?';
         const comment = abstract?.subject?.short_comment?.content;
         return {

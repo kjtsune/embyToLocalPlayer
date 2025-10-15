@@ -13,6 +13,7 @@ try:
     sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
     from utils.emby_api import EmbyApi
     from utils.bangumi_api import BangumiApiEmbyVer
+    from utils.configs import configs as etlp_config
 except Exception:
     pass
 
@@ -46,6 +47,8 @@ def protect_write(func):
         return result
 
     return wrapper
+
+
 class Configs:
     def __init__(self):
         self.cwd = os.path.dirname(__file__)
@@ -61,10 +64,6 @@ class Configs:
 
     def get_int(self, key, fallback=0):
         return self.raw.getint('emby', key, fallback=fallback)
-
-
-
-
 
 
 class JsonDataBase:
@@ -166,7 +165,8 @@ def update_critic_rating_by_bgm(emby: EmbyApi, bgm: BangumiApiEmbyVer, genre='',
         print('not library_name and not genre, check ini settings')
         return
 
-    parent_id = emby.get_library_id(lib_name)
+    lib_names = [i.strip() for i in lib_name.split(',') if i]
+    parent_ids = [emby.get_library_id(lib_name) for lib_name in lib_names]
     tmdb_db = TmdbBgmDataBase('tmdb_bgm')
     # tmdb_db.clean_not_trust_data()
     # tmdb_db.clean_not_trust_data(expire_days=0, min_trust=0.5)
@@ -187,7 +187,7 @@ def update_critic_rating_by_bgm(emby: EmbyApi, bgm: BangumiApiEmbyVer, genre='',
                                          'OriginalTitle',
                                      ]),
                                      start_index=start_index,
-                                     parent_id=parent_id):
+                                     parent_id=parent_ids):
 
         if req_count >= req_limit or item_count >= item_limit:
             break
@@ -266,8 +266,10 @@ def update_critic_rating_by_bgm(emby: EmbyApi, bgm: BangumiApiEmbyVer, genre='',
         print(f'\n{len(not_res_log)=}')
         pprint.pprint(not_res_log)
     print(f'\napi.bgm.tv requests count {req_count}')
-    res = emby.get_items(genre=genre, types=types, parent_id=parent_id, start_index=start_index)
-    print('emby items count', res['TotalRecordCount'])
+    emby_total_count = sum(emby.get_items(genre=genre, types=types,
+                                          parent_id=pid, start_index=start_index)['TotalRecordCount']
+                           for pid in parent_ids)
+    print('emby items count', emby_total_count)
     print(f'tmdb_bgm.json count {len(tmdb_db.data)}\n')
     if dry_run:
         print(f'Nothing update because of {dry_run=}')
@@ -278,12 +280,15 @@ def update_critic_rating_by_bgm(emby: EmbyApi, bgm: BangumiApiEmbyVer, genre='',
 def main():
     conf = Configs()
     http_proxy = conf.get('http_proxy', '') or None
-    my_emby = EmbyApi(
-        host=conf.get('host').split('/web/index')[0],
-        api_key=conf.get('api_key'),
-        user_id=conf.get('user_id'),
-        http_proxy=http_proxy
-    )
+    if etlp_emby := conf.get('etlp_emby', ''):
+        my_emby = etlp_config.get_server_api_by_ini(etlp_emby, use_thin_api=False)
+    else:
+        my_emby = EmbyApi(
+            host=conf.get('host').split('/web/index')[0],
+            api_key=conf.get('api_key'),
+            user_id=conf.get('user_id'),
+            http_proxy=http_proxy
+        )
     my_bgm = BangumiApiEmbyVer(http_proxy=http_proxy)
     update_critic_rating_by_bgm(
         emby=my_emby,

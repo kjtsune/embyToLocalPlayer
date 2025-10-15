@@ -334,6 +334,8 @@ def stop_sec_mpv(mpv: MPV, stop_sec_only=True, **_):
                             chapters_dict[key] = c
                         if c['title'].lower() in intro_titles:
                             chapters_dict[key] = c
+                    if int(duration) > 3600:
+                        chapters_dict = {'_is_movie': False}
                 if chapter_unique in chapters_dict and chapter_unique not in chapter_skipped:
                     msg_style = r'${osd-ass-cc/0}{\an3}${osd-ass-cc/1}'
                     title_log = f'chapter={chapters_dict[chapter_unique]["title"]}, {media_title=}'

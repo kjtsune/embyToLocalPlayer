@@ -54,7 +54,7 @@ class TraktApi:
         return url
 
     def get_season_watched_via_ep_ids(self, ep_ids, get_keys=False):
-        # 若遇到未上映却实际看过时（个别平台提前播放），该数据会遗漏。
+        # 若遇到未上映却实际看过时（个别平台提前播放），该数据会遗漏。此时只支持 get_keys，可能不准确
         # return { 'number': sea_num, 'episodes': {'number': ep_num, 'completed': Bool} }
         # get_keys return { '1-1', '1-2' ..}
         ep_ids = self.ids_to_ids_item(ep_ids)
@@ -63,6 +63,13 @@ class TraktApi:
         show_data = self.get_show_watched_progress(ser_id)
         sea_data = [i for i in show_data['seasons'] if i['number'] == season_num]
         if not sea_data:
+            if get_keys and show_data['aired'] == 0 and show_data['completed'] > 0:  # 提前播放
+                sea_ids = self.get_series_single_season(ser_id=ser_id, season_num=season_num, info_only=True)
+                sea_history = self.get_watch_history(sea_ids['ids'], _type='season')
+                watch_eps = [i['episode']['number'] for i in sea_history if i.get('episode')]
+                # ^^^ 因为 i['action'] == watch，可能不准确
+                watch_keys = [f'{season_num}-{i}' for i in watch_eps]
+                return watch_keys
             return None
         sea_data = sea_data[0]
         if get_keys:
@@ -97,6 +104,7 @@ class TraktApi:
 
     @functools.lru_cache
     def id_lookup(self, provider, _id, _type: typing.Literal['movie', 'show', 'episode'] = ''):
+        # 不支持 season
         # 碰到通过 imdb id 查询若网络报错 500，可以用 tmdb id 查就正常。
         # 报错 500 时用官方库 trakt.py Trakt['search'].lookup(_id, 'imdb') 查询一遍后，该 imdb id 再次查询也不报错了，原因未知。
         api_suf = f'?type={_type}' if _type and provider != 'imdb' else ''
@@ -121,6 +129,7 @@ class TraktApi:
         return res
 
     def ids_to_ids_item(self, ids):
+        # 不支持 season, 因为 id_lookup 不支持
         if 'show' not in ids and 'movie' not in ids:
             provider = 'imdb' if ids.get('imdb') else 'trakt'
             ids = self.id_lookup(provider=provider, _id=ids[provider])[0]
@@ -133,7 +142,7 @@ class TraktApi:
         res = [i[i['type']]['ids'] for i in ids_items]
         return res if is_list else res[0]
 
-    def get_watch_history(self, ids_item, _type: typing.Literal['show', 'movie', 'episode'] = None) -> list:
+    def get_watch_history(self, ids_item, _type: typing.Literal['show', 'movie', 'episode', 'season'] = None) -> list:
         # id_lookup -> ids_item
         # get_single_season > ep_ids :not type field
         # return 观看动作相关的历史列表。剧集无法判断是否完成观看。
@@ -172,7 +181,7 @@ class TraktApi:
         res = self.get_show_watched_progress(trakt_id)
         aired, completed = res['aired'], res['completed']
         # 不严谨，分季情况未区分。
-        if completed >= aired:
+        if completed >= aired > 0:
             return res
 
     def add_ep_or_movie_to_history(self, ids_items, watched_at=''):

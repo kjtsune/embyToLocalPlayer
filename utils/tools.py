@@ -282,6 +282,7 @@ def select_player_by_path(file_path, data=None):
         return False
     confs = confs.replace('：', ':').replace('，', ',').replace('；', ';')
     confs = [i.strip() for i in confs.split(';') if i]
+    data = data or {}
     source_path = data.get('source_path')
     _file_path = f'{file_path} | {source_path}' if source_path else file_path
     for conf in confs:
