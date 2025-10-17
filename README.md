@@ -441,7 +441,6 @@ https://github.com/kjtsune/embyToLocalPlayer#faq
 > Plex 相关
 
 * 可能 dns 污染，若无法播放。修改系统 DNS 或使用代理。
-* 会提示回放错误，随便点一下就会消失。
 
 > 感谢
 

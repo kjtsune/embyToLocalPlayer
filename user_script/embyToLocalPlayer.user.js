@@ -3,7 +3,7 @@
 // @name:zh-CN   embyToLocalPlayer
 // @name:en      embyToLocalPlayer
 // @namespace    https://github.com/kjtsune/embyToLocalPlayer
-// @version      2025.09.15
+// @version      2025.10.17
 // @description  Emby/Jellyfin 调用外部本地播放器，并回传播放记录。适配 Plex。
 // @description:zh-CN Emby/Jellyfin 调用外部本地播放器，并回传播放记录。适配 Plex。
 // @description:en  Play in an external player. Update watch history to Emby/Jellyfin server. Support Plex.
@@ -180,16 +180,29 @@
             state = true;
         };
 
+        let plexErrorSelector = '[class*="Modal-small"] [class*="ModalContent-modalContent"] [class*="PlayerErrorModal-modalHeader"]';
+        if (document.querySelector(plexErrorSelector)) {
+            let escEvent = new KeyboardEvent('keydown', {
+                key: 'Escape',
+                keyCode: 27,
+                code: 'Escape',
+                which: 27,
+                bubbles: true,
+            });
+            document.dispatchEvent(escEvent);
+            state = true;
+        }
+
         return state;
     }
 
     async function removeErrorWindowsMultiTimes() {
         for (const times of Array(15).keys()) {
-            await sleep(200);
             if (removeErrorWindows()) {
                 logger.info(`remove error window used time: ${(times + 1) * 0.2}`);
                 break;
             };
+            await sleep(200);
         }
     }
 
@@ -643,6 +656,7 @@
                             extraData: extraData,
                         };
                         sendDataToLocalServer(data, 'plexToLocalPlayer');
+                        removeErrorWindowsMultiTimes();
                     });
                 return;
             }
@@ -684,4 +698,11 @@
     }
 
     _init_config_main();
+
+    // let debounceTimer; # 有的 css 选择器比较宽泛，播放后再检测比较稳妥。
+    // const observer = new MutationObserver(() => {
+    //     clearTimeout(debounceTimer);
+    //     debounceTimer = setTimeout(removeErrorWindows, 100);
+    // });
+    // observer.observe(document.body, { childList: true, subtree: true });
 })();
