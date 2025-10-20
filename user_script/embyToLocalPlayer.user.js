@@ -3,7 +3,7 @@
 // @name:zh-CN   embyToLocalPlayer
 // @name:en      embyToLocalPlayer
 // @namespace    https://github.com/kjtsune/embyToLocalPlayer
-// @version      2025.10.17
+// @version      2025.10.20
 // @description  Emby/Jellyfin 调用外部本地播放器，并回传播放记录。适配 Plex。
 // @description:zh-CN Emby/Jellyfin 调用外部本地播放器，并回传播放记录。适配 Plex。
 // @description:en  Play in an external player. Update watch history to Emby/Jellyfin server. Support Plex.
@@ -45,20 +45,20 @@
     let logger = {
         error: function (...args) {
             if (config.logLevel >= 1) {
-                console.log('%cerror', 'color: yellow; font-style: italic; background-color: blue;', ...args);
+                console.log('%cERROR', 'color: #fff; background: #d32f2f; font-weight: bold; padding: 2px 6px; border-radius: 3px;', ...args);
             }
         },
         info: function (...args) {
             if (config.logLevel >= 2) {
-                console.log('%cinfo', 'color: yellow; font-style: italic; background-color: blue;', ...args);
+                console.log('%cINFO', 'color: #fff; background: #1976d2; font-weight: bold; padding: 2px 6px; border-radius: 3px;', ...args);
             }
         },
         debug: function (...args) {
             if (config.logLevel >= 3) {
-                console.log('%cdebug', 'color: yellow; font-style: italic; background-color: blue;', ...args);
+                console.log('%cDEBUG', 'color: #333; background: #ffeb3b; font-weight: bold; padding: 2px 6px; border-radius: 3px;', ...args);
             }
         },
-    }
+    };
 
     function myBool(value) {
         if (Array.isArray(value) && value.length === 0) return false;
@@ -101,6 +101,48 @@
             if (confGM !== null) { config[confKey] = confGM };
         }
         _init_config_by_key('crackFullPath');
+    }
+
+    function playNotifiy(title = '正在播放', subtitle = '开始享受您的内容') {
+        if (!document.getElementById('play-notification-style')) {
+            const style = document.createElement('style');
+            style.id = 'play-notification-style';
+            style.textContent = `
+                @keyframes slideIn { from { transform: translateX(400px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+                @keyframes slideOut { from { transform: translateX(0); opacity: 1; } to { transform: translateX(400px); opacity: 0; } }
+                @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
+            `;
+            document.head.appendChild(style);
+        }
+
+        const notification = document.createElement('div');
+        notification.innerHTML = `
+            <svg width="40" height="40" viewBox="0 0 24 24" style="animation: pulse 1.5s ease-in-out infinite; flex-shrink: 0;">
+                <circle cx="12" cy="12" r="10" stroke="white" stroke-width="2" fill="none" opacity="0.3"/>
+                <path d="M9 8L17 12L9 16V8Z" fill="white"/>
+            </svg>
+            <div>
+                <div style="font-weight: 600; font-size: 16px;">${title}</div>
+                <div style="font-size: 13px; opacity: 0.9;">${subtitle}</div>
+            </div>
+        `;
+
+        notification.style.cssText = `
+            position: fixed; bottom: 30px; right: 30px; z-index: 999999;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 12px; padding: 20px 25px; color: white;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            display: flex; align-items: center; gap: 15px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            animation: slideIn 0.5s ease-out;
+        `;
+
+        document.body.appendChild(notification);
+
+        setTimeout(() => {
+            notification.style.animation = 'slideOut 0.5s ease-in';
+            setTimeout(() => notification.remove(), 500);
+        }, 3000);
     }
 
     let menuRegistry = [];
@@ -198,11 +240,11 @@
 
     async function removeErrorWindowsMultiTimes() {
         for (const times of Array(15).keys()) {
+            await sleep(200);
             if (removeErrorWindows()) {
                 logger.info(`remove error window used time: ${(times + 1) * 0.2}`);
                 break;
             };
-            await sleep(200);
         }
     }
 
@@ -233,6 +275,7 @@
     let resumeItemDataCache = {};
     let allPlaybackCache = {};
     let allItemDataCache = {};
+    let episodesWithPathCache = {};
 
     let metadataChangeRe = /\/MetadataEditor|\/Refresh\?/;
     let metadataMayChange = false;
@@ -243,7 +286,8 @@
         resumeItemDataCache = {};
         allPlaybackCache = {};
         allItemDataCache = {};
-        episodesInfoCache = []
+        episodesInfoCache = [];
+        episodesWithPathCache = {};
     }
 
     function throttle(fn, delay) {
@@ -371,6 +415,9 @@
     }
 
     async function apiClientGetWithCache(itemId, cacheList, funName) {
+        if (!itemId) {
+            logger.info(`Skip ${funName} ${itemId}`);
+        }
         for (const cache of cacheList) {
             if (itemId in cache) {
                 logger.info(`HIT ${funName} itemId=${itemId}`)
@@ -386,6 +433,16 @@
             case 'getItem':
                 resInfo = await ApiClient.getItem(ApiClient._serverInfo.UserId, itemId);
                 break;
+            case 'getEpisodes':
+                {
+                    let seasonId = itemId;
+                    let options = {
+                        'Fields': 'MediaSources,Path,ProviderIds',
+                        'SeasonId': seasonId,
+                    }
+                    resInfo = await ApiClient.getEpisodes(seasonId, options);
+                    break;
+                }
             default:
                 break;
         }
@@ -407,6 +464,10 @@
 
     async function getItemInfoWithCace(itemId) {
         return apiClientGetWithCache(itemId, [resumeItemDataCache, allItemDataCache], 'getItem');
+    }
+
+    async function getEpisodesWithCace(seasonId) {
+        return apiClientGetWithCache(seasonId, [episodesWithPathCache], 'getEpisodes');
     }
 
     async function dealWithPlaybackInfo(raw_url, url, options) {
@@ -453,11 +514,90 @@
         let notBackdrop = Boolean(playbackData.MediaSources[0].Path.search(/\Wbackdrop/i) == -1);
         if (notBackdrop) {
             let _req = options ? options : raw_url;
+            playNotifiy();
             embyToLocalPlayer(url, _req, playbackData, extraData);
             return true;
         }
         return false;
     }
+
+    async function deailWithItemInfo(item) {
+        let itemId = item.Id;
+        let seasonId = item.SeasonId;
+
+        let [mainEpInfo, playbackData, episodesInfoData] = await Promise.all([
+            getItemInfoWithCace(itemId),
+            getPlaybackWithCace(itemId),
+            (seasonId) ? getEpisodesWithCace(seasonId) : null,
+        ]);
+
+        let positonTicks = item.UserData.PlaybackPositionTicks;
+        let userId = ApiClient._serverInfo.UserId;
+        let deviceId = ApiClient._deviceId;
+        let accessToken = ApiClient._userAuthInfo?.AccessToken || ApiClient._serverInfo?.AccessToken;
+        if (!accessToken) {
+            playNotifiy('Not accessToken');
+        }
+        let urlParams = {
+            'X-Emby-Device-Id': deviceId,
+            'StartTimeTicks': positonTicks,
+            'X-Emby-Token': accessToken,
+            'UserId': userId,
+            'IsPlayback': true
+        };
+        let baseUrl = `${window.location.origin}/emby/Items/${itemId}/PlaybackInfo`;
+        let searchParams = new URLSearchParams(urlParams);
+        let playbackUrl = `${baseUrl}?${searchParams.toString()}`;
+        let episodesInfo = episodesInfoData?.Items || [];
+        let extraData = {
+            mainEpInfo: mainEpInfo,
+            episodesInfo: episodesInfo,
+            playlistInfo: [],
+            gmInfo: GM_info,
+            userAgent: navigator.userAgent,
+        }
+        embyToLocalPlayer(playbackUrl, {}, playbackData, extraData)
+    }
+
+    document.addEventListener('click', e => {
+        // if (window.location.hash != '#!/home') { return; }
+        const cardPlayBtn = e.target.closest('button.cardOverlayFab-primary[data-action="play"]');
+        // 最新电视和媒体库电视会是 "resume" 需要额外请求 nextup 获取季和集信息。但多版本会只返回一个版本。播放前又要请求多版本信息来确定。
+        // const cardPlayBtn = e.target.closest('button.cardOverlayFab-primary[data-action="play"], button.cardOverlayFab-primary[data-action="resume"]');
+        // const listPlayBtn = e.target.closest('button.listItem[data-id="resume"][data-action="custom"]');
+        // const listShuffleBtn = e.target.closest('button.listItem[data-id="shuffle"][data-action="custom"]');
+        const playButton = cardPlayBtn;
+
+        if (!playButton) {
+            return;
+        }
+        const container = e.target.closest('div[is="emby-itemscontainer"]');
+        if (!container || (!container._itemSource && !container.items)) {
+            logger.info('🎬 Play button clicked, but not within a recognized item list container.');
+            return;
+        }
+        const parentCard = e.target.closest('.virtualScrollItem.card, .backdropCard[data-index]');
+        if (!parentCard) {
+            return;
+        }
+
+        const index = parentCard._dataItemIndex ?? parentCard.dataset.index;
+        const itemList = container._itemSource || container.items;
+        const item = itemList[index];
+        const action = playButton.dataset.action || playButton.dataset.mode;
+        let itemType = item.Type;
+        if (!['Movie', 'Episode'].includes(itemType)) {
+            logger.info('🎬 Play button clicked, but not within legal itemType.');
+            return
+        }
+        logger.info(`🎬 Action '${action}' triggered for item at index ${index}:`, item);
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        deailWithItemInfo(item);
+        let title = item.SeriesName || item.Name;
+        let subTitle = item.SeriesName && item.Name || item.ProductionYear;
+        playNotifiy(title, subTitle);
+    }, true);
 
     async function cacheResumeItemInfo() {
         let inInit = !myBool(resumeRawInfoCache);
@@ -472,6 +612,8 @@
             }
         } else {
             resumeIds = resumeRawInfoCache.slice(0, 5).map(item => item.Id);
+            let seasonIds = resumeRawInfoCache.slice(0, 5).map(item => item.SeasonId);
+            await Promise.all(seasonIds.filter(Boolean).map(sid => getEpisodesWithCace(sid)));
             localStorage.setItem(storageKey, JSON.stringify(resumeIds));
         }
 

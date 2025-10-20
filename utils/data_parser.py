@@ -58,8 +58,8 @@ def parse_received_data_emby(received_data):
     extra_data = received_data['extraData']
     show_version_info(extra_data=extra_data)
     main_ep_info = extra_data['mainEpInfo']
-    episodes_info = extra_data['episodesInfo']
-    playlist_info = extra_data['playlistInfo']
+    episodes_info = extra_data.get('episodesInfo', [])
+    playlist_info = extra_data.get('playlistInfo', [])
     # 随机播放剧集媒体库时，油猴没获取其他集的 Emby 标题，导致第一集回传数据失败，暂不处理。
     emby_title = main_ep_to_title(main_ep_info) if not playlist_info else None
     intro_time = main_ep_intro_time(main_ep_info)
@@ -103,12 +103,20 @@ def parse_received_data_emby(received_data):
         file_path = source_path
 
     if is_strm and is_http_source and len(media_sources) > 1 and media_source_info['Name'] not in file_path:
-        basename = os.path.basename(file_path)
-        # Season 0/S0E04-ver-a.strm Specials/S0E04-ver-b.strm 这种情况也可能导致路径文件夹名称拼装错误。
-        for _m in media_sources:
-            if _m['Name'] in basename:  # S01E01.mkv 这种无解
-                file_path = file_path.replace(_m['Name'], media_source_info['Name'])
-                break
+        source_map = {
+            s['Id']: i['Path']
+            for i in episodes_info
+            for s in i.get('MediaSources', [])
+        }  # episodes_info 由油猴拦截点击，手动请求时，会包含多版本条目，此时会解决下方的路径错误问题。
+        if media_source_id in source_map:
+            file_path = source_map[media_source_id]
+        else:
+            basename = os.path.basename(file_path)
+            # Season 0/S0E04-ver-a.strm Specials/S0E04-ver-b.strm 这种情况也可能导致路径文件夹名称拼装错误。
+            for _m in media_sources:
+                if _m['Name'] in basename:  # S01E01.mkv 这种无解
+                    file_path = file_path.replace(_m['Name'], media_source_info['Name'])
+                    break
 
     # stream_url = f'{scheme}://{netloc}{media_source_info["DirectStreamUrl"]}' # 可能为转码后的链接
     basename = os.path.basename(file_path)
@@ -150,6 +158,8 @@ def parse_received_data_emby(received_data):
     if not is_http_source and force_disk_mode_by_path(file_path):
         mount_disk_mode = True
     if is_strm and not is_http_source:
+        if strm_direct:
+            mount_disk_mode = True
         logger.info(f'{source_path=}')
 
     if mount_disk_mode:  # 肯定不会是 http
@@ -478,8 +488,11 @@ def list_episodes(data: dict):
 
         if ep_num == len(episodes_data):
             return episodes_data
-
-        _ep_current = [i for i in episodes_data if file_path in (i['Path'], i['MediaSources'][0]['Path'])][0]
+        try:
+            _ep_current = [i for i in episodes_data if file_path in (i['Path'], i['MediaSources'][0]['Path'])][0]
+        except IndexError:
+            logger.info('file_path may wrong')
+            _ep_current = [i for i in episodes_data if data['media_source_id'] == i['MediaSources'][0]['Id']][0]
         _current_key = ep_to_key(_ep_current)
         _cur_count = ep_raw_cur_list.count(_current_key)
         if _cur_count > 1:  # 适配首集多版本但过于相似的情况
