@@ -3,7 +3,7 @@
 // @name:zh-CN   embyToLocalPlayer
 // @name:en      embyToLocalPlayer
 // @namespace    https://github.com/kjtsune/embyToLocalPlayer
-// @version      2025.10.20
+// @version      2025.10.25
 // @description  Emby/Jellyfin 调用外部本地播放器，并回传播放记录。适配 Plex。
 // @description:zh-CN Emby/Jellyfin 调用外部本地播放器，并回传播放记录。适配 Plex。
 // @description:en  Play in an external player. Update watch history to Emby/Jellyfin server. Support Plex.
@@ -129,7 +129,7 @@
 
         notification.style.cssText = `
             position: fixed; bottom: 30px; right: 30px; z-index: 999999;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #0296beff 0%, #008a51ff 100%);
             border-radius: 12px; padding: 20px 25px; color: white;
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
             display: flex; align-items: center; gap: 15px;
@@ -560,6 +560,7 @@
     }
 
     document.addEventListener('click', e => {
+        if (localStorage.getItem('webPlayerEnable') == 'true') { return; }
         // if (window.location.hash != '#!/home') { return; }
         const cardPlayBtn = e.target.closest('button.cardOverlayFab-primary[data-action="play"]');
         // 最新电视和媒体库电视会是 "resume" 需要额外请求 nextup 获取季和集信息。但多版本会只返回一个版本。播放前又要请求多版本信息来确定。

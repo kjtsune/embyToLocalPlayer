@@ -310,29 +310,29 @@ https://github.com/kjtsune/embyToLocalPlayer#faq
 <details>
 <summary>PotPlayer</summary>
 
-* 提示渲染 Pin 失败，无法播放 或者 `.bat` 日志提示`KeyError: 'stream.mkv'`。  
-  解决方案三选一，etlp 版本低于 2025.06.08 的用户可先更新试试看：
-    1. 本地用户查看`通用 FAQ` > `如何切换模式` 使用读盘模式。
+* 提示 `渲染 Pin 失败` 无法播放。或者日志提示 `KeyError: 'stream.mkv'`  
+  或者 `pot stop, stop_sec=None` 或者 `请求的操作需要提升` 解决方案：  
+  按以下依次修改，每次修改后尝试播放，还不行就无解，欢迎 PR。
+    1. 初始化 PotPlayer 设置。
     2. 换 Pot 为 20240618 版本。
-    3. 看 `FAQ` > `隐藏功能` > `替换媒体标题字符` 修改配置文件。  
-       建议换 240618 版本，文件 sha256 与 ScoopInstaller / winget-pkgs 一致。  
-       [potplayer-1-7-22286.exe (v240618)](https://potplayer.en.uptodown.com/windows/download/1018490678)    
-       sha256sum `66d03fc13f4949948890675cf62b839b704b542a34a13a180466f93be20d5bc6`  
-       [github.com/ScoopInstaller/Extras -> potplayer.json](https://github.com/ScoopInstaller/Extras/blob/108f0c0d42347a1cb9a16d8effdad09a7059c22b/bucket/potplayer.json#L11-L12)  
-       [github.com/microsoft/winget-pkgs -> Daum.PotPlayer.installer.yaml](https://github.com/microsoft/winget-pkgs/blob/d7aa02cfe97624c51a005b3c7ac42f05f205aff5/manifests/d/Daum/PotPlayer/240618/Daum.PotPlayer.installer.yaml#L84-L85)
-* 若碰到其他问题，先尝试初始化 PotPlayer 设置后测试。
+    3. 换 Pot 为 最新版本 版本。
+    4. 本地用户查看`通用 FAQ` > `如何切换模式` 使用读盘模式。
+    5. 换 mpv 测试此否正常播放。
+       240618 版本下载链接。  
+       [potplayer-1-7-22286.exe (v240618)](https://potplayer.en.uptodown.com/windows/download/1018490678)
+       | [Scoop](https://github.com/ScoopInstaller/Extras/blob/108f0c0d42347a1cb9a16d8effdad09a7059c22b/bucket/potplayer.json#L11-L12)
+       | [winget](https://github.com/microsoft/winget-pkgs/blob/d7aa02cfe97624c51a005b3c7ac42f05f205aff5/manifests/d/Daum/PotPlayer/240618/Daum.PotPlayer.installer.yaml#L84-L85)  
+       sha256sum `66d03fc13f4949948890675cf62b839b704b542a34a13a180466f93be20d5bc6`
+
 * 本地用户可考虑：[MPC-HC](https://github.com/clsid2/mpc-hc/releases) 自带 LAV，同样支持 madVR MPCVR BFRC 等。  
   网络用户或没有特殊需求的话，mpv 系的播放器综合体验较好。
 * [可选] 选项 > 播放 > 播放窗口尺寸：全屏
 * 配置/语言/其他 > 收尾处理 > 播放完当前后退出（触发回传进度）
-* `.bat` 日志提示`KeyError: ''`。初始化 pot。
 * 若使用 http 播放，可能提示地址关闭。Win8 32bit 碰到。  
   解决方案：本地用户使用读盘模式，或者换 pot 便携版。  
   安全性未知：[PotPlayerPortable-220914.zip](https://www.videohelp.com/download/PotPlayerPortable-220914.zip)  
   先打开 `PotPlayerPortable.exe` 一次，但播放用 `C:\<path_to>\PotPlayerPortable\App\PotPlayer\PotPlayer.exe`  
   不然会要求管理员权限运行。
-* `.bat` 日志可能提示`请求的操作需要提升`。  
-  解决方案：升降级 pot 或者用 32bit 版本。
 * 读盘模式可能和美化标题和混合S0的功能冲突，不过不影响使用。（FAQ > 隐藏功能 有解决方案）
 
 </details>
