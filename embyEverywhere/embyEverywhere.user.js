@@ -3,7 +3,7 @@
 // @description  add Emby search result in many sites。eg: imdb.com trakt.tv tmdb tvdb
 // @description:zh-CN   在许多网站上添加 Emby 跳转链接。例如: bgm.tv douban imdb tmdb tvdb trakt
 // @namespace    https://github.com/kjtsune/embyToLocalPlayer
-// @version      2025.07.25
+// @version      2025.11.04
 // @author       Kjtsune
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=emby.media
 // @match        https://bgm.tv/subject/*
@@ -25,7 +25,7 @@
 // @connect      *
 // @require      https://fastly.jsdelivr.net/gh/kjtsune/UserScripts@a4c9aeba777fdf8ca50e955571e054dca6d1af49/lib/basic-tool.js
 // @require      https://fastly.jsdelivr.net/gh/kjtsune/UserScripts@a4c9aeba777fdf8ca50e955571e054dca6d1af49/lib/my-storage.js
-// @require      https://fastly.jsdelivr.net/gh/kjtsune/UserScripts@b1cc6537380707824a19954fd082e5e848aa503d/lib/my-apis.js
+// @require      https://fastly.jsdelivr.net/gh/kjtsune/UserScripts@9b2ee646bbf527cfe17150b5be3ad4c420d9071a/lib/my-apis.js
 // @license      MIT
 // ==/UserScript==
 
@@ -38,9 +38,9 @@ if (_false) {
     import('./lib/basic-tool.js');
     /*global MyLogger myBool */
     import('./lib/my-storage.js');
-    /*global MyStorage*/
+    /*global MyStorage */
     import('./lib/my-apis.js');
-    /*global BangumiApi EmbyApi TraktApi TmdbApi */ // BaseApi
+    /*global BangumiApi EmbyApi TraktApi TmdbApi DoubanApi */ // BaseApi
 }
 
 // settings start
@@ -83,6 +83,16 @@ let logger = new MyLogger(config)
 // 以下为测试功能，不用管他
 
 let tmdbToken = '';
+(() => {
+    let settsingDb = new MyStorage('script|saveStings', undefined, undefined, true);
+    if (tmdbToken) {
+        settsingDb.set('tmdbToken', tmdbToken);
+        return;
+    }
+    if (settsingDb.get('tmdbToken')) {
+        tmdbToken = settsingDb.get('tmdbToken');
+    }
+})()
 
 let traktTkoenObj, traktSettings;
 // traktTkoenObj = {
@@ -105,7 +115,10 @@ let traktTkoenObj, traktSettings;
 // settings end
 
 function stringify(value) {
-    if (value !== null && typeof value === 'object') { return JSON.stringify(value) };
+    if (value !== null && typeof value === 'object') {
+        return JSON.stringify(value)
+    }
+
     return value;
 }
 
@@ -155,12 +168,16 @@ function settingsSaverBase(key, value, force = false) {
 }
 
 async function doubanPlayedByTrakt() {
-    if (window.location.host != 'movie.douban.com') { return; }
+    if (window.location.host != 'movie.douban.com') {
+        return;
+    }
 
     traktSettings = settingsSaverBase('traktSettings', traktSettings, false);
     traktSettings = (typeof (traktSettings) == 'string') ? JSON.parse(traktSettings) : traktSettings;
 
-    if (!traktSettings) { return; }
+    if (!traktSettings) {
+        return;
+    }
     let userName = traktSettings.userName;
     let clientId = traktSettings.clientId;
     let clientSecret = traktSettings.clientSecret;
@@ -174,7 +191,9 @@ async function doubanPlayedByTrakt() {
     let tmdbApi = new TmdbApi(tmdbToken);
 
     let imdbA = document.querySelector('#info > a[href*="imdb.com/title"]');
-    if (!imdbA) { return; }
+    if (!imdbA) {
+        return;
+    }
     let imdbId = imdbA.href.split('/').at(-1);
 
     let imdbWatchedDb = new MyStorage('imdb|watched', 7);
@@ -189,7 +208,7 @@ async function doubanPlayedByTrakt() {
             let tmInfo = await tmdbApi.findById('imdb', imdbId);
             if (myBool(tmInfo)) {
                 let tmType = tmInfo.media_type;
-                tmType = { 'tv': 'show' }[tmType] || tmType;
+                tmType = {'tv': 'show'}[tmType] || tmType;
                 let tmId = tmInfo.id;
                 tkIds = await traktApi.idLookup('tmdb', tmId, tmType);
             } else {
@@ -205,7 +224,9 @@ async function doubanPlayedByTrakt() {
 
         logger.info(`trakt ${stringify(tkIds)}`);
         [watchedState, watchedData] = await traktApi.checkIsWatched(tkIds, true);
-        if (watchedState) { imdbWatchedDb.set(imdbId, true); }
+        if (watchedState) {
+            imdbWatchedDb.set(imdbId, true);
+        }
     }
     if (myBool(tkIds)) {
         let tmdbType = (tkIds.type == 'movie') ? 'movie' : 'tv';
@@ -226,11 +247,11 @@ async function doubanPlayedByTrakt() {
 
 class ProviderIdsAdder {
     constructor({
-        anchorSelector = '',
-        inputId = ['imdb', 'tt1234'],
-        targetProviders = ['tmdb'],
-        adderMethod = ProviderIdsAdder.prototype.linkAdder.name,
-    }) {
+                    anchorSelector = '',
+                    inputId = ['imdb', 'tt1234'],
+                    targetProviders = ['tmdb'],
+                    adderMethod = ProviderIdsAdder.prototype.linkAdder.name,
+                }) {
         this.anchorSelector = anchorSelector;
         this.inputIdName = inputId[0];
         this.inputIdValue = inputId[1];
@@ -240,21 +261,26 @@ class ProviderIdsAdder {
     }
 
     async mainAdder() {
-        if (!tmdbToken) { return; }
+        if (!tmdbToken) {
+            return;
+        }
+        let tmInfo;
         for (const tProvName of this.targetProviders) {
             let tProvDb = new MyStorage(`${this.inputIdName}|${tProvName}`);
             let tProvValue = tProvDb.get(this.inputIdValue);
             let tmdbApi = new TmdbApi(tmdbToken);
             if (!myBool(tProvValue)) {
-                let tmInfo;
-                if (this.inputIdName == 'tmdb') {
-                    tmInfo = await tmdbApi.tmdbExternalIds(this.inputIdValue);
-                } else {
-                    tmInfo = await tmdbApi.findById(this.inputIdName, this.inputIdValue);
+                if (!myBool(tmInfo)) {
+                    if (this.inputIdName == 'tmdb') {
+                        tmInfo = await tmdbApi.tmdbExternalIds(this.inputIdValue);
+                    } else {
+                        tmInfo = await tmdbApi.findById(this.inputIdName, this.inputIdValue);
+                    }
                 }
                 if (myBool(tmInfo)) {
+                    let tmdbId = (this.inputIdName == 'tmdb') ? this.inputIdValue : `${tmInfo.media_type}/${tmInfo.id}`;
                     if (tProvName == 'tmdb') {
-                        tProvValue = `${tmInfo.media_type}/${tmInfo.id}`
+                        tProvValue = tmdbId;
                     }
                     if (['imdb', 'tvdb'].includes(tProvName)) {
                         for (const tName of ['imdb', 'tvdb']) {
@@ -268,7 +294,22 @@ class ProviderIdsAdder {
                                 tProvValue = _value;
                             }
                         }
-
+                    }
+                    if (tProvName == 'douban') {
+                        let _imdbId;
+                        if (this.inputIdName == 'imdb') {
+                            _imdbId = this.inputIdValue;
+                        } else {
+                            let _imdbDb = new MyStorage('tmdb|imdb');
+                            _imdbId = _imdbDb.get(tmdbId);
+                        }
+                        if (_imdbId) {
+                            let doubanApi = new DoubanApi();
+                            let doubanId = await doubanApi.getDoubanIdWithStorage(MyStorage, _imdbId);
+                            if (doubanId && doubanId != '_') {
+                                tProvValue = doubanId;
+                            }
+                        }
                     }
                 }
 
@@ -293,11 +334,14 @@ class ProviderIdsAdder {
         let anchor = document.querySelector(this.anchorSelector);
         this.targetProviders.forEach((tProvName, index) => {
             let tProvValue = this.targetIds[index];
-            if (!tProvValue) { return; }
+            if (!tProvValue) {
+                return;
+            }
             let hrefMap = {
                 'imdb': `https://www.imdb.com/title/${tProvValue}`,
                 'tmdb': `https://www.themoviedb.org/${tProvValue}`,
-                'tvdb': `https://thetvdb.com/?tab=series&id=${tProvValue}`
+                'tvdb': `https://thetvdb.com/?tab=series&id=${tProvValue}`,
+                'douban': `https://movie.douban.com/subject/${tProvValue}`
             }
             let href = hrefMap[tProvName] || 'hrefMapNotMatch';
             let idHtml = `<a id="${tProvName}Link" add-by="providerIdsAdder" ${innerHtml} href="${href}" target="_blank"> ${tProvName}</a>`
@@ -312,6 +356,73 @@ class ProviderIdsAdder {
         let sufHtml = '</li>'
         this.linkAdder('beforeend', innerHtml, preHtml, sufHtml)
     }
+
+    _createGoogleProvEle(templateElement, provUrl, provScore, provName) {
+        const newElement = templateElement.cloneNode(true);
+        newElement.setAttribute('href', provUrl);
+        const pingAttr = newElement.getAttribute('ping');
+        if (pingAttr) {
+            const newPing = pingAttr.replace(
+                /url=https?:\/\/[^&]+/,
+                `url=${encodeURIComponent(provUrl)}`
+            );
+            newElement.setAttribute('ping', newPing);
+        }
+        const directSpans = Array.from(newElement.querySelectorAll(':scope > span'));
+        directSpans.forEach(span => {
+            const text = span.textContent.trim();
+            // 判断是评分 span（包含数字和斜杠）
+            if (/^\d+(\.\d+)?\/\d+$/.test(text)) {
+                span.textContent = provScore;
+            } else if (span.hasAttribute('title')) {
+                span.textContent = provName;
+                span.setAttribute('title', provName);
+            }
+            // 跳过分隔符 span（内容是 · 或其他单字符）
+            else if (text.length <= 3 && !/[a-zA-Z0-9]/.test(text)) {
+                // 保持不变
+            }
+        });
+        const descriptionSpan = newElement.querySelector('div > div > span');
+        if (descriptionSpan) {
+            descriptionSpan.textContent = `Scored ${provScore} on ${provName}.`;
+        }
+        return newElement;
+    }
+
+    googlePageAdder() {
+        let templateEl = document.querySelector(this.anchorSelector);
+        if (!templateEl) return;
+
+        this.targetProviders.forEach((tProvName, index) => {
+            let tProvValue = this.targetIds[index];
+            if (!tProvValue) {
+                return;
+            }
+            let hrefMap = {
+                'imdb': `https://www.imdb.com/title/${tProvValue}`,
+                'tmdb': `https://www.themoviedb.org/${tProvValue}`,
+                'tvdb': `https://thetvdb.com/?tab=series&id=${tProvValue}`,
+                'douban': `https://movie.douban.com/subject/${tProvValue}`
+            }
+            let href = hrefMap[tProvName] || 'hrefMapNotMatch';
+            let score = this.scores?.[tProvName] || ' ';
+            const newEl = this._createGoogleProvEle(
+                templateEl,
+                href,
+                score,
+                tProvName
+            );
+
+            newEl.setAttribute('id', `${tProvName}Link`);
+            newEl.setAttribute('add-by', 'providerIdsAdder');
+
+            templateEl.parentNode.insertBefore(newEl, templateEl.nextSibling);
+            // 更新 templateEl 为新插入的元素，这样下一个会插在它后面
+            templateEl = newEl;
+        });
+    }
+
     tmdbPageAdder() {
         let innerHtml = 'class= "ipc-link ipc-link--baseAlt ipc-link--inherit-color"'
         let preHtml = '<span class="genres">'
@@ -323,11 +434,11 @@ class ProviderIdsAdder {
 
 class EmbyLinkAdder {
     constructor({
-        titleSelector = '',
-        searchMethod = 'searchByName',
-        searchArgs = [],
-        adderMethod = EmbyLinkAdder.prototype.titleAdder.name,
-    }) {
+                    titleSelector = '',
+                    searchMethod = 'searchByName',
+                    searchArgs = [],
+                    adderMethod = EmbyLinkAdder.prototype.titleAdder.name,
+                }) {
         this.titleSelector = titleSelector;
         this.searchMethod = searchMethod;
         this.searchArgs = searchArgs;
@@ -337,7 +448,9 @@ class EmbyLinkAdder {
     }
 
     embyIconAdder(embyLink) {
-        if (document.querySelector('img[add-by="embyEverywhere"]')) { return; }
+        if (document.querySelector('img[add-by="embyEverywhere"]')) {
+            return;
+        }
         let iconBase64 = 'PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0idXRmLTgiPz48IS0tIFVwbG9hZGVkIHRvOiBTVkcgUmVwbywgd3d3LnN2Z3JlcG8uY29tLCBHZW5lcmF0b3I6IFNWRyBSZXBvIE1peGVyIFRvb2xzIC0tPgo8c3ZnIGZpbGw9IiM0Q0FGNTAiIHdpZHRoPSI4MDBweCIgaGVpZ2h0PSI4MDBweCIgdmlld0JveD0iMCAwIDI0IDI0IiByb2xlPSJpbWciIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHRpdGxlPkVtYnkgaWNvbjwvdGl0bGU+PHBhdGggZD0iTTExLjA0MSAwYy0uMDA3IDAtMS40NTYgMS40My0zLjIxOSAzLjE3Nkw0LjYxNSA2LjM1MmwuNTEyLjUxMy41MTIuNTEyLTIuODE5IDIuNzkxTDAgMTIuOTYxbDEuODMgMS44NDhjMS4wMDYgMS4wMTYgMi40MzggMi40NiAzLjE4MiAzLjIwOWwxLjM1MSAxLjM1OS41MDgtLjQ5NmMuMjgtLjI3My41MTUtLjQ5OC41MjQtLjQ5OC4wMDggMCAxLjI2NiAxLjI2NCAyLjc5NCAyLjgwOEwxMi45NyAyNGwuMTg3LS4xODJjLjIzLS4yMjUgNS4wMDctNC45NSA1LjcxNy01LjY1NmwuNTItLjUxNi0uNTAyLS41MTNjLS4yNzYtLjI4Mi0uNS0uNTItLjQ5Ni0uNTMuMDAzLS4wMDkgMS4yNjQtMS4yNiAyLjgwMi0yLjc4MyAxLjUzOC0xLjUyMiAyLjgtMi43NzYgMi44MDMtMi43ODUuMDA1LS4wMTItMy42MTctMy42ODQtNi4xMDctNi4xOTNMMTcuNjUgNC42bC0uNTA1LjUwNWMtLjI3OS4yNzgtLjUxNy41MDEtLjUzLjQ5Ny0uMDEzLS4wMDUtMS4yNy0xLjI2Ny0yLjc5My0yLjgwNUE0NDkuNjU1IDQ0OS42NTUgMCAwMDExLjA0MSAwek05LjIyMyA3LjM2N2MuMDkxLjAzOCA3Ljk1MSA0LjYwOCA3Ljk1NyA0LjYyNy4wMDMuMDEzLTEuNzgxIDEuMDU2LTMuOTY1IDIuMzJhOTk5Ljg5OCA5OTkuODk4IDAgMDEtMy45OTYgMi4zMDdjLS4wMTkuMDA2LS4wMjYtMS4yNjYtLjAyNi00LjYyOSAwLTMuNy4wMDctNC42MzQuMDMtNC42MjVaIi8+PC9zdmc+'
         let iconSrc = 'data:image/svg+xml;base64,' + iconBase64;
         // let linkWidth = embyLink.offsetWidth;
@@ -349,9 +462,13 @@ class EmbyLinkAdder {
 
     async mainAdder() {
         let searchPromises = [];
-        if (this.searchMethod == 'searchByName' && (!this.searchArgs[0])) { return; }
+        if (this.searchMethod == 'searchByName' && (!this.searchArgs[0])) {
+            return;
+        }
         for (const embyServer of embyServerDatas) {
-            if (document.getElementById(embyServer.name)) { continue; }
+            if (document.getElementById(embyServer.name)) {
+                continue;
+            }
             let embyApi = new EmbyApi(embyServer.url, embyServer.apiKey, embyServer.userId, embyServer.userName, embyServer.passWord);
             searchPromises.push(
                 (async () => {
@@ -360,8 +477,9 @@ class EmbyLinkAdder {
                         await embyApi.checkTokenAlive(MyStorage);
                         searchData = await embyApi[this.searchMethod](...this.searchArgs);
                     } catch (_error) {
-                        let resData = { 'name': embyServer.name, 'url': false };
+                        let resData = {'name': embyServer.name, 'url': false};
                         this[this.adderMethod](resData);
+                        logger.error(_error);
                         return null;
                     }
                     logger.info(`search by ${embyServer.name} ${this.searchMethod} ${stringify(this.searchArgs)}`)
@@ -372,7 +490,7 @@ class EmbyLinkAdder {
                         let results = [];
                         for (const searchRes of searchData.slice(0, 3)) {
                             let itemUrl = embyApi.itemObjToUrl(searchRes);
-                            let resData = { 'name': embyServer.name, 'url': itemUrl };
+                            let resData = {'name': embyServer.name, 'url': itemUrl};
                             this[this.adderMethod](resData);
                             this.addedElements.push(resData);
                             results.push(resData);
@@ -390,8 +508,17 @@ class EmbyLinkAdder {
         return this.addedElements;
     }
 
-    titleAdder(data, extHtml = '', position = 'beforebegin') { // beforeend
+    titleAdder(data, extHtml = '', position = 'beforebegin', parentLevel = 0) { // beforeend
         let title = getVisibleElement(document.querySelectorAll(this.titleSelector));
+        if (parentLevel > 0) {
+            for (let i = 0; i < parentLevel; i++) {
+                if (title.parentElement) {
+                    title = title.parentElement;
+                } else {
+                    break; // 防止超出 DOM 层级
+                }
+            }
+        }
         let elementId = `${data.name}`
         let linkHtml = `<a id=${elementId} target="_blank" add-by="embyEverywhere"`
         let embyLink = `${linkHtml} href="${data.url}"${extHtml}>${data.name},</a>`;
@@ -399,6 +526,10 @@ class EmbyLinkAdder {
             embyLink = `${linkHtml}${extHtml}>${data.name}🚧,</a>`;
         }
         title.insertAdjacentHTML(position, embyLink);
+    }
+
+    titleFatherAdder(data) {
+        this.titleAdder(data, '', 'beforebegin', 2);
     }
 
     whiteTitleAdder(data) {
@@ -423,20 +554,22 @@ class EmbyLinkAdder {
 async function bgmSubjectPage(asTV = false) {
     let bgmAllowDomains = ['bgm.tv', 'bangumi.tv', 'chii.in'];
     let curDomain = window.location.hostname;
-    if (!bgmAllowDomains.includes(curDomain)) { return; }
+    if (!bgmAllowDomains.includes(curDomain)) {
+        return;
+    }
     let allowTypes = ['v:Movie',]
     let headerSubject = document.getElementById('headerSubject');
     let subjectType = (headerSubject) ? headerSubject.getAttribute('typeof') : 'not bgm page';
     if (!allowTypes.includes(subjectType)) {
         logger.error(subjectType, 'not allow');
         return;
-    };
+    }
 
     let bgmStorageSetting = {
         'class': MyStorage,
-        '__default': { 'prefix': 'bgm|df', 'expireDay': null },
-        'getSubject': { 'prefix': 'bgm|subj', 'expireDay': null },
-        'getRelated': { 'prefix': 'bgm|rela', 'expireDay': 7 },
+        '__default': {'prefix': 'bgm|df', 'expireDay': null},
+        'getSubject': {'prefix': 'bgm|subj', 'expireDay': null},
+        'getRelated': {'prefix': 'bgm|rela', 'expireDay': 7},
     }
     let bgmApi = new BangumiApi(bgmStorageSetting);
     let bgmId = window.location.href.split('/').pop();
@@ -451,7 +584,9 @@ async function bgmSubjectPage(asTV = false) {
     }
     logger.info('bgmSubjectRes', subjectRes);
 
-    if (!subjectRes) { return; }
+    if (!subjectRes) {
+        return;
+    }
     let bgmNamelist = [subjectRes.name, subjectRes.name_cn];
     let bgmType = subjectRes.platform;
     switch (bgmType) {
@@ -490,16 +625,21 @@ async function bgmSubjectPage(asTV = false) {
 }
 
 async function doubanMoviePage() {
-    if (window.location.host != 'movie.douban.com') { return };
+    if (window.location.host != 'movie.douban.com') {
+        return
+    }
+
     let imdbA = document.querySelector('#info > a[href*="imdb.com/title"]');
-    if (!imdbA) { return; }
+    if (!imdbA) {
+        return;
+    }
     let imdbId = imdbA.href.split('/').at(-1);
 
     let titleSelector = '#wrapper > #content > h1';
     let adder = new EmbyLinkAdder({
         titleSelector: titleSelector,
         searchMethod: EmbyApi.prototype.searchByProviiderIds.name,
-        searchArgs: [{ 'imdb': imdbId }],
+        searchArgs: [{'imdb': imdbId}],
         adderMethod: EmbyLinkAdder.prototype.titleAdder.name,
     })
     await adder.mainAdder();
@@ -510,12 +650,17 @@ async function doubanMoviePage() {
 }
 
 async function imdbTitlePage() {
-    if (window.location.host != 'www.imdb.com') { return };
+    if (window.location.host != 'www.imdb.com') {
+        return
+    }
+
     let imdbId = document.querySelector('meta[property="imdb:pageConst"]')?.getAttribute('content');
     let metaTitle = document.querySelector('meta[property="imdb:pageType"]')?.getAttribute('content');
     let metaMain = document.querySelector('meta[property="imdb:subPageType"]')?.getAttribute('content');
     let allEpsButton = document.querySelector('a.subnav__all-episodes-button');
-    if (allEpsButton || !(imdbId && metaTitle === 'title' && metaMain === 'main')) { return; }
+    if (allEpsButton || !(imdbId && metaTitle === 'title' && metaMain === 'main')) {
+        return;
+    }
 
     let idAdder = new ProviderIdsAdder({
         anchorSelector: 'ul.ipc-inline-list[role="presentation"]:not([data-testid])',
@@ -528,7 +673,7 @@ async function imdbTitlePage() {
     let emAdder = new EmbyLinkAdder({
         titleSelector: titleSelector,
         searchMethod: EmbyApi.prototype.searchByProviiderIds.name,
-        searchArgs: [{ 'imdb': imdbId }],
+        searchArgs: [{'imdb': imdbId}],
         adderMethod: EmbyLinkAdder.prototype.whiteTitleAdder.name,
     })
 
@@ -544,10 +689,15 @@ async function imdbTitlePage() {
 }
 
 async function tmdbTitlePage() {
-    if (window.location.host != 'www.themoviedb.org') { return };
+    if (window.location.host != 'www.themoviedb.org') {
+        return
+    }
+
     let titleSelector = '#original_header .title[class*="ott"]';
     let tmdbId = document.querySelector(`${titleSelector} h2 a`)?.getAttribute('href');
-    if (!tmdbId) { return; }
+    if (!tmdbId) {
+        return;
+    }
 
     function extractAndConvert(input) {
         const regex = /\/(tv|movie)\/(\d+)/;
@@ -567,14 +717,14 @@ async function tmdbTitlePage() {
     let idAdder = new ProviderIdsAdder({
         anchorSelector: 'div.title > div.facts > span.genres',
         inputId: ['tmdb', tmdbIdStr],
-        targetProviders: ['imdb', 'tvdb'],
+        targetProviders: ['imdb', 'tvdb', 'douban'],
         adderMethod: ProviderIdsAdder.prototype.linkAdder.name,
     })
 
     let emAdder = new EmbyLinkAdder({
         titleSelector: titleSelector,
         searchMethod: EmbyApi.prototype.searchByProviiderIds.name,
-        searchArgs: [{ 'tmdb': tmdbId }, emType],
+        searchArgs: [{'tmdb': tmdbId}, emType],
         adderMethod: EmbyLinkAdder.prototype.titleAdder.name,
     })
 
@@ -589,16 +739,22 @@ async function tmdbTitlePage() {
 }
 
 async function traktTitlePage() {
-    if (window.location.host != 'trakt.tv') { return; }
-    if (window.location.pathname.split('/').filter(Boolean).length > 2) { return; }
-    let imdbId = document.getElementById('external-link-imdb')?.getAttribute('href').split('/').at(-1);;
-    if (!imdbId) { return; }
+    if (window.location.host != 'trakt.tv') {
+        return;
+    }
+    if (window.location.pathname.split('/').filter(Boolean).length > 2) {
+        return;
+    }
+    let imdbId = document.getElementById('external-link-imdb')?.getAttribute('href').split('/').at(-1);
+    if (!imdbId) {
+        return;
+    }
 
     let titleSelector = '#summary-wrapper h1';
     let adder = new EmbyLinkAdder({
         titleSelector: titleSelector,
         searchMethod: EmbyApi.prototype.searchByProviiderIds.name,
-        searchArgs: [{ 'imdb': imdbId }],
+        searchArgs: [{'imdb': imdbId}],
         adderMethod: EmbyLinkAdder.prototype.whiteTitleAdder.name,
     })
     await adder.mainAdder();
@@ -609,12 +765,17 @@ async function traktTitlePage() {
 }
 
 async function tvdbTitlePage() {
-    if (window.location.host != 'thetvdb.com') { return };
+    if (window.location.host != 'thetvdb.com') {
+        return
+    }
+
     let seriesTitle = document.querySelector('#series_title')
     let tvdbId = document.querySelector('#series_basic_info li')?.textContent?.match(/\d+/)?.[0];
-    if (![seriesTitle, tvdbId].every(v => v)) { return; }
+    if (![seriesTitle, tvdbId].every(v => v)) {
+        return;
+    }
     let imdbId = document.querySelector('#series_basic_info a[href*="imdb.com/title"]')?.href.match(/tt\d+/)[0];
-    let idsDict = (imdbId) ? { 'tvdb': tvdbId, 'imdb': imdbId } : { 'tvdb': tvdbId }
+    let idsDict = (imdbId) ? {'tvdb': tvdbId, 'imdb': imdbId} : {'tvdb': tvdbId}
     let titleSelector = '#series_title';
     let adder = new EmbyLinkAdder({
         titleSelector: titleSelector,
@@ -630,33 +791,64 @@ async function tvdbTitlePage() {
 }
 
 async function googleTitlePage() {
-    if (window.location.host != 'www.google.com') { return; }
-    let titleElement = document.querySelector('div[data-attrid="title"][role="heading"]');
+    if (window.location.host != 'www.google.com') {
+        return;
+    }
+    let titleSelector = 'div[data-attrid="title"][role="heading"]'
+    let titleElement = document.querySelector(titleSelector);
     let yearElement = document.querySelector('div[data-attrid="subtitle"][role="heading"]');
-    if (![titleElement, yearElement].every(v => v)) { return; }
+    if (![titleElement, yearElement].every(v => v)) {
+        return;
+    }
     let videoTitle = titleElement.textContent;
     let videoYear = yearElement.textContent.match(/\d\d\d\d/)[0];
     let _cleanTitle = videoTitle.split('&').at(-1);
     let typeSelector = `div[data-eas][data-fhs][data-maindata*="${_cleanTitle}"]`;
     let typeElement = document.querySelector(typeSelector);
-    let videoType = JSON.parse(typeElement.getAttribute('data-maindata'))[4][0];
+    // let thumbsUpEl = document.querySelector('div[data-attrid*="thumbs_up"]');
+
+    let videoType = typeElement ? JSON.parse(typeElement.getAttribute('data-maindata'))[4][0] : null;
+    if (videoType == null) {
+        if (yearElement.textContent.includes('season')) {
+            videoType = 'TV';
+        }
+        let tvReviewEl = document.querySelector('div[data-attrid="kc:/tv/tv_program:reviews"]');
+        let mvReviewEl = document.querySelector('div[data-attrid="kc:/film/film:reviews"]');
+        if (tvReviewEl) {
+            videoType = 'TV';
+        } else if (mvReviewEl) {
+            videoType = 'FILM';
+        }
+
+    }
     let allowTypes = ['FILM', 'TV'];
     if (!allowTypes.includes(videoType)) {
         logger.error(videoType, 'not allow');
         return;
-    };
-    let imdbId = document.querySelector('#rhs a[href*="imdb.com/title"]')?.href.match(/tt\d+/)[0];
-    let adder;
+    }
+
+    let imdbEl = document.querySelector('#rhs a[href*="imdb.com/title"]');
+    let imdbId = imdbEl?.href.match(/tt\d+/)[0];
+    let emAdder;
     let addedElements = []
     if (imdbId) {
-        adder = new EmbyLinkAdder({
-            titleSelector: typeSelector,
+        let idAdder = new ProviderIdsAdder({
+            anchorSelector: '#rhs a[href*="imdb.com/title"]',
+            inputId: ['imdb', imdbId],
+            targetProviders: ['tmdb', 'douban'],
+            adderMethod: ProviderIdsAdder.prototype.googlePageAdder.name,
+        })
+        emAdder = new EmbyLinkAdder({
+            titleSelector: titleSelector,
             searchMethod: EmbyApi.prototype.searchByProviiderIds.name,
-            searchArgs: [{ 'imdb': imdbId }],
-            adderMethod: EmbyLinkAdder.prototype.titleAdder.name,
+            searchArgs: [{'imdb': imdbId}],
+            adderMethod: EmbyLinkAdder.prototype.titleFatherAdder.name,
         });
-        await adder.mainAdder();
-        addedElements = [...addedElements, ...adder.addedElements]
+        await Promise.all([
+            emAdder.mainAdder(),
+            idAdder.mainAdder(),
+        ])
+        addedElements = [...addedElements, ...emAdder.addedElements]
     } else {
         switch (videoType) {
             case 'TV':
@@ -673,19 +865,19 @@ async function googleTitlePage() {
         let mainTitle = titleSplit[0].trim();
         let subTitle = titleSplit[1] ? titleSplit[1].replace(')', '').trim() : '';
         for (videoTitle of [mainTitle, subTitle].filter(i => i)) {
-            adder = new EmbyLinkAdder({
-                titleSelector: typeSelector,
+            emAdder = new EmbyLinkAdder({
+                titleSelector: titleSelector,
                 searchMethod: EmbyApi.prototype.searchByName.name,
                 searchArgs: [videoTitle, `${videoYear}-01-01`, videoType, 1, 365],
-                adderMethod: EmbyLinkAdder.prototype.titleAdder.name,
+                adderMethod: EmbyLinkAdder.prototype.titleFatherAdder.name,
             });
-            await adder.mainAdder();
-            addedElements = [...addedElements, ...adder.addedElements]
+            await emAdder.mainAdder();
+            addedElements = [...addedElements, ...emAdder.addedElements]
         }
     }
 
     if (!myBool(addedElements)) {
-        adder.notResultTitleAdder();
+        emAdder.notResultTitleAdder();
     }
 }
 
