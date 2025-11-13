@@ -404,6 +404,10 @@ https://github.com/kjtsune/embyToLocalPlayer#faq
        的上映时间相差是否超过15天，来保证准确性。  
        Plex 是核查集上映时间与 bgm.tv 的季上映时间相差是否超过180天，来保证准确性。  
        如果还有其他特殊情况，可以反馈。
+* 使用命令行将在看列表的已完成条目标记为已观看。
+    1. 在 etlp 所在文件夹打开命令行。
+    2. 便携版用户运行：`./python_embed/python.exe ./utils/bangumi_sync.py mark_played`
+    3. 其他用户运行：`python utils/bangumi_sync.py mark_played`
 
 > trakt.tv 单向同步
 

@@ -1,4 +1,5 @@
 import os
+import pathlib
 import re
 import urllib.parse
 
@@ -489,20 +490,22 @@ def list_episodes(data: dict):
         if ep_num == len(episodes_data):
             return episodes_data
         try:
-            _ep_current = [i for i in episodes_data if file_path in (i['Path'], i['MediaSources'][0]['Path'])][0]
+            ep_current = [i for i in episodes_data if file_path in (i['Path'], i['MediaSources'][0]['Path'])][0]
         except IndexError:
             logger.info('file_path may wrong')
-            _ep_current = [i for i in episodes_data if data['media_source_id'] == i['MediaSources'][0]['Id']][0]
-        _current_key = ep_to_key(_ep_current)
-        _cur_count = ep_raw_cur_list.count(_current_key)
-        if _cur_count > 1:  # 适配首集多版本但过于相似的情况
-            _cur_raw_index = ep_raw_cur_list.index(_current_key)
-            del episodes_data[_cur_raw_index + 1:_cur_raw_index + _cur_count]
-            del ep_raw_cur_list[_cur_raw_index + 1:_cur_raw_index + _cur_count]
-            episodes_data[_cur_raw_index] = _ep_current
-            if ep_num == len(episodes_data):  # 只有首集是多版本时
-                return episodes_data
-        _cut_cur_list = ep_seq_cur_list[ep_seq_cur_list.index(_current_key):]
+            ep_current = [i for i in episodes_data if data['media_source_id'] == i['MediaSources'][0]['Id']][0]
+        current_key = ep_to_key(ep_current)
+        curr_count = ep_raw_cur_list.count(current_key)
+        curr_raw_index = ep_raw_cur_list.index(current_key)
+        if curr_count > 1:  # 适配首集多版本但过于相似的情况
+            _episodes_data = episodes_data.copy()
+            del _episodes_data[curr_raw_index + 1:curr_raw_index + curr_count]
+            # del ep_raw_cur_list[curr_raw_index + 1:curr_raw_index + curr_count]
+            _episodes_data[curr_raw_index] = ep_current
+            if ep_num == len(_episodes_data):  # 只有首集是多版本时
+                return _episodes_data
+            del _episodes_data
+        _cut_cur_list = ep_seq_cur_list[ep_seq_cur_list.index(current_key):]
         _eps_after = [i for i in episodes_data if ep_to_key(i) in _cut_cur_list]
         _ep_index_list = sorted(list({i['IndexNumber'] for i in episodes_data}))
         official_rule = file_path.rsplit(' - ', 1)
@@ -511,12 +514,28 @@ def list_episodes(data: dict):
         if len(clean_path) <= 5:  # 仅文件格式的话，不够严谨
             clean_path = None
 
+        # 适配由原始文件派生出多版本的情况 S01E01.mkv, S01E01 - ver.mkv
+        if curr_count > 1:
+            _sortest_ep, _is_real_raw = multi_ver_find_sortest_ep(
+                episodes_data[curr_raw_index: curr_raw_index + curr_count])
+            if _sortest_ep['Path'] == file_path and _is_real_raw:
+                _raw_name_success = version_filter_by_raw_name(ep_to_key, episodes_data)
+                _raw_name_index = None
+                if _raw_name_success:
+                    try:
+                        _raw_name_index = _raw_name_success.index(ep_current)
+                    except Exception:
+                        pass
+                if _raw_name_index is not None and _raw_name_success[_raw_name_index + 1:]:
+                    logger.info(f'version_filter: success by raw name check, pass {len(_raw_name_success)}')
+                    return _raw_name_success
+
         # 会禁用前向播放列表。
-        def check_with_sequence(__ep_data):
-            __ep_success = []
-            _cut_ep_data = __ep_data[__ep_data.index(_ep_current):]
+        def check_ep_cur_is_sequence(__ep_data):
+            __ep_success = []  # 成功的要大于 2，不然可能只是下一集的首个文件模糊匹配成功，不精确。
+            _cut_ep_data = __ep_data[__ep_data.index(ep_current):]
             if len(_cut_cur_list) == 1:
-                return [_ep_current]
+                return [ep_current]
             for _ep, _ep_cur in zip(_cut_ep_data, _cut_cur_list):
                 if ep_to_key(_ep) == _ep_cur:
                     __ep_success.append(_ep)
@@ -535,8 +554,8 @@ def list_episodes(data: dict):
                     logger.info(f'version_filter: success with {rule=}, pass {len(_cur_list)}')
                     return _ep_data
                 else:
-                    _success = check_with_sequence(_ep_data)
-                    if len(_success) > 1:
+                    _success = check_ep_cur_is_sequence(_ep_data)
+                    if len(_success) >= 2:
                         logger.info(f'version_filter: success with {rule=}, seq pass {len(_success)}')
                         builtin_res = _success
                         break
@@ -551,7 +570,7 @@ def list_episodes(data: dict):
             return _ep_data
         ini_res = []
         _ep_success_map = {ep_to_key(i): i for i in _ep_data}
-        prefer_eps = version_prefer_for_playlist(_ep_success_map, _current_key, file_path, ep_raw_cur_list,
+        prefer_eps = version_prefer_for_playlist(_ep_success_map, current_key, file_path, ep_raw_cur_list,
                                                  episodes_data)
         if _ep_data_num == 0:
             if not prefer_eps:
@@ -559,10 +578,10 @@ def list_episodes(data: dict):
                     return builtin_res
                 else:
                     logger.info(f'disable playlist, cuz version_filter: fail, ini regex match nothing. \n{file_path=}')
-                    return [_ep_current]
+                    return [ep_current]
         else:
-            _ep_success = check_with_sequence(_ep_data)
-            _success = True if len(_ep_success) > 1 else False
+            _ep_success = check_ep_cur_is_sequence(_ep_data)
+            _success = True if len(_ep_success) >= 2 else False
             if not prefer_eps:
                 if _success:
                     logger.info(f'version_filter: success with {ini_re=}, pass {len(_ep_success)} ep')
@@ -574,7 +593,7 @@ def list_episodes(data: dict):
                         return builtin_res
                     if len(_cut_cur_list) > 1:
                         logger.info(f'disable playlist, cuz version_filter: fail, {ini_re=}')
-                    return [_ep_current]
+                    return [ep_current]
             else:
                 ini_res = _ep_success
         filter_res = ini_res if len(ini_res) > len(builtin_res) else builtin_res
@@ -585,6 +604,33 @@ def list_episodes(data: dict):
         fist_part, last_part = prefer_eps[:fist_index], prefer_eps[last_index + 1:]
         res = fist_part + filter_res + last_part
         return res
+
+    def version_filter_by_raw_name(ep_to_key, episodes_data: list):
+        eps_map = {}
+        for ep in episodes_data:
+            key = ep_to_key(ep)
+            if key not in eps_map:
+                eps_map[key] = []
+            eps_map[key].append(ep)
+        eps_success = []
+        for cur, eps in eps_map.items():
+            if len(eps) == 1:
+                eps_success.append(eps[0])
+                continue
+            ep, is_real_raw = multi_ver_find_sortest_ep(eps)
+            if is_real_raw:
+                eps_success.append(ep)
+            else:
+                break
+        return eps_success
+
+    def multi_ver_find_sortest_ep(same_ep_list):
+        path_list = [pathlib.Path(i['Path']) for i in same_ep_list]
+        path_sortest = sorted(path_list, key=lambda i: len(i.name))[0]
+        name_list = [i.name for i in path_list]
+        is_real_raw = [i.startswith(path_sortest.stem) for i in name_list]
+        is_real_raw = all(is_real_raw)
+        return same_ep_list[path_list.index(path_sortest)], is_real_raw
 
     title_intro_map_fail = False
 

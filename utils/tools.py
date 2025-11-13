@@ -421,7 +421,7 @@ def main_ep_intro_time(main_ep_info):
 
 
 def show_version_info(extra_data=None):
-    py_script_version = '2025.05.21'
+    py_script_version = '2025.11.13'
     if not extra_data:
         return py_script_version
     gm_info = extra_data.get('gmInfo')
