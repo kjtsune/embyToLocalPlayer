@@ -280,7 +280,8 @@ class Configs:
             return ini_dict[match[0]]
 
     def check_str_match(self, _str, section, option, return_value=False, log=True,
-                        log_by: typing.Literal[True, False] = None, order_only=False, get_next=False, get_pair=False):
+                        log_by: typing.Literal[True, False] = None, order_only=False, get_next=False, get_pair=False,
+                        fallback=None):
         # 注意 order_only 在匹配失败时返回 0
         ini_list = self.ini_str_split(section, option, fallback='')
         match_list = [i for i in ini_list if i in _str]
@@ -305,8 +306,10 @@ class Configs:
                 result = match_order
         else:
             result = 0 if order_only else False
+        if not ini_list and fallback is not None:
+            result = fallback
         _log = {True: "match", False: "not match"}[bool(result)]
-        if log and ini_list:
+        if log:
             if log_by is not None and bool(log_by) != bool(result):
                 return result
             _log = f'{_str} {_log}: {section}[{option}] {ini_list}'

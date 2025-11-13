@@ -285,7 +285,7 @@ def start_play(data):
     if player_name:
         player_name = player_name[0]
         player_name = player_alias_dict.get(player_name, player_name)
-        if configs.check_str_match(_str=data['netloc'], section='playlist', option='enable_host') \
+        if configs.check_str_match(_str=data['netloc'], section='playlist', option='enable_host', fallback=True) \
                 and player_name in ('mpv', 'vlc', 'mpc', 'potplayer', 'iina') \
                 or (player_name == 'dandanplay' and mount_disk_mode):
             player_manager = PlayerManager(data=data, player_name=player_name, player_path=player_path)
@@ -306,8 +306,12 @@ def start_play(data):
         if stop_sec is None:
             player_is_running = False
             return
-        update_server_playback_progress(stop_sec=stop_sec, data=data)
-
+        total_sec = data['total_sec']
+        progress_percent = stop_sec / total_sec
+        if total_sec != 86400 or progress_percent > 0.9:
+            update_server_playback_progress(stop_sec=stop_sec, data=data)
+        if total_sec == 86400:
+            logger.info('skip update progress, cuz miss runtime data, may need to enable playlist')
         eps_data = eps_data_thread.join()
         current_ep = [i for i in eps_data if i['file_path'] == data['file_path']][0]
         current_ep['_stop_sec'] = stop_sec
@@ -317,7 +321,7 @@ def start_play(data):
                                  kwargs={'eps': [current_ep], 'provider': provider}, daemon=True).start()
 
         if configs.gui_is_enable \
-                and stop_sec / data['total_sec'] * 100 > configs.raw.getfloat('gui', 'delete_at', fallback=99.9):
+                and progress_percent * 100 > configs.raw.getfloat('gui', 'delete_at', fallback=99.9):
             logger.info('watched, delete cache')
             threading.Thread(target=dl_manager.delete, args=(data,), daemon=True).start()
     else:
