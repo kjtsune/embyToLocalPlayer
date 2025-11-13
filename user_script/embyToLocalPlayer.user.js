@@ -3,7 +3,7 @@
 // @name:zh-CN   embyToLocalPlayer
 // @name:en      embyToLocalPlayer
 // @namespace    https://github.com/kjtsune/embyToLocalPlayer
-// @version      2025.10.25
+// @version      2025.11.04
 // @description  Emby/Jellyfin 调用外部本地播放器，并回传播放记录。适配 Plex。
 // @description:zh-CN Emby/Jellyfin 调用外部本地播放器，并回传播放记录。适配 Plex。
 // @description:en  Play in an external player. Update watch history to Emby/Jellyfin server. Support Plex.
@@ -315,7 +315,7 @@
         let pathDiv = mediaSources.querySelector('div[class^="sectionTitle sectionTitle-cards"] > div');
         if (!pathDiv || pathDiv.className == 'mediaInfoItems' || pathDiv.id == 'addFileNameElement') return;
         let full_path = pathDiv.textContent;
-        if (!full_path.match(/[/:]/)) return;
+        if (!full_path.match(/[\\/:]/)) return;
         if (full_path.match(/\d{1,3}\.?\d{0,2} (MB|GB)/)) return;
 
         let itemData = (itemId in allItemDataCache) ? allItemDataCache[itemId] : null
