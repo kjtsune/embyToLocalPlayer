@@ -778,6 +778,10 @@ def list_episodes(data: dict):
         params.update({'Fields': 'MediaSources,Path,ProviderIds',
                        'SeasonId': season_id, })
         series_id = main_ep_info['SeriesId']
+        if not season_id:  # Jellyfin 10.10.7 未知季: mainEpInfo 缺失季 id，导致请求失败。10.9.11 10.11.1 正常。
+            season_id = series_id
+            del params['SeasonId']
+            logger.info('playlist: season_id not found fallback to series_id, may leak error')
         # 改用 season_id，避免S0命名不规范导致美化标题失败，不知道会不会影响S0混播。
         url = f'{scheme}://{netloc}{extra_str}/Shows/{season_id}/Episodes'
         episodes = requests_urllib(url, params=params, headers=headers, get_json=True)
