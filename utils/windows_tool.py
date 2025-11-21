@@ -4,6 +4,7 @@ import ctypes
 import json
 import re
 import subprocess
+import time
 
 from utils.configs import MyLogger
 
@@ -118,8 +119,20 @@ def activate_window_by_win32(pid):
         user32.AttachThreadInput(curr_pid, remote_pid, False)
         return True
 
-
 def process_is_running_by_pid(pid):
+    PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+    SYNCHRONIZE = 0x00100000
+    handle = kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION | SYNCHRONIZE, False, pid)
+    if handle:
+        kernel32.CloseHandle(handle)
+        return True
+    else:
+        return False
+
+
+def process_is_running_by_pid_window_exist(pid, timeout=5):
+    if not process_is_running_by_pid(pid):
+        return False
     is_running = False
 
     def check_pid_exists(hwnd):
@@ -133,8 +146,13 @@ def process_is_running_by_pid(pid):
         check_pid_exists(hwnd)
         return True
 
-    proc = EnumWindowsProc(for_each_window)
-    user32.EnumWindows(proc, 0)
+    start_time = time.time()
+    while time.time() - start_time < timeout:
+        proc = EnumWindowsProc(for_each_window)
+        user32.EnumWindows(proc, 0)
+        if is_running:
+            return is_running
+        time.sleep(0.2)
     return is_running
 
 
@@ -184,10 +202,16 @@ def find_pid_by_process_name(name=None, name_re=None):
 def get_window_thread_process_name(hwnd):
     pid = ctypes.c_ulong()
     user32.GetWindowThreadProcessId(hwnd, ctypes.pointer(pid))
-    handle = kernel32.OpenProcess(0x0410, 0, pid)
-    buffer_len = ctypes.c_ulong(1024)
-    buffer = ctypes.create_unicode_buffer(buffer_len.value)
-    kernel32.QueryFullProcessImageNameW(handle, 0, ctypes.pointer(buffer), ctypes.pointer(buffer_len))
-    buffer = buffer[:]
-    buffer = buffer[:buffer.index('\0')]
+    handle = kernel32.OpenProcess(0x1000, 0, pid)
+    try:
+        buffer_len = ctypes.c_ulong(1024)
+        buffer = ctypes.create_unicode_buffer(buffer_len.value)
+        kernel32.QueryFullProcessImageNameW(handle, 0, ctypes.pointer(buffer), ctypes.pointer(buffer_len))
+        buffer = buffer[:]
+        buffer = buffer[:buffer.index('\0')]
+    except Exception as e:
+        logger.error(f'get_window_thread_process_name: error {str(e)[:50]}')
+    finally:
+        if handle:
+            kernel32.CloseHandle(handle)
     return str(buffer)

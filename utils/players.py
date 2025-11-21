@@ -534,11 +534,11 @@ class MPCHTMLParser(HTMLParser):
 
 class MPCHttpApi:
     def __init__(self, port, pid=None):
-        from utils.windows_tool import process_is_running_by_pid
+        from utils.windows_tool import process_is_running_by_pid_window_exist
         self.url = f'http://localhost:{port}/variables.html'
         self.parser = MPCHTMLParser()
         self.pid = pid
-        self.is_running = lambda: process_is_running_by_pid(pid)
+        self.is_running = lambda: process_is_running_by_pid_window_exist(pid)
         _test = self.get('version')
 
     def get(self, key, timeout=0.5, return_list=False, retry=3):
@@ -656,7 +656,7 @@ def pot_player_start(cmd: list, start_sec=None, sub_file=None, media_title=None,
 
     logger.info(cmd)
     player = subprocess.Popen(cmd)
-    activate_window_by_pid(player.pid, sleep=1)
+    activate_window_by_pid(player.pid, sleep=0)
     if not get_stop_sec:
         return
 
@@ -665,7 +665,7 @@ def pot_player_start(cmd: list, start_sec=None, sub_file=None, media_title=None,
 
 def playlist_add_pot(pid, player_path, data, eps_data=None, limit=5, **_):
     mix_s0 = configs.raw.getboolean('playlist', 'mix_s0', fallback=False)
-    from utils.windows_tool import process_is_running_by_pid
+    from utils.windows_tool import process_is_running_by_pid_window_exist
     playlist_data = {}
     if not player_path:
         logger.error('player_path not found skip playlist_add_pot')
@@ -680,7 +680,7 @@ def playlist_add_pot(pid, player_path, data, eps_data=None, limit=5, **_):
         while True:
             if stop_sec_pot(pid=pid, check_only=True):
                 break
-            if not process_is_running_by_pid(pid):
+            if not process_is_running_by_pid_window_exist(pid):
                 break
             time.sleep(1)
     pot_cmds = []
@@ -702,7 +702,7 @@ def playlist_add_pot(pid, player_path, data, eps_data=None, limit=5, **_):
         def add_thread():
             sleep_sec = 1 if mount_disk_mode else 5
             for cmd in pot_cmds:
-                if not process_is_running_by_pid(pid):
+                if not process_is_running_by_pid_window_exist(pid):
                     break
                 subprocess.run(cmd)
                 time.sleep(sleep_sec)
@@ -716,7 +716,7 @@ def stop_sec_pot(pid, stop_sec_only=True, check_only=False, **_):
         logger.error('pot pid not found skip stop_sec_pot')
         return None if stop_sec_only else {}
     import ctypes
-    from utils.windows_tool import user32, EnumWindowsProc, process_is_running_by_pid
+    from utils.windows_tool import user32, EnumWindowsProc, process_is_running_by_pid_window_exist
 
     def potplayer_time_title_updater(_pid):
         def send_message(hwnd):
@@ -757,7 +757,7 @@ def stop_sec_pot(pid, stop_sec_only=True, check_only=False, **_):
     name_stop_sec_dict = {}
     name_total_sec_dict = {}
     while True:
-        if not process_is_running_by_pid(pid):
+        if not process_is_running_by_pid_window_exist(pid):
             logger.all('pot not running')
             break
         if check_only and stop_sec == 'check_only':
@@ -816,7 +816,7 @@ def stop_sec_dandan(*_, start_sec=None, is_http=None, stop_sec_only=True):
     base_url = f'http://127.0.0.1:{dandan["port"]}'
     status = f'{base_url}/api/v1/current/video'
     time.sleep(5)
-    from utils.windows_tool import find_pid_by_process_name, process_is_running_by_pid
+    from utils.windows_tool import find_pid_by_process_name, process_is_running_by_pid_window_exist
     pid = find_pid_by_process_name('dandanplay.exe')
     try_sec = 0
     while True:
@@ -826,7 +826,7 @@ def stop_sec_dandan(*_, start_sec=None, is_http=None, stop_sec_only=True):
         except Exception:
             try_sec += 0.3
             print('.', end='')
-            if not process_is_running_by_pid(pid):
+            if not process_is_running_by_pid_window_exist(pid):
                 print()
                 try_sec > 10 and logger.error('dandan api time out, may need set api_key or wait 10s after video play')
                 logger.info('dandan player exited before dandan api started')
@@ -866,7 +866,7 @@ def stop_sec_dandan(*_, start_sec=None, is_http=None, stop_sec_only=True):
             if stop_flag:
                 logger.info('stop_flag found, exit')
                 break
-            if process_is_running_by_pid(pid):
+            if process_is_running_by_pid_window_exist(pid):
                 print('_', end='')
                 time.sleep(1)
                 continue
