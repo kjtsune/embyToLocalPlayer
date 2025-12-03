@@ -36,4 +36,4 @@ if __name__ == '__main__':
     configs.necessary_setting_when_server_start()
     threading.Thread(target=prefetch_resume_tv, daemon=True).start()
     threading.Thread(target=check_redirect_cache_expired_loop, daemon=True).start()
-    run_server()  # 主要逻辑入口：utils.http_server.py
+    run_server(port=configs.port)  # 主要逻辑入口：utils.http_server.py

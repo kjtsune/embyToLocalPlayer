@@ -304,7 +304,7 @@ class DownloadManager:
             dl.cancel_download(silence=True)
         logger.info(f'dlm: play_check {dl.download_only=} {dl.progress=}')
         data['gui_cmd'] = 'play'
-        requests_urllib('http://127.0.0.1:58000/gui', _json=data)
+        requests_urllib(f'http://127.0.0.1:{configs.port}/gui', _json=data)
 
     def download_play(self, data, play=True):
         url, _id, pos, dl = self._init_dl(data)
@@ -320,11 +320,11 @@ class DownloadManager:
                 data['gui_cmd'] = 'play'
                 if configs.raw.getboolean('gui', 'without_confirm', fallback=False):
                     data['gui_without_confirm'] = True
-                requests_urllib('http://127.0.0.1:58000/dl', _json=data)
+                requests_urllib(f'http://127.0.0.1:{configs.port}/dl', _json=data)
         else:
             if play:
                 data['gui_cmd'] = 'play'
-                requests_urllib('http://127.0.0.1:58000/dl', _json=data)
+                requests_urllib(f'http://127.0.0.1:{configs.port}/dl', _json=data)
                 logger.info(f'dlm: fallback to url, cuz: {pos=} > {dl.progress}')
         if not dl.file_is_busy and dl.progress != 1:
             if not dl.file_lock.has_lock:
@@ -539,7 +539,7 @@ def _prefetch_resume_tv(emby_thin: EmbyApiThin, startswith, fetch_type=''):
                             continue
                         ep['stream_url'], ep['fake_name'], ep['position'] = stream_url, fake_name, 0.1
                         ep['gui_cmd'] = 'download_not_play'
-                        requests_urllib('http://127.0.0.1:58000/gui', _json=ep)
+                        requests_urllib(f'http://127.0.0.1:{configs.port}/gui', _json=ep)
                         continue
                     if is_strm:
                         strm_done_list.append(item_id)

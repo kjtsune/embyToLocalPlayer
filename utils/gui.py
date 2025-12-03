@@ -38,7 +38,7 @@ class App:
 
     def send_data_with_cmd(self, data, gui_cmd, destroy=True):
         data['gui_cmd'] = gui_cmd
-        requests_urllib('http://127.0.0.1:58000/gui', _json=data)
+        requests_urllib(f'http://127.0.0.1:{configs.port}/gui', _json=data)
         if destroy:
             self.root.destroy()
 

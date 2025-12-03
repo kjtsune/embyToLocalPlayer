@@ -163,7 +163,7 @@ def play_media_file(data):
     if not href:
         _logger.info('qb open file: userscript update needed.')
         return
-    href = nas_href or f'{href}:58000'
+    href = nas_href or f'{href}:{configs.port}'
     save_path = data['info'][0]['save_path']
     big_file = sorted(data['file'], key=lambda i: i['size'], reverse=True)[0]['name']
     file_path = os.path.join(save_path, big_file)

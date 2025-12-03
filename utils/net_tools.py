@@ -128,7 +128,7 @@ class FollowHTTPRedirectHandler(urllib.request.HTTPRedirectHandler):
 
 def check_miss_runtime_start_sec(netloc, item_id, basename, start_sec=0, stop_sec=None):
     href = configs.raw.get('dev', 'server_side_href', fallback='').strip().strip('/')
-    href = href or 'http://127.0.0.1:58000'
+    href = href or f'http://127.0.0.1:{configs.port}'
     url = f'{href}/miss_runtime_start_sec'
     params = {'netloc': netloc, 'item_id': item_id, 'basename': basename}
     get_json = True

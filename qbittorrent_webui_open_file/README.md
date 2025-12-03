@@ -16,9 +16,9 @@
 
 > 基础配置
 
-1. 下载 `etlp-python-embed-win32.zip` (**便携版** | Windows only)   
-   或者 `etlp-mpv-py-embed-win32.zip` (含mpv播放器便携版 | Windows only | 快捷键见 FAQ)  
-   或者 `embyToLocalPlayer.zip` (Windows / Linux / macOS)  
+1. 下载 `etlp-python-embed-win32.zip` (**便携版** | Windows only)
+   或者 `etlp-mpv-py-embed-win32.zip` (含mpv播放器便携版 | Windows only | 快捷键见 FAQ)
+   或者 `embyToLocalPlayer.zip` (Windows / Linux / macOS)
    然后解压到任意文件夹。 [发布页](https://github.com/kjtsune/embyToLocalPlayer/releases)
 2. 进入文件夹，修改配置文件：`embyToLocalPlayer_config.ini` 中的播放器路径，以及播放器选择。（若使用含mpv便携版，则无需配置。）
 3. 安装 Python (勾选 add to path) [官网](https://www.python.org/downloads/)
@@ -30,6 +30,7 @@
   设置 > 用户匹配 > 添加 > 填入 qBittorrent WebUi
   的网址。[发布页](https://greasyfork.org/zh-CN/scripts/450015-qbittorrent-webui-open-file)
 * 进入文件夹，修改配置文件：`embyToLocalPlayer_config.ini` 中的路径转换规则。
+* 若修改了默认端口 58000，请在脚本代码中修改 `const port = 58000;` 为对应端口。
 
 > 如何运行 Windows / macOS / Linux
 
@@ -44,12 +45,12 @@
   ```
     # 是否监听局域网，播放的播放端填 no（不然会无法使用），服务端填 yes。
     listen_on_lan = no
-  
+
     # 可以填一个随机密码，保持服务端和客户端密码一致即可。
     http_server_token = etlp
-   
+
     # 服务端的监听地址，默认会自动使用 qB WebUi 网址，所以一般留空即可。例如：http://192.168.2.111:58000
-    server_side_href = 
+    server_side_href =
   ```
 
 

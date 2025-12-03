@@ -157,6 +157,7 @@ class Configs:
         self.dl_proxy = self._get_proxy('download')
         self.script_proxy = self._get_proxy('script')
         self.player_proxy = self._get_proxy('player')
+        self.port = self.raw.getint('dev', 'port', fallback=58000)
         if self.log_level < 20:
             print('dl_proxy:', self.dl_proxy)
             print('cache_db:', self.cache_db)
@@ -210,6 +211,7 @@ class Configs:
         self.dl_proxy = self._get_proxy('download')
         self.script_proxy = self._get_proxy('script')
         self.player_proxy = self._get_proxy('player')
+        self.port = self.raw.getint('dev', 'port', fallback=58000)
         return config
 
     def ini_str_split(self, section, option, fallback='', split_by=',', zip_it=False, re_split_by=None):
