@@ -57,7 +57,7 @@ class TraktApi:
         # 若遇到未上映却实际看过时（个别平台提前播放），该数据会遗漏。此时只支持 get_keys，可能不准确
         # return { 'number': sea_num, 'episodes': {'number': ep_num, 'completed': Bool} }
         # get_keys return { '1-1', '1-2' ..}
-        ep_ids = self.ids_to_ids_item(ep_ids)
+        ep_ids = self.ids_to_ids_item(ep_ids, _type='episode')
         ser_id = ep_ids['show']['ids']['slug']
         season_num = ep_ids['episode']['season']
         show_data = self.get_show_watched_progress(ser_id)
@@ -78,7 +78,7 @@ class TraktApi:
 
     def get_season_via_ep_ids(self, ep_ids, info_only=False, get_key_map=False):
         # get_key_map => {f'{sea_num}-{ep_num}': ep_ids, '1-2': ep_ids, ..}
-        ep_ids = self.ids_to_ids_item(ep_ids)
+        ep_ids = self.ids_to_ids_item(ep_ids, _type='episode')
         ser_id = ep_ids['show']['ids']['slug']
         season_num = ep_ids['episode']['season']
         res = self.get_series_single_season(ser_id=ser_id, season_num=season_num, info_only=info_only)
@@ -128,11 +128,13 @@ class TraktApi:
                     return []
         return res
 
-    def ids_to_ids_item(self, ids):
+    def ids_to_ids_item(self, ids, _type: typing.Literal['movie', 'show', 'episode'] = ''):
         # 不支持 season, 因为 id_lookup 不支持
+        # 没有 imdb 时，最好指定 type 不然可能有误
         if 'show' not in ids and 'movie' not in ids:
             provider = 'imdb' if ids.get('imdb') else 'trakt'
-            ids = self.id_lookup(provider=provider, _id=ids[provider])[0]
+            ids = self.id_lookup(provider=provider, _id=ids[provider], _type=_type)
+            ids = ids[0]
         return ids
 
     @staticmethod

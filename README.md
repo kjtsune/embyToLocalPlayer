@@ -578,7 +578,7 @@ https://github.com/kjtsune/embyToLocalPlayer#faq
     prefetch_percent = 50
     
     # 服务端路径包含以下前缀才预读取，逗号隔开，全部启用就留空或删除。
-    prefetch_path = /disk/od/TV, /disk/gd
+    prefetch_path = /mnt/od/TV, /mnt/gd
 
     # 启用本功能的域名的关键词，逗号隔开。全部启用就留空或删除。
     prefetch_host = 
@@ -739,7 +739,7 @@ https://github.com/kjtsune/embyToLocalPlayer#faq
     api_key =
     
     # 仅当服务端路径包含以下路径时使用弹弹播放，逗号隔开。全部文件都用弹弹播放就留空或删除。
-    enable_path = /disk/od/TV, /disk/e/anime, 路径的部分字符也可以, anime
+    enable_path = /mnt/od/TV, /mnt/disk1/anime, 路径的部分字符也可以, anime
     
     # 通过 http 播放时，是否控制开始时间。需等待播放15秒。
     http_seek = yes

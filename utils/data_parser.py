@@ -59,8 +59,8 @@ def parse_received_data_emby(received_data):
     extra_data = received_data['extraData']
     show_version_info(extra_data=extra_data)
     main_ep_info = extra_data['mainEpInfo']
-    episodes_info = extra_data.get('episodesInfo', [])
-    playlist_info = extra_data.get('playlistInfo', [])
+    episodes_info = extra_data.get('episodesInfo') or []
+    playlist_info = extra_data.get('playlistInfo') or []
     # 随机播放剧集媒体库时，油猴没获取其他集的 Emby 标题，导致第一集回传数据失败，暂不处理。
     emby_title = main_ep_to_title(main_ep_info) if not playlist_info else None
     intro_time = main_ep_intro_time(main_ep_info)

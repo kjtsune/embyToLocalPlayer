@@ -4,7 +4,8 @@ import re
 
 def path_translator():
     print('前提条件：当前电脑可以看到文件。文件在本地或者已经通过 smb 等挂载。\n')
-    src_raw = input('请输入 emby 上显示的视频文件路径\n比如：/disk/e/movie/movie name (2000)/a_movie_file.mkv\n').strip()
+    src_raw = input(
+        '请输入 emby 上显示的视频文件路径\n比如：/mnt/disk1/movie/movie name (2000)/a_movie_file.mkv\n').strip()
     dst_raw = input('\n请输入当前电脑上对应的文件夹或文件路径\n比如：E:\\movie\\movie name (2000)\n').strip()
     src_split = re.split(r'[\\/]', src_raw)
     src_keep_sep = re.split(r'([\\/])', src_raw)
