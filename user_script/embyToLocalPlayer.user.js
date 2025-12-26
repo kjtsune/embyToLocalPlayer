@@ -3,7 +3,7 @@
 // @name:zh-CN   embyToLocalPlayer
 // @name:en      embyToLocalPlayer
 // @namespace    https://github.com/kjtsune/embyToLocalPlayer
-// @version      2025.11.04
+// @version      2025.12.26
 // @description  Emby/Jellyfin 调用外部本地播放器，并回传播放记录。适配 Plex。
 // @description:zh-CN Emby/Jellyfin 调用外部本地播放器，并回传播放记录。适配 Plex。
 // @description:en  Play in an external player. Update watch history to Emby/Jellyfin server. Support Plex.
@@ -38,6 +38,7 @@
         disableOpenFolder: undefined, // undefined 改为 true 则禁用打开文件夹的按钮。
         crackFullPath: undefined,
         disableForLiveTv: undefined, // undefined 改为 true 则在浏览器里播放 IPTV。
+        enableResumeReorder: true, // true 改为 undefined 则禁用。继续观看的前2位不变, 余下近3天更新的前移。
     };
 
     const originFetch = fetch;
@@ -646,14 +647,12 @@
         }
     }
 
-    let itemInfoRe = /Items\/(\w+)\?/;
+    let itemInfoRe = /\/Items\/(\w+)\?/; // 要严格些，不然手动标记已播放 PlayedItems 也会命中，造成缓存错误数据。
 
-    unsafeWindow.fetch = async (url, options) => {
-        const raw_url = url;
-        let urlType = typeof url;
-        if (urlType != 'string') {
-            url = raw_url.url;
-        }
+    unsafeWindow.fetch = async (input, options) => {
+        let isStrInput = typeof input === 'string';
+        let urlStr = isStrInput ? input : input.url;
+
         if (serverName === null) {
             serverName = typeof ApiClient === 'undefined' ? null : ApiClient._appName.split(' ')[0].toLowerCase();
         } else {
@@ -662,16 +661,16 @@
                 cacheResumeItemInfo();
             }
         }
-        if (metadataMayChange && url.includes('Items')) {
-            if (url.includes('reqformat') && !url.includes('fields')) {
+        if (metadataMayChange && urlStr.includes('Items')) {
+            if (urlStr.includes('reqformat') && !urlStr.includes('fields')) {
                 cleanOptionalCache();
                 metadataMayChange = false;
                 logger.info('cleanOptionalCache by metadataMayChange')
             }
         }
         // 适配播放列表及媒体库的全部播放、随机播放。限电影及音乐视频。
-        if (url.includes('Items?') && (url.includes('Limit=300') || url.includes('Limit=1000'))) {
-            let _resp = await originFetch(raw_url, options);
+        if (urlStr.includes('Items?') && (urlStr.includes('Limit=300') || urlStr.includes('Limit=1000'))) {
+            let _resp = await originFetch(input, options);
             if (serverName == 'emby') {
                 await ApiClient._userViewsPromise?.then(result => {
                     let viewsItems = result.Items;
@@ -681,7 +680,7 @@
                     });
                     let viewsRegex = viewsIds.join('|');
                     viewsRegex = `ParentId=(${viewsRegex})`
-                    if (!RegExp(viewsRegex).test(url)) { // 点击季播放美化标题所需，并非媒体库随机播放。
+                    if (!RegExp(viewsRegex).test(urlStr)) { // 点击季播放美化标题所需，并非媒体库随机播放。
                         episodesInfoCache = ['Items', _resp.clone()]
                         logger.info('episodesInfoCache', episodesInfoCache);
                         logger.info('viewsRegex', viewsRegex);
@@ -705,60 +704,99 @@
             return _resp
         }
         // 获取各集标题等，仅用于美化标题，放后面避免误拦截首页右键媒体库随机播放数据。
-        let _epMatch = url.match(episodesInfoRe);
+        let _epMatch = urlStr.match(episodesInfoRe);
         if (_epMatch) {
             _epMatch = _epMatch[0].split(['?'])[0].substring(1); // Episodes|NextUp|Items
-            let _resp = await originFetch(raw_url, options);
+            let _resp = await originFetch(input, options);
             episodesInfoCache = [_epMatch, _resp.clone()]
             logger.info('episodesInfoCache', episodesInfoCache);
             return _resp
         }
-        if (url.includes('Items/Resume') && url.includes('MediaTypes=Video')) {
-            let _resp = await originFetch(raw_url, options);
+
+        if (urlStr.includes('Items/Resume') && urlStr.includes('MediaTypes=Video')) {
+            let reqUrl = urlStr;
+
+            if (config.enableResumeReorder) {
+                reqUrl = urlStr.replace(/Fields=([^&]*)/, 'Fields=$1,DateCreated');
+            }
+
+            let fetchInput = isStrInput ? reqUrl : new Request(reqUrl, input);
+
+            let _resp = await originFetch(fetchInput, options);
             let _resd = await _resp.clone().json();
+
+            if (config.enableResumeReorder && _resd.Items && _resd.Items.length > 2) {
+                const now = new Date();
+                const threeDaysAgo = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000);
+                const firstTwo = _resd.Items.slice(0, 2);
+                const rest = _resd.Items.slice(2);
+                const recentItems = [];
+                const olderItems = [];
+                rest.forEach(item => {
+                    const dateCreated = new Date(item.DateCreated);
+                    if (dateCreated >= threeDaysAgo) {
+                        recentItems.push(item);
+                    } else {
+                        olderItems.push(item);
+                    }
+                });
+                _resd.Items = [...firstTwo, ...recentItems, ...olderItems];
+                logger.info(`重排序完成: 前2位保持, ${recentItems.length}个近3天项目前移, ${olderItems.length}个旧项目后移`);
+            }
+
+            const modifiedBody = JSON.stringify(_resd);
+            const modifiedResponse = new Response(modifiedBody, {
+                status: _resp.status,
+                statusText: _resp.statusText,
+                headers: _resp.headers
+            });
+
             resumeRawInfoCache = _resd.Items;
             cacheResumeItemInfo();
             logger.info('resumeRawInfoCache', resumeRawInfoCache);
-            return _resp
+
+            return modifiedResponse;
         }
         // 缓存 itemInfo ，可能匹配到 Items/Resume，故放后面。
-        if (url.match(itemInfoRe)) {
-            let itemId = url.match(itemInfoRe)[1];
-            let resp = await originFetch(raw_url, options);
+        if (urlStr.match(itemInfoRe)) {
+            let itemId = urlStr.match(itemInfoRe)[1];
+            let resp = await originFetch(input, options);
+            logger.info(`CACHE allItemDataCache itemId=${itemId}`);
             cloneAndCacheFetch(resp, itemId, allItemDataCache);
             return resp;
         }
         try {
-            if (url.indexOf('/PlaybackInfo?UserId') != -1) {
-                if (url.indexOf('IsPlayback=true') != -1 && localStorage.getItem('webPlayerEnable') != 'true') {
-                    let dealRes = await dealWithPlaybackInfo(raw_url, url, options);
+            if (urlStr.indexOf('/PlaybackInfo?UserId') != -1) {
+                if (urlStr.indexOf('IsPlayback=true') != -1 && localStorage.getItem('webPlayerEnable') != 'true') {
+                    let dealRes = await dealWithPlaybackInfo(input, urlStr, options);
                     if (dealRes && dealRes != 'disableForLiveTv') { return; }
                 } else {
-                    let itemId = url.match(/\/Items\/(\w+)\/PlaybackInfo/)[1];
-                    let resp = await originFetch(raw_url, options);
+                    let itemId = urlStr.match(/\/Items\/(\w+)\/PlaybackInfo/)[1];
+                    let resp = await originFetch(input, options);
                     addFileNameElement(resp.clone()); // itemId data 不包含多版本的文件信息，故用不到
                     addOpenFolderElement(itemId);
+                    logger.info(`CACHE allPlaybackCache itemId=${itemId}`);
                     cloneAndCacheFetch(resp.clone(), itemId, allPlaybackCache);
                     return resp;
                 }
-            } else if (url.indexOf('/Playing/Stopped') != -1 && localStorage.getItem('webPlayerEnable') != 'true') {
+            } else if (urlStr.indexOf('/Playing/Stopped') != -1 && localStorage.getItem('webPlayerEnable') != 'true') {
                 return
             }
         } catch (error) {
-            logger.error(error, raw_url, url);
+            logger.error(error, input, urlStr);
             removeErrorWindowsMultiTimes();
             return
         }
 
-        if (url.match(metadataChangeRe)) {
-            if (url.includes('MetadataEditor')) {
+        if (urlStr.match(metadataChangeRe)) {
+            if (urlStr.includes('MetadataEditor')) {
                 metadataMayChange = true;
             } else {
                 cleanOptionalCache();
                 logger.info('cleanOptionalCache by Refresh')
             }
         }
-        return originFetch(raw_url, options);
+        return originFetch(input, options);
     }
 
     function initXMLHttpRequest() {
