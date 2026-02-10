@@ -3,7 +3,7 @@
 // @name:zh-CN   embyToLocalPlayer
 // @name:en      embyToLocalPlayer
 // @namespace    https://github.com/kjtsune/embyToLocalPlayer
-// @version      2026.01.23
+// @version      2026.02.11
 // @description  Emby/Jellyfin 调用外部本地播放器，并回传播放记录。适配 Plex。
 // @description:zh-CN Emby/Jellyfin 调用外部本地播放器，并回传播放记录。适配 Plex。
 // @description:en  Play in an external player. Update watch history to Emby/Jellyfin server. Support Plex.
@@ -925,12 +925,14 @@
         XMLHttpRequest.prototype.send = function (body) {
 
             let catchJellyfin = (this._method === 'POST' && this._url.endsWith('PlaybackInfo'))
-            if (catchJellyfin && localStorage.getItem(etlpStorageKeys.webPlayerEnable) != 'true') { // Jellyfin
+            if (catchJellyfin && localStorage.getItem(etlpStorageKeys.webPlayerEnable) != 'true') { // Jellyfin 10.10
                 let pbUrl = this._url;
                 body = JSON.parse(body);
                 let _body = {};
-                ['MediaSourceId', 'StartTimeTicks', 'UserId'].forEach(key => {
-                    _body[key] = body[key]
+                ['MediaSourceId', 'StartTimeTicks', 'UserId', 'SubtitleStreamIndex', 'AudioStreamIndex',].forEach(key => {
+                    if (body[key] != undefined) {
+                        _body[key] = body[key];
+                    }
                 });
                 let query = new URLSearchParams(_body).toString();
                 pbUrl = `${pbUrl}?${query}`

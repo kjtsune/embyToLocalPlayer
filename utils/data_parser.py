@@ -22,7 +22,7 @@ def _get_sub_order_by_ini(_sub_list):
 def subtitle_checker(media_streams, sub_index, mount_disk_mode, log=False):
     sub_inner_idx = 0
     sub_dict = {}
-    # sub_index > 0 选中字幕；-1 未选中字幕；-3 用于播放列表仅检测外挂字幕，内置字幕由播放器决定
+    # sub_index >= 0 选中字幕；-1 未选中字幕；-3 用于播放列表仅检测外挂字幕，内置字幕由播放器决定
     sub_dict_list = [s for s in media_streams if s['Type'] == 'Subtitle']
     sub_ext_list = [s for s in sub_dict_list if s['IsExternal']]
     sub_inner_list = [s for s in sub_dict_list if not s['IsExternal']]
@@ -38,7 +38,7 @@ def subtitle_checker(media_streams, sub_index, mount_disk_mode, log=False):
                 f"subtitles: cuz unspecified and not external -> subtitle_priority: --sid={sub_inner_idx} "
                 f"(mpv only): {sub_inner_match.get('Title', '')},{sub_inner_match['DisplayTitle']}")
 
-    if sub_index > 0:
+    if sub_index >= 0:
         sub_dict = media_streams[sub_index]
         select_external = sub_dict.get('IsExternal')
         if not select_external:
