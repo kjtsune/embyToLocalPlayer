@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         linkDoubanTrakt
 // @namespace    http://tampermonkey.net/
-// @version      2025.09.17
+// @version      2026.02.04
 // @description  在豆瓣和 trakt 之间增加跳转链接
 // @description:zh-CN 在豆瓣和 trakt 之间增加跳转链接
 // @description:en  add trakt link on douban, and vice versa
@@ -10,6 +10,8 @@
 // @match        https://movie.douban.com/subject/*
 // @match        https://trakt.tv/movies/*
 // @match        https://trakt.tv/shows/*
+// @match        https://app.trakt.tv/movies/*
+// @match        https://app.trakt.tv/shows/*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=douban.com
 // @grant        GM.xmlHttpRequest
 // @connect      api.douban.com
@@ -129,19 +131,48 @@ function addTraktLink() {
     }
 }
 
-async function addDoubanLink() {
-    if (window.location.host != 'trakt.tv') { return };
-    if (location.href.contains('seasons')) return;
-    let doubanA = document.querySelector('#doubanLink');
-    let imdbA = document.querySelector('#external-link-imdb');
-    if (!doubanA && imdbA) {
-        let imdbId = imdbA.href.split('/').at(-1);
-        let doubanId = await getDoubanIdWithStorage(imdbId);
-        let linkName = (doubanId) ? 'Douban' : 'Not Douban'
-        let douhanHtml = `<a id="doubanLink" href="https://movie.douban.com/subject/${doubanId}/" target="_blank">${linkName}</a>`
-        imdbA.insertAdjacentHTML('beforebegin', douhanHtml);
+function observeElement(selector, callback) {
+    const el = document.querySelector(selector);
+    if (el) {
+        callback(el);
+        return;
     }
+    const observer = new MutationObserver(() => {
+        const el = document.querySelector(selector);
+        if (el) {
+            observer.disconnect();
+            callback(el);
+        }
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+}
 
+async function addDoubanLink() {
+    if (!location.host.includes('trakt.tv')) return;
+    if (location.href.includes('seasons')) return;
+
+    observeElement('a[href*="imdb.com/title/tt"]:not([href*="rating"])', async (imdbA) => {
+        if (document.querySelector('#doubanLink')) return;
+        const imdbId = imdbA.href.match(/tt\d+/)?.[0];
+        if (!imdbId) return;
+
+        const doubanId = await getDoubanIdWithStorage(imdbId);
+        const a = document.createElement('a');
+        a.id = 'doubanLink';
+        a.href = doubanId
+            ? `https://movie.douban.com/subject/${doubanId}/`
+            : `https://movie.douban.com/search?q=${imdbId}`;
+        a.target = '_blank';
+        a.textContent = doubanId ? 'Douban' : 'Not Douban';
+        const color = getComputedStyle(imdbA).color;
+        a.style.setProperty('color', color, 'important');
+        if (location.host.includes('app.trakt.tv')) {
+            a.textContent = doubanId ? '豆' : '!豆';
+            imdbA.parentElement.parentElement.prepend(a);
+        } else {
+            imdbA.parentElement.prepend(a);
+        }
+    });
 }
 
 function douban_delete_old(item) {
