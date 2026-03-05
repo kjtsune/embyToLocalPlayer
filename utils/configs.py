@@ -9,6 +9,7 @@ import sys
 import threading
 import typing
 from configparser import ConfigParser
+import getpass
 
 
 def mini_conf():
@@ -72,7 +73,7 @@ class MyLogger:
     api_key = '_hide_api_key_'
     netloc = '_mix_netloc_'
     netloc_replace = '_mix_netloc_'
-    user_name = os.getlogin()
+    user_name = getpass.getuser()
     _log_queue = queue.SimpleQueue()
 
     def __init__(self):
