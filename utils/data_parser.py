@@ -184,7 +184,7 @@ def parse_received_data_emby(received_data):
     sub_index, sub_inner_idx, sub_dict = subtitle_checker(media_streams, sub_index, mount_disk_mode, log=True)
     sub_jellyfin_str = '' if is_emby \
         else f'{item_id[:8]}-{item_id[8:12]}-{item_id[12:16]}-{item_id[16:20]}-{item_id[20:]}/'
-    if sub_dict:
+    if sub_dict and sub_inner_idx != 0:
         sub_emby_str = f'/{media_source_id}' if is_emby else ''
         # sub_data = media_source_info['MediaStreams'][sub_index]
         fallback_sub = f'{extra_str}/videos/{sub_jellyfin_str}{item_id}{sub_emby_str}/Subtitles' \
@@ -719,7 +719,7 @@ def list_episodes(data: dict):
         sub_index, sub_inner_idx, sub_dict = subtitle_checker(media_streams, need_check_inner_sub, mount_disk_mode)
 
         sub_file = None
-        if sub_dict:
+        if sub_dict and sub_inner_idx != 0:
             sub_file = f'{scheme}://{netloc}/Videos/{item_id}/{source_info["Id"]}/Subtitles' \
                        f'/{sub_dict["Index"]}/Stream{os.path.splitext(sub_dict["Path"])[-1]}'
 
