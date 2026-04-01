@@ -147,6 +147,7 @@ class Configs:
         self.path = [i for i in self.path if os.path.exists(i)][0]
         self.raw: ConfigParser = self.update()
         self.fullscreen = self.raw.getboolean('emby', 'fullscreen', fallback=True)
+        self.server_port = self._get_server_port()
         self.speed_limit = self.raw.getfloat('gui', 'speed_limit', fallback=0)
         self.log_level = self.raw.get('dev', 'log_level', fallback='INFO')
         self.log_level = LOG_LEVELS.get(self.log_level.upper(), LOG_LEVELS['INFO'])
@@ -199,6 +200,21 @@ class Configs:
         proxy = proxy[1] if len(proxy) == 2 else proxy[0]
         return proxy
 
+    def _get_server_port(self):
+        port = self.raw.get('dev', 'server_port', fallback='58000').strip()
+        try:
+            port = int(port)
+        except (TypeError, ValueError):
+            MyLogger.log(f'invalid [dev] server_port={port!r}, fallback to 58000')
+            return 58000
+        if 1 <= port <= 65535:
+            return port
+        MyLogger.log(f'invalid [dev] server_port={port!r}, fallback to 58000')
+        return 58000
+
+    def local_server_url(self, host='127.0.0.1'):
+        return f'http://{host}:{self.server_port}'
+
     def update(self):
         config = ConfigParser()
         config.read(self.path, encoding='utf-8-sig')
@@ -207,6 +223,7 @@ class Configs:
         self.debug_mode = self.raw.getboolean('dev', 'debug', fallback=False)
         self.disable_audio = self.raw.getboolean('dev', 'disable_audio', fallback=False)  # test in vm
         self.gui_is_enable = self.raw.getboolean('gui', 'enable', fallback=False)
+        self.server_port = self._get_server_port()
         self.sys_proxy = self._get_sys_proxy()
         self.dl_proxy = self._get_proxy('download')
         self.script_proxy = self._get_proxy('script')

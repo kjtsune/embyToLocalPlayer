@@ -41,7 +41,8 @@ class ThreadingHTTPServer(ThreadingMixIn, HTTPServer):
     """Handle requests in a separate thread."""
 
 
-def run_server(ip='127.0.0.1', port=58000):
+def run_server(ip='127.0.0.1', port=None):
+    port = configs.server_port if port is None else port
     if not configs.raw.getboolean('dev', 'listen_on_localhost', fallback=True):
         ip = get_machine_ip()
     server_address = (ip, port)

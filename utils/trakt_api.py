@@ -3,8 +3,11 @@ import json
 import os
 import time
 import typing
+import urllib.parse
 
 import requests
+
+from utils.configs import configs
 
 
 class TraktApi:
@@ -209,8 +212,9 @@ class TraktApi:
         self.get(f'calendars/my/dvd/2000-01-01/1')
 
     def receive_oauth_code(self):
+        redirect_uri = urllib.parse.quote(f'{configs.local_server_url(host="localhost")}/trakt_auth', safe='')
         url = f'https://trakt.tv/oauth/authorize?client_id={self.client_id}' \
-              f'&redirect_uri=http%3A%2F%2Flocalhost%2Ftrakt&response_type=code'
+              f'&redirect_uri={redirect_uri}&response_type=code'
         if os.name == 'nt':
             os.startfile(url)
 
@@ -219,7 +223,7 @@ class TraktApi:
             'code': oauth_code,
             'client_id': self.client_id,
             'client_secret': self.client_secret,
-            'redirect_uri': 'http://localhost:58000/trakt_auth',
+            'redirect_uri': f'{configs.local_server_url(host="localhost")}/trakt_auth',
             'grant_type': 'authorization_code'
         })
         if not res.get('access_token'):
@@ -239,7 +243,7 @@ class TraktApi:
             'refresh_token': self.access_token['refresh_token'],
             'client_id': self.client_id,
             'client_secret': self.client_secret,
-            'redirect_uri': 'http://localhost/trakt',
+            'redirect_uri': f'{configs.local_server_url(host="localhost")}/trakt_auth',
             'grant_type': "refresh_token"
         })
         if not res.get('access_token'):
@@ -269,8 +273,9 @@ class TraktApi:
             return True
 
     def _open_browser(self):
+        redirect_uri = urllib.parse.quote(f'{configs.local_server_url(host="localhost")}/trakt_auth', safe='')
         url = f'https://trakt.tv/oauth/authorize?client_id={self.client_id}' \
-              f'&redirect_uri=http://localhost:58000/trakt_auth&response_type=code'
+              f'&redirect_uri={redirect_uri}&response_type=code'
         if os.name == 'nt':
             os.startfile(url)
         else:

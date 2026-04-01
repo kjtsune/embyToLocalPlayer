@@ -163,7 +163,7 @@ def play_media_file(data):
     if not href:
         _logger.info('qb open file: userscript update needed.')
         return
-    href = nas_href or f'{href}:58000'
+    href = nas_href or f'{href}:{configs.server_port}'
     save_path = data['info'][0]['save_path']
     big_file = sorted(data['file'], key=lambda i: i['size'], reverse=True)[0]['name']
     file_path = os.path.join(save_path, big_file)
@@ -200,7 +200,15 @@ def kill_multi_process(name_re, not_re=None):
     for pid, _ in pid_cmd:
         if pid != my_pid:
             _logger.info('kill', pid, _)
-            os.kill(pid, signal.SIGABRT)
+            if os.name == 'nt':
+                try:
+                    subprocess.run(['taskkill', '/PID', str(pid), '/F'],
+                                   capture_output=True, text=True, check=False)
+                except Exception as e:
+                    _logger.error(f'kill process failed: {pid=} {str(e)[:80]}')
+                    continue
+            else:
+                os.kill(pid, signal.SIGABRT)
             killed = True
     killed and time.sleep(1)
 
@@ -359,7 +367,7 @@ def version_prefer_for_playlist(_ep_success_map, current_key, file_path, cur_lis
             res.append(sources[0])
             log.append('single ver')
             continue
-        if ep := _ep_success_map.get(cur):  # 选定优先于偏好
+        if ep := _ep_success_map.get(cur):  # 选定成功的优先于偏好
             res.append(ep)
             log.append('current ver')
             continue
@@ -421,7 +429,7 @@ def main_ep_intro_time(main_ep_info):
 
 
 def show_version_info(extra_data=None):
-    py_script_version = '2025.11.13'
+    py_script_version = '2026.03.06'
     if not extra_data:
         return py_script_version
     gm_info = extra_data.get('gmInfo')

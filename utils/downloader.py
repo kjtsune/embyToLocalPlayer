@@ -13,6 +13,10 @@ from utils.tools import (load_json_file, dump_json_file, scan_cache_dir, safe_de
 
 logger = MyLogger()
 
+
+def _local_server_url(path):
+    return f'{configs.local_server_url()}{path}'
+
 if platform.system() == 'Windows':
     import msvcrt
 else:
@@ -304,7 +308,7 @@ class DownloadManager:
             dl.cancel_download(silence=True)
         logger.info(f'dlm: play_check {dl.download_only=} {dl.progress=}')
         data['gui_cmd'] = 'play'
-        requests_urllib('http://127.0.0.1:58000/gui', _json=data)
+        requests_urllib(_local_server_url('/gui'), _json=data)
 
     def download_play(self, data, play=True):
         url, _id, pos, dl = self._init_dl(data)
@@ -320,11 +324,11 @@ class DownloadManager:
                 data['gui_cmd'] = 'play'
                 if configs.raw.getboolean('gui', 'without_confirm', fallback=False):
                     data['gui_without_confirm'] = True
-                requests_urllib('http://127.0.0.1:58000/dl', _json=data)
+                requests_urllib(_local_server_url('/dl'), _json=data)
         else:
             if play:
                 data['gui_cmd'] = 'play'
-                requests_urllib('http://127.0.0.1:58000/dl', _json=data)
+                requests_urllib(_local_server_url('/dl'), _json=data)
                 logger.info(f'dlm: fallback to url, cuz: {pos=} > {dl.progress}')
         if not dl.file_is_busy and dl.progress != 1:
             if not dl.file_lock.has_lock:
@@ -490,7 +494,7 @@ def _prefetch_resume_tv(emby_thin: EmbyApiThin, startswith, fetch_type=''):
                 host = emby_thin.host
                 image = f'[ ]({host}/emby/Items/{item_id}/Images/Primary?maxHeight=282&maxWidth=500)'
                 item_url = f"[emby]({host}/web/index.html#!/item?id={item_id}&serverId={ep['ServerId']})"
-                notify_msg = f"{image}{ep['SeriesName']} \| `{time.ctime()}` \| {item_url}"
+                notify_msg = f"{image}{ep['SeriesName']} \\| `{time.ctime()}` \\| {item_url}"
 
                 media_sources = playback_info['MediaSources']
                 ep_source_name = [m['Name'] for m in media_sources if m['Name'] in ep_basename][0]
@@ -539,7 +543,7 @@ def _prefetch_resume_tv(emby_thin: EmbyApiThin, startswith, fetch_type=''):
                             continue
                         ep['stream_url'], ep['fake_name'], ep['position'] = stream_url, fake_name, 0.1
                         ep['gui_cmd'] = 'download_not_play'
-                        requests_urllib('http://127.0.0.1:58000/gui', _json=ep)
+                        requests_urllib(_local_server_url('/gui'), _json=ep)
                         continue
                     if is_strm:
                         strm_done_list.append(item_id)

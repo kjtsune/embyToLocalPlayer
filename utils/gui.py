@@ -9,6 +9,10 @@ from utils.tools import scan_cache_dir, load_dict_jsons_in_folder
 logger = MyLogger()
 
 
+def _local_server_url(path):
+    return f'{configs.local_server_url()}{path}'
+
+
 class App:
     def __init__(self, root: tk.Tk):
         self.root = root
@@ -38,7 +42,7 @@ class App:
 
     def send_data_with_cmd(self, data, gui_cmd, destroy=True):
         data['gui_cmd'] = gui_cmd
-        requests_urllib('http://127.0.0.1:58000/gui', _json=data)
+        requests_urllib(_local_server_url('/gui'), _json=data)
         if destroy:
             self.root.destroy()
 
