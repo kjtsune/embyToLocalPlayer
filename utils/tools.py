@@ -359,7 +359,7 @@ def version_prefer_for_playlist(_ep_success_map, current_key, file_path, cur_lis
             res.append(sources[0])
             log.append('single ver')
             continue
-        if ep := _ep_success_map.get(cur):  # 选定优先于偏好
+        if ep := _ep_success_map.get(cur):  # 选定成功的优先于偏好
             res.append(ep)
             log.append('current ver')
             continue

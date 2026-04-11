@@ -1,3 +1,4 @@
+import collections
 import os
 import pathlib
 import re
@@ -184,7 +185,7 @@ def parse_received_data_emby(received_data):
     sub_index, sub_inner_idx, sub_dict = subtitle_checker(media_streams, sub_index, mount_disk_mode, log=True)
     sub_jellyfin_str = '' if is_emby \
         else f'{item_id[:8]}-{item_id[8:12]}-{item_id[12:16]}-{item_id[16:20]}-{item_id[20:]}/'
-    if sub_dict and sub_inner_idx != 0:
+    if sub_dict and sub_inner_idx == 0:
         sub_emby_str = f'/{media_source_id}' if is_emby else ''
         # sub_data = media_source_info['MediaStreams'][sub_index]
         fallback_sub = f'{extra_str}/videos/{sub_jellyfin_str}{item_id}{sub_emby_str}/Subtitles' \
@@ -497,7 +498,7 @@ def list_episodes(data: dict):
             ep_current = [i for i in episodes_data if data['media_source_id'] == i['MediaSources'][0]['Id']][0]
         current_key = ep_to_key(ep_current)
         curr_count = ep_raw_cur_list.count(current_key)
-        curr_raw_index = ep_raw_cur_list.index(current_key)
+        curr_raw_index = episodes_data.index(ep_current)
         if curr_count > 1:  # 适配首集多版本但过于相似的情况
             _episodes_data = episodes_data.copy()
             del _episodes_data[curr_raw_index + 1:curr_raw_index + curr_count]
@@ -570,7 +571,9 @@ def list_episodes(data: dict):
             logger.info(f'version_filter: success with {ini_re=}')
             return _ep_data
         ini_res = []
-        _ep_success_map = {ep_to_key(i): i for i in _ep_data}
+        _pairs = [(ep_to_key(i), i) for i in _ep_data]
+        _counts = collections.Counter(k for k, _ in _pairs)
+        _ep_success_map = {k: v for k, v in _pairs if _counts[k] == 1}
         prefer_eps = version_prefer_for_playlist(_ep_success_map, current_key, file_path, ep_raw_cur_list,
                                                  episodes_data)
         if _ep_data_num == 0:
@@ -719,7 +722,7 @@ def list_episodes(data: dict):
         sub_index, sub_inner_idx, sub_dict = subtitle_checker(media_streams, need_check_inner_sub, mount_disk_mode)
 
         sub_file = None
-        if sub_dict and sub_inner_idx != 0:
+        if sub_dict and sub_inner_idx == 0:
             sub_file = f'{scheme}://{netloc}/Videos/{item_id}/{source_info["Id"]}/Subtitles' \
                        f'/{sub_dict["Index"]}/Stream{os.path.splitext(sub_dict["Path"])[-1]}'
 
