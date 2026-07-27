@@ -737,6 +737,10 @@ def list_episodes(data: dict):
         if basename != main_ep_basename:
             for none_key in ['start_sec', 'main_ep_info', 'episodes_info']:
                 result[none_key] = None
+        else:
+            # 因入库时间不同，同一集 ver_a ver_b 的 emby 标题可能不同，网页只会显示 ver_a 的。
+            # 起播集标题固定为 ver_a，但通过 version_prefer 实际播放和列表里数据可能为 b，导致回传失败。
+            media_title = data['media_title']
         result.update(dict(
             basename=basename,
             media_basename=media_basename,
