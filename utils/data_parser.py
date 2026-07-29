@@ -536,6 +536,7 @@ def list_episodes(data: dict):
         # 会禁用前向播放列表。
         def check_ep_cur_is_sequence(__ep_data):
             __ep_success = []  # 成功的要大于 2，不然可能只是下一集的首个文件模糊匹配成功，不精确。
+            # 但是如果要求大于 2，下一集是末集的话，可能会误伤，优先采用 prefer，prefer 有选中优先策略。
             _cut_ep_data = __ep_data[__ep_data.index(ep_current):]
             if len(_cut_cur_list) == 1:
                 return [ep_current]
@@ -602,7 +603,7 @@ def list_episodes(data: dict):
             else:
                 ini_res = _ep_success
         filter_res = ini_res if len(ini_res) > len(builtin_res) else builtin_res
-        if len(filter_res) <= 1:
+        if len(filter_res) <= 2 and prefer_eps:
             return prefer_eps
         fist_cur, last_cur = ep_to_key(filter_res[0]), ep_to_key(filter_res[-1])
         fist_index, last_index = ep_seq_cur_list.index(fist_cur), ep_seq_cur_list.index(last_cur)
