@@ -195,10 +195,10 @@ def kill_multi_process(name_re, not_re=None):
         pid_cmd = [i.strip().split(maxsplit=1) for i in ps_out[1:]]
         pid_cmd = [(int(pid), cmd) for (pid, cmd) in pid_cmd if re.search(name_re, cmd)]
     pid_cmd = [(int(pid), cmd) for (pid, cmd) in pid_cmd if not re.search(not_re, cmd)] if not_re else pid_cmd
-    my_pid = os.getpid()
+    my_pids = (os.getpid(), os.getppid())
     killed = False
     for pid, _ in pid_cmd:
-        if pid != my_pid:
+        if pid not in my_pids:
             _logger.info('kill', pid, _)
             os.kill(pid, signal.SIGABRT)
             killed = True
