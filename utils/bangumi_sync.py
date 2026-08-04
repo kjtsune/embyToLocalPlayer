@@ -236,11 +236,20 @@ def bgm_check_ep_miss_mark(bgm, emby, eps_data, bgm_sea_id):
             logger.info(f'bgm: loss sync {loss_keys}, may need check it manually')
 
 
+def emby_api_via_fist_ep(fist_ep):
+    from utils.emby_api import EmbyApi
+    emby = EmbyApi(host=f"{fist_ep['scheme']}://{fist_ep['netloc']}",
+                   api_key=fist_ep['api_key'],
+                   user_id=fist_ep['user_id'],
+                   http_proxy=configs.script_proxy,
+                   cert_verify=(not configs.raw.getboolean('dev', 'skip_certificate_verify', fallback=False))
+                   )
+    return emby
+
 def bangumi_sync_main(bangumi=None, eps_data: list = None, test=False, use_ini=False):
     if not eps_data and not use_ini and not test:
         raise ValueError('not eps_data and not test')
     from utils.bangumi_api import BangumiApiEmbyVer
-    from utils.emby_api import EmbyApi
     from utils.plex_api import PlexApi
     bgm = bangumi or BangumiApiEmbyVer(
         username=configs.raw.get('bangumi', 'username', fallback=''),
@@ -261,12 +270,7 @@ def bangumi_sync_main(bangumi=None, eps_data: list = None, test=False, use_ini=F
                            api_key=fist_ep['api_key'])
             bangumi_sync_plex(plex=plex, bgm=bgm, plex_eps=eps_data)
             return bgm
-        emby = EmbyApi(host=f"{fist_ep['scheme']}://{fist_ep['netloc']}",
-                       api_key=fist_ep['api_key'],
-                       user_id=fist_ep['user_id'],
-                       http_proxy=configs.script_proxy,
-                       cert_verify=(not configs.raw.getboolean('dev', 'skip_certificate_verify', fallback=False))
-                       )
+        emby = emby_api_via_fist_ep(fist_ep)
     bangumi_sync_emby(emby=emby, bgm=bgm, emby_eps=eps_data)
     return bgm
 

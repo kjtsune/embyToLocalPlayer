@@ -9,7 +9,7 @@ except Exception:
     pass
 
 from utils.configs import configs, MyLogger
-from utils.bangumi_sync import api_client_via_stream_url, get_emby_season_watched_ep_key
+from utils.bangumi_sync import api_client_via_stream_url, get_emby_season_watched_ep_key, emby_api_via_fist_ep
 
 logger = MyLogger()
 
@@ -158,11 +158,7 @@ def trakt_api_client(received_code=None):
     user_id = configs.raw.get('trakt', 'user_name', fallback='')
     client_id = configs.raw.get('trakt', 'client_id', fallback='')
     client_secret = configs.raw.get('trakt', 'client_secret', fallback='')
-    if received_code:
-        oauth_code = received_code
-    else:
-        oauth_code = configs.raw.get('trakt', 'oauth_code', fallback='').split('code=')
-        oauth_code = oauth_code[1] if len(oauth_code) == 2 else oauth_code[0]
+    oauth_code = received_code if received_code else None
     if not all([user_id, client_id, client_secret]):
         raise ValueError('trakt: require user_name, client_id, client_secret')
     trakt = TraktApi(
@@ -187,13 +183,7 @@ def trakt_sync_main(trakt=None, emby=None, eps_data=None, test=False):
             eps_data = eps_data if isinstance(eps_data, list) else [eps_data]
             fist_ep = eps_data[0]
             if fist_ep['server'] != 'plex':
-                emby = EmbyApi(host=f"{fist_ep['scheme']}://{fist_ep['netloc']}",
-                               api_key=fist_ep['api_key'],
-                               user_id=fist_ep['user_id'],
-                               http_proxy=configs.script_proxy,
-                               cert_verify=(not configs.raw.getboolean('dev', 'skip_certificate_verify',
-                                                                       fallback=False))
-                               )
+                emby = emby_api_via_fist_ep(fist_ep)
         sync_ep_or_movie_to_trakt(trakt=trakt, emby=emby, eps_data=eps_data)
     return trakt
 

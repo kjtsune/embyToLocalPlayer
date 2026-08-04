@@ -176,12 +176,18 @@ class BaseManager(BaseInit):
             else:
                 if emby_strm_miss_runtime and mpv_total_sec:
                     ep['total_sec'] = mpv_total_sec
+                # realtime_playing_request_sender(cur_sec=_stop_sec, data=ep, method='start')
+                # # time.sleep(1)
+                # # emby 的 simkl 插件 回传由 Progress 触发，可能会造成后台残留正在播放。
+                # # simkl 插件有全局 30 秒静默冷却时间，以及只回传首次。
+                # realtime_playing_request_sender(cur_sec=_stop_sec, data=ep, method='playing')
+                # realtime_playing_request_sender(cur_sec=_stop_sec, data=ep, method='end')
                 update_server_playback_progress(stop_sec=_stop_sec, data=ep)
             need_update_eps.append(ep)
         threading.Thread(target=self.prefetch_next_ep_playback_info, daemon=True).start()
         if not need_update_eps:
             return
-        for provider in 'trakt', 'bangumi':
+        for provider in 'trakt', 'bangumi', 'simkl':
             if need_update_eps[0]['total_sec'] == 3600 * 24:
                 logger.error('trakt, bgm disabled: cuz miss emby runtime data')
                 break

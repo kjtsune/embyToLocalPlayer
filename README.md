@@ -6,7 +6,7 @@ etlp - Emby/Jellyfin 调用 PotPlayer mpv IINA MPC VLC 播放，并回传播放�
 
 * 在首页也可以播放。点击原来的播放按钮就可以。可配置版本优先级（若视频多版本）。
 * 播放列表（连续播放）支持，下一集保持相同版本。
-* trakt.tv bangumi.tv bgm.tv 单向标记已观看支持。
+* bangumi.tv bgm.tv simkl.tv trakt.tv 单向标记已观看支持。
 * 本地挂载用户：可跳转到路径对应文件夹。（按钮在网页显示文件路径的上面）
 * 未适配的播放器一般也能用，只是不会回传进度。
 * 可在 qBittorrent WebUI 里直接播放或者跳转到路径对应挂载文件夹。
@@ -375,7 +375,7 @@ https://github.com/kjtsune/embyToLocalPlayer#faq
 <details>
 <summary>bgm.tv / trakt.tv 存储记录</summary>
 
-### bgm.tv / trakt.tv 存储记录
+### bgm.tv / simkl / trakt.tv 存储记录
 
 > 通用 FAQ
 
@@ -415,6 +415,23 @@ https://github.com/kjtsune/embyToLocalPlayer#faq
     1. 在 etlp 所在文件夹打开命令行。
     2. 便携版用户运行：`./python_embed/python.exe ./utils/bangumi_sync.py mark_played`
     3. 其他用户运行：`python utils/bangumi_sync.py mark_played`
+
+> simkl 单向同步
+
+* 缺点：
+    1. 只能往 simkl 单向同步。
+    2. 只在播放器正常关闭后，同步播放器已播放的（网页点击已播放不触发）。
+    3. 配置和使用都麻烦。
+* 使用说明：
+    1. [点击访问：simkl dev 页面](https://simkl.com/settings/developer/)：   
+       创建 app，名字任意，Redirect uri 填写: `http://localhost:58000/simkl_auth` ，然后保存。  
+       已创建的 app 在 dev 页面底部能看到。
+    2. ini 配置文件`[simkl]` 填写 `enable_host` `client_id` `client_secret` 这三项。
+    3. 启动脚本，会自动跳验证页面。点击 Yes 按钮，稍等后，网页会显示 `etlp: simkl auth success`。  
+       etlp 目录下会自动生成 `simkl_token.json`
+    4. 播放一个视频，拖到最后，关闭播放器。看日志是否同步成功。
+* 其他问题：
+    1. 若想用 emby 本身的 simkl 插件，需要开启实时回传，插件有30秒全局限流。暂不考虑适配支持。
 
 > trakt.tv 单向同步
 

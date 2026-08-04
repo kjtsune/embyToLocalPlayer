@@ -22,12 +22,14 @@ if __name__ == '__main__':
                                    r'/IINA|/VLC|/mpv)',
                            not_re='(tmux|greasyfork|github)')
 
-    for _provider in 'trakt', 'bangumi':
+    for _provider in 'trakt', 'bangumi', 'simkl':
         if configs.raw.get(_provider, 'enable_host', fallback=''):
             from utils.trakt_sync import trakt_sync_main
             from utils.bangumi_sync import bangumi_sync_main
+            from utils.simkl_sync import simkl_sync_main
 
-            threading.Thread(target={'trakt': trakt_sync_main, 'bangumi': bangumi_sync_main}[_provider],
+            threading.Thread(target={'trakt': trakt_sync_main, 'bangumi': bangumi_sync_main,
+                                     'simkl': simkl_sync_main}[_provider],
                              kwargs={'test': True}, daemon=True).start()
 
     logger = MyLogger()

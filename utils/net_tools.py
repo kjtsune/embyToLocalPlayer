@@ -15,7 +15,8 @@ from utils.configs import configs, MyLogger
 ssl_context = ssl.SSLContext() if configs.raw.getboolean('dev', 'skip_certificate_verify', fallback=False) else None
 bangumi_api_cache = {'cache_time': time.time(), 'bangumi': None}
 sync_third_party_done_ids = {'trakt': [],
-                             'bangumi': []}
+                             'bangumi': [],
+                             'simkl': []}
 
 logger = MyLogger()
 redirect_url_cache = {}
@@ -399,6 +400,9 @@ def sync_third_party_for_eps(eps, provider):
         if bangumi_api_cache['cache_time'] + 86400 < time.time():
             bangumi_api_cache.update({'cache_time': time.time(), 'bangumi': None})
 
+    if provider == 'simkl':
+        from utils.simkl_sync import simkl_sync_main
+        simkl_sync_main(eps_data=useful_items)
 
 def save_sub_file(url, name='tmp_sub.srt'):
     srt = os.path.join(configs.cwd, '.tmp', name)
