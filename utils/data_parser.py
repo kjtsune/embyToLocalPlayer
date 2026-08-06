@@ -191,7 +191,56 @@ def parse_received_data_emby(received_data):
         fallback_sub = f'{extra_str}/videos/{sub_jellyfin_str}{item_id}{sub_emby_str}/Subtitles' \
                        f'/{sub_index}/0/Stream.{sub_dict["Codec"]}?api_key={api_key}'
         # pot 240618 不支持 emby DeliveryUrl 的 vtt 格式，实际是 srt。
-        sub_delivery_url = sub_dict['Codec'] not in ('sup', 'srt') and sub_dict.get('DeliveryUrl') or fallback_sub
+        sub_delivery_url = sub_dict.get('Codec') not in ('sup', 'srt') and sub_dict.get('DeliveryUrl') or fallback_sub
+        
+        # [Fix] Emby .strm external subtitle offset bug
+        if is_emby and is_strm and sub_delivery_url:
+            import urllib.request as _urllib_request
+            def probe_subtitle_url(base_url, original_idx):
+                valid_indices = []
+                # Probe indices 0 to 15 to find all actual subtitles
+                for test_idx in range(16):
+                    test_url = base_url.replace(f'/{original_idx}/0/Stream', f'/{test_idx}/0/Stream')
+                    test_full_url = f'{scheme}://{netloc}{test_url}'
+                    try:
+                        req = _urllib_request.Request(test_full_url, method='GET', headers={
+                            'User-Agent': 'Mozilla/5.0',
+                            'Cache-Control': 'no-cache'
+                        })
+                        with _urllib_request.urlopen(req, timeout=3) as response:
+                            if response.status in (200, 206) and len(response.read(200)) > 100:
+                                valid_indices.append(test_idx)
+                    except Exception:
+                        continue
+                
+                if not valid_indices:
+                    return base_url
+                
+                # Find the rank of the selected subtitle among known external subtitles
+                ext_subs = [s for s in media_streams if s.get('Type') == 'Subtitle' and s.get('IsExternal')]
+                ext_subs.sort(key=lambda x: x.get('Index', 0))
+                try:
+                    rank = [s.get('Index') for s in ext_subs].index(original_idx)
+                except ValueError:
+                    rank = 0
+                
+                # Map the rank to the valid indices probed
+                correct_idx = valid_indices[rank] if rank < len(valid_indices) else valid_indices[0]
+                new_url = base_url.replace(f'/{original_idx}/0/Stream', f'/{correct_idx}/0/Stream')
+                
+                # Fix the codec extension using main_ep_info to prevent Emby from transcoding ass to vtt
+                true_streams = main_ep_info.get('MediaStreams', [])
+                correct_stream = next((s for s in true_streams if s.get('Index') == correct_idx), {})
+                true_codec = correct_stream.get('Codec')
+                if true_codec:
+                    import re
+                    new_url = re.sub(r'/Stream\.\w+', f'/Stream.{true_codec}', new_url)
+                
+                # logger.info(f"Probed correct subtitle indices: {valid_indices}, mapped original Index {original_idx} (Rank {rank}) to {correct_idx} with URL {new_url}")
+                return new_url
+
+            original_idx = sub_dict.get("Index", sub_index)
+            sub_delivery_url = probe_subtitle_url(sub_delivery_url, original_idx)
     else:
         sub_delivery_url = None
 
