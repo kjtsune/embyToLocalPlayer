@@ -5,7 +5,8 @@ import re
 import urllib.parse
 
 from utils.configs import configs, MyLogger
-from utils.net_tools import multi_thread_requests, requests_urllib, get_redirect_url
+from utils.emby_api_thin import EmbyApiThin
+from utils.net_tools import multi_thread_requests, get_redirect_url
 from utils.tools import (show_version_info, main_ep_to_title, main_ep_intro_time, logger_setup, version_prefer_emby,
                          match_version_range, sub_via_other_media_version, force_disk_mode_by_path,
                          translate_path_by_ini, debug_beep_win32, version_prefer_for_playlist)
@@ -395,35 +396,15 @@ def list_episodes_plex(data: dict):
     for ep in result:
         if ep['sub_file']:
             continue
-        streams = key_sub_dict[ep['rating_key']]['MediaContainer']['Metadata'][0]['Media'][0]['Part'][0]['Stream']
+        streams = key_sub_dict[ep['rating_key']]['MediaContainer']['Metadata'][0]['Media'][0]['Part'][0].get('Stream')
+        if not streams:  # strm 没有
+            continue
         sub_path = [s['key'] for s in streams if s.get('key')
                     and configs.check_str_match(s.get('displayTitle'), 'playlist', 'subtitle_priority', log=False)]
         sub_file = f'{scheme}://{netloc}{sub_path[0]}?download=0&X-Plex-Token={api_key}' if sub_path else None
         ep['sub_file'] = sub_file
     return result
 
-
-def list_playlist_or_mix_s0(data):
-    scheme = data['scheme']
-    netloc = data['netloc']
-    api_key = data['api_key']
-    user_id = data['user_id']
-    extra_str = '/emby' if data['server'] == 'emby' else ''
-    device_id, play_session_id = data['device_id'], data['play_session_id']
-    playlist_info = data['playlist_info']  # 电影或者音乐视频
-    episodes_info = data['episodes_info']  # 可能是混合了S0的正确集数
-
-    params = {'X-Emby-Token': api_key, }
-    headers = {'accept': 'application/json', }
-    headers.update(data['headers'])
-
-    ids = [ep['Id'] for ep in playlist_info]
-    params.update({'Fields': 'MediaSources,Path,ProviderIds',
-                   'Ids': ','.join(ids), })
-    playlist_data = requests_urllib(
-        f'{scheme}://{netloc}{extra_str}/Users/{user_id}/Items',
-        params=params, headers=headers, get_json=True)
-    return playlist_data
 
 
 def list_episodes(data: dict):
@@ -437,15 +418,11 @@ def list_episodes(data: dict):
     extra_str = '/emby' if data['server'] == 'emby' else ''
     device_id, play_session_id = data['device_id'], data['play_session_id']
 
-    params = {'X-Emby-Token': api_key, }
-    headers = {'accept': 'application/json', }
-    headers.update(data['headers'])
+    emby_thin = EmbyApiThin(data)
 
     playlist_info = data.get('playlist_info')
     playlist_info and logger.info('playlist_info found, skip version filter and pretty title')
-    main_ep_info = data.get('main_ep_info') or requests_urllib(
-        f'{scheme}://{netloc}{extra_str}/Users/{user_id}/Items/{data["item_id"]}',
-        params=params, headers=headers, get_json=True)
+    main_ep_info = data.get('main_ep_info') or emby_thin.get_item(item_id=data['item_id'])
 
     def fill_data_type_provider_ids(): # sync trakt required
         data.update(main_ep_info)
@@ -761,7 +738,7 @@ def list_episodes(data: dict):
         ))
         return result
 
-    params.update({'Fields': 'MediaSources,Path,ProviderIds,AlternateMediaSources'})
+    params = {'Fields': 'MediaSources,Path,ProviderIds,AlternateMediaSources,Chapters'}
     if playlist_info:
         # jellyfin 花絮 疑似也会被当作播放列表数据。
         def chunk_list(lst, chunk_size):
@@ -772,9 +749,7 @@ def list_episodes(data: dict):
         _eps_parts = []
         for _ids in chunk_list(ids, 200):
             params.update({'Ids': ','.join(_ids), })
-            _episodes = requests_urllib(
-                f'{scheme}://{netloc}{extra_str}/Users/{user_id}/Items',
-                params=params, headers=headers, get_json=True)
+            _episodes = emby_thin.get_items(ids=_ids, params=params)
             _eps_parts.append(_episodes)
         episodes = _eps_parts[0]
         if len(_eps_parts) > 1:
@@ -790,8 +765,10 @@ def list_episodes(data: dict):
             del params['SeasonId']
             logger.info('playlist: season_id not found fallback to series_id, may leak error')
         # 改用 season_id，避免S0命名不规范导致美化标题失败，不知道会不会影响S0混播。
-        url = f'{scheme}://{netloc}{extra_str}/Shows/{season_id}/Episodes'
-        episodes = requests_urllib(url, params=params, headers=headers, get_json=True)
+        # if _ := data['episodes_info']: 可能没有视频数据。
+        #     episodes = {'Items': _}
+        # else:
+        episodes = emby_thin.list_season_eps(season_id=season_id, params=params)
     # dump_json_file(episodes, 'z_playlist_movie.json')
     eps_error = [i for i in episodes['Items'] if 'Path' not in i or 'RunTimeTicks' not in i]
     path_error = [i for i in eps_error if 'Path' not in i]
@@ -811,7 +788,7 @@ def list_episodes(data: dict):
     def fill_miss_eps_item(episodes_data):
         # 4.9以上的非管理员缺少多版本条目，所以需要扁平化多版本。
         # 扁平化后判断体积时长等最好从 MediaSources 里判断，不然可能有误。
-        if main_ep_info['CanDelete'] or match_version_range(data['server_version'], '0-4.8'):
+        if main_ep_info['CanDelete'] or match_version_range(data['server_version'], '0-4.8.99'):
             return episodes_data
 
         id_set = set()

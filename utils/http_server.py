@@ -42,10 +42,13 @@ class ThreadingHTTPServer(ThreadingMixIn, HTTPServer):
     """Handle requests in a separate thread."""
 
 
-def run_server(ip='127.0.0.1', port=58000):
+def run_server():
+    host, port = configs.local_uri.rsplit(':', maxsplit=1)
+    _, ip = host.split('//')
     if not configs.raw.getboolean('dev', 'listen_on_localhost', fallback=True):
         ip = get_machine_ip()
-    server_address = (ip, port)
+    server_address = (ip, int(port))
+    logger.info(f'trying listen at {port} ...')
     httpd = ThreadingHTTPServer(server_address, UserScriptRequestHandler)
     logger.info('serving at http://%s:%d' % server_address)
     httpd.serve_forever()
@@ -53,13 +56,30 @@ def run_server(ip='127.0.0.1', port=58000):
 
 class UserScriptRequestHandler(BaseHTTPRequestHandler):
 
+    def _send_cors_headers(self):
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+        req_headers = self.headers.get('Access-Control-Request-Headers')
+        self.send_header('Access-Control-Allow-Headers', req_headers or 'Content-Type')
+        self.send_header('Access-Control-Max-Age', '86400')
+        self.send_header('Access-Control-Allow-Private-Network', 'true')
+
     def _post_resopne(self, msg=None, status=200):
         self.send_response(status)
         self.send_header('Content-type', 'application/json')
         self.send_header('Access-Control-Allow-Origin', '*')
         self.end_headers()
         msg = msg or {'msg': 'default'}
-        self.wfile.write(json.dumps(msg).encode('utf-8'))
+        try:
+            self.wfile.write(json.dumps(msg).encode('utf-8'))
+        except Exception:
+            pass
+
+    def do_OPTIONS(self):
+        self.send_response(204)
+        self._send_cors_headers()
+        self.send_header('Content-Length', '0')
+        self.end_headers()
 
     def do_POST(self):
         length = int(self.headers.get('content-length'))
@@ -77,6 +97,9 @@ class UserScriptRequestHandler(BaseHTTPRequestHandler):
             data = parse_received_data_emby(data) if self.path.startswith('/emby') else parse_received_data_plex(data)
             logger.info(f"server={data['server']}/{data.get('server_version')} {data['mount_disk_mode']=}")
             if configs.check_str_match(_str=data['netloc'], section='gui', option='except_host'):
+                if not data.get('main_ep_info', {}).get('CanDownload', {}):
+                    logger.info('no download permission, or not emby')
+                    return
                 threading.Thread(target=start_play, args=(data,), daemon=True).start()
                 return True
         thread_dict = {
@@ -107,6 +130,9 @@ class UserScriptRequestHandler(BaseHTTPRequestHandler):
             thread_dict[gui_cmd].start()
         elif 'ToLocalPlayer' in self.path:
             if configs.gui_is_enable:
+                if not data.get('main_ep_info', {}).get('CanDownload', {}):
+                    logger.info('no download permission, or not emby')
+                    return
                 if configs.raw.get('gui', 'enable_path'):
                     if not configs.check_str_match(data['file_path'], 'gui', 'enable_path', log_by=False):
                         thread_dict['play'].start()
@@ -129,9 +155,6 @@ class UserScriptRequestHandler(BaseHTTPRequestHandler):
         else:
             logger.error(self.path, ' not allow')
             self._post_resopne({'msg': f'{self.path} not allow'})
-
-    def do_OPTIONS(self):
-        pass
 
     def do_GET(self):
         if self.path in ['/', '/favicon.ico']:

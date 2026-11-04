@@ -1,4 +1,5 @@
 import datetime
+import getpass
 import os
 import pathlib
 import platform
@@ -9,7 +10,6 @@ import sys
 import threading
 import typing
 from configparser import ConfigParser
-import getpass
 
 
 def mini_conf():
@@ -161,6 +161,8 @@ class Configs:
         if self.log_level < 20:
             print('dl_proxy:', self.dl_proxy)
             print('cache_db:', self.cache_db)
+        self.listen_port = self.raw.getint('dev', 'listen_port', fallback=58000)
+        self.local_uri = f'http://127.0.0.1:{self.listen_port}'
 
     def print_version(self):
         from utils.tools import show_version_info

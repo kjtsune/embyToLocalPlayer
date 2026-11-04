@@ -8,6 +8,12 @@ import requests
 
 
 class TraktApi:
+    local_uri = 'http://localhost:58000'
+    try:
+        from utils.configs import configs
+        local_uri = configs.local_uri
+    except Exception:
+        pass
     def __init__(self, user_id, client_id, client_secret, token_file=None, oauth_code=None, http_proxy=None,
                  code_received=False):
         self.base_url = 'https://api.trakt.tv'
@@ -208,18 +214,11 @@ class TraktApi:
     def test(self):
         self.get(f'calendars/my/dvd/2000-01-01/1')
 
-    def receive_oauth_code(self):
-        url = f'https://trakt.tv/oauth/authorize?client_id={self.client_id}' \
-              f'&redirect_uri=http%3A%2F%2Flocalhost%2Ftrakt&response_type=code'
-        if os.name == 'nt':
-            os.startfile(url)
-
     def get_access_token(self, oauth_code):
         res = self.post('oauth/token', _json={
             'code': oauth_code,
             'client_id': self.client_id,
             'client_secret': self.client_secret,
-            'redirect_uri': 'http://localhost:58000/trakt_auth',
             'grant_type': 'authorization_code'
         })
         if not res.get('access_token'):
@@ -270,7 +269,7 @@ class TraktApi:
 
     def _open_browser(self):
         url = f'https://trakt.tv/oauth/authorize?client_id={self.client_id}' \
-              f'&redirect_uri=http://localhost:58000/trakt_auth&response_type=code'
+              f'&redirect_uri={self.local_uri}/trakt_auth&response_type=code'
         if os.name == 'nt':
             os.startfile(url)
         else:

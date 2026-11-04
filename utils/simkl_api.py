@@ -6,6 +6,12 @@ import requests
 
 
 class SimklApi:
+    local_uri = 'http://localhost:58000'
+    try:
+        from utils.configs import configs
+        local_uri = configs.local_uri
+    except Exception:
+        pass
 
     def __init__(self, client_id, client_secret, token_file=None, oauth_code=None, http_proxy=None,
                  code_received=False, app_name='embyToLocalPlayer', app_version='1.1'):
@@ -14,7 +20,7 @@ class SimklApi:
         self.client_secret = client_secret
         self.app_name = app_name
         self.app_version = app_version
-        self.redirect_uri = 'http://localhost:58000/simkl_auth'
+        self.redirect_uri = f'{self.local_uri}/simkl_auth'
         self.req = requests.Session()
         self.req.headers.update({'Content-Type': 'application/json',
                                  'User-Agent': f'{app_name}/{app_version}'})

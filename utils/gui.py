@@ -3,7 +3,7 @@ import tkinter as tk
 import tkinter.font as tk_front
 
 from utils.configs import configs, MyLogger
-from utils.net_tools import requests_urllib
+from utils.emby_api_thin import LocalTalk
 from utils.tools import scan_cache_dir, load_dict_jsons_in_folder
 
 logger = MyLogger()
@@ -23,6 +23,7 @@ class App:
         self.height = None
         self._bt_fg = '#000000'
         self._bt_bg = '#f0f0f0'
+        self.local_talk = LocalTalk()
         # print(tk_front.families())
         # print(f'{self._ft_family=}')
 
@@ -38,7 +39,7 @@ class App:
 
     def send_data_with_cmd(self, data, gui_cmd, destroy=True):
         data['gui_cmd'] = gui_cmd
-        requests_urllib('http://127.0.0.1:58000/gui', _json=data)
+        self.local_talk.gui(data=data)
         if destroy:
             self.root.destroy()
 

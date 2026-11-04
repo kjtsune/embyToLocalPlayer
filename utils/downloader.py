@@ -6,7 +6,7 @@ import typing
 import urllib.parse
 
 from utils.configs import configs, MyLogger
-from utils.emby_api_thin import EmbyApiThin
+from utils.emby_api_thin import EmbyApiThin, LocalTalk
 from utils.net_tools import requests_urllib, tg_notify
 from utils.tools import (load_json_file, dump_json_file, scan_cache_dir, safe_deleter, version_prefer_emby,
                          load_dict_jsons_in_folder, create_sparse_file)
@@ -147,7 +147,8 @@ class Downloader:
             open_mode = 'r+b'
         headers = {'Range': f'bytes={start}-{end}', 'User-Agent': 'embyToLocalPlayer/dl'}
         try:
-            resp = requests_urllib(self.url, headers=headers, http_proxy=configs.dl_proxy, res_only=True, timeout=10)
+            resp = requests_urllib(urllib.parse.quote(self.url, safe=":/?=&"), headers=headers,
+                                   http_proxy=configs.dl_proxy, res_only=True, timeout=10)
         except Exception as e:
             logger.error(f'dl: range_download error {self.id} {str(e)[:50]}')
             return start
@@ -245,6 +246,7 @@ class DownloadManager:
         self.download_semaphore = threading.Semaphore(max_concurrent)
         self.per_domain_limit = per_domain_limit
         self.domain_semaphores = {}
+        self.local_talk = LocalTalk()
         if configs.gui_is_enable:
             os.path.exists(cache_path) or os.mkdir(cache_path)
             threading.Thread(target=self.update_db_loop, daemon=True).start()
@@ -304,7 +306,7 @@ class DownloadManager:
             dl.cancel_download(silence=True)
         logger.info(f'dlm: play_check {dl.download_only=} {dl.progress=}')
         data['gui_cmd'] = 'play'
-        requests_urllib('http://127.0.0.1:58000/gui', _json=data)
+        self.local_talk.gui(data=data)
 
     def download_play(self, data, play=True):
         url, _id, pos, dl = self._init_dl(data)
@@ -320,11 +322,11 @@ class DownloadManager:
                 data['gui_cmd'] = 'play'
                 if configs.raw.getboolean('gui', 'without_confirm', fallback=False):
                     data['gui_without_confirm'] = True
-                requests_urllib('http://127.0.0.1:58000/dl', _json=data)
+                self.local_talk.downloader(data=data)
         else:
             if play:
                 data['gui_cmd'] = 'play'
-                requests_urllib('http://127.0.0.1:58000/dl', _json=data)
+                self.local_talk.downloader(data=data)
                 logger.info(f'dlm: fallback to url, cuz: {pos=} > {dl.progress}')
         if not dl.file_is_busy and dl.progress != 1:
             if not dl.file_lock.has_lock:
@@ -539,7 +541,8 @@ def _prefetch_resume_tv(emby_thin: EmbyApiThin, startswith, fetch_type=''):
                             continue
                         ep['stream_url'], ep['fake_name'], ep['position'] = stream_url, fake_name, 0.1
                         ep['gui_cmd'] = 'download_not_play'
-                        requests_urllib('http://127.0.0.1:58000/gui', _json=ep)
+                        local_talk = LocalTalk()
+                        local_talk.gui(data=ep)
                         continue
                     if is_strm:
                         strm_done_list.append(item_id)

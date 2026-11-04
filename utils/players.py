@@ -27,22 +27,23 @@ class MpvPersonal:
 
     def __init__(self, data, bind_cmd):
         self.series_key = ''
+        data = data and data.get('main_ep_info')
+        if not data:
+            # logger.info('mpv personal not support plex')
+            return
         if series_name := data.get('SeriesName'):
             self.series_key = f'{series_name}-{data["SeriesId"]}'
         self.bind_cmd = bind_cmd
         if bind_cmd not in self.settings:
             raise ValueError(f'bind_cmd must in {self.settings.keys()}')
-        logger.info(f'{self.series_key} {id(self.settings)=} {self.settings=}')
 
     def get(self):
         if not self.series_key:
-            logger.info(f'{self.series_key=}')
             return
         return self.settings[self.bind_cmd].get(self.series_key)
 
     def set(self, value):
         if not self.series_key:
-            logger.info(f'{self.series_key=}')
             return
         self.settings[self.bind_cmd][self.series_key] = value
 
@@ -119,9 +120,9 @@ def mpv_player_start(cmd, start_sec=None, sub_file=None, media_title=None, get_s
             pass
         else:
             cmd.append(f'--start={start_sec}')
-    p_start = MpvPersonal(data['main_ep_info'], 'intro_start')
+    p_start = MpvPersonal(data, 'intro_start')
     intro_cached = p_start.get()
-    if not start_sec and intro_cached:
+    if not start_sec and intro_cached and int(intro_cached) > 60:
         cmd.append(f'--start={intro_cached}')
     if is_darwin:
         cmd.append('--focus-on=open')
@@ -138,6 +139,11 @@ def mpv_player_start(cmd, start_sec=None, sub_file=None, media_title=None, get_s
     activate_window_by_pid(player.pid)
 
     mpv = init_player_instance(MPV, start_mpv=False, ipc_socket=pipe_name)
+    if not mpv:
+        if not get_stop_sec:
+            return
+        return dict(mpv=mpv)
+
     if sub_file and is_mpvnet and mpv:
         _cmd = ['sub-add', sub_file]
         mpv.command(*_cmd)
@@ -167,7 +173,7 @@ def mpv_player_start(cmd, start_sec=None, sub_file=None, media_title=None, get_s
     def cache_intro_start(msg):
         args = msg['args']
         if len(args) == 2 and args[0] == 'intro-start-sec':
-            p_start.set(int(args[1]))
+            p_start.set(str(int(float(args[1]))))
             logger.info(f'lua set found, {p_start.settings}')
 
     intro_cached and mpv.command('script-message', 'etlp-intro-cached', intro_cached)

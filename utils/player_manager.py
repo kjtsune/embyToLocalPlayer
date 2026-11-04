@@ -6,9 +6,9 @@ import urllib.parse
 
 from utils.configs import configs, MyLogger
 from utils.downloader import Downloader
-from utils.emby_api_thin import EmbyApiThin
-from utils.net_tools import (get_redirect_url, requests_urllib, realtime_playing_request_sender,
-                             update_server_playback_progress, sync_third_party_for_eps, check_miss_runtime_start_sec)
+from utils.emby_api_thin import EmbyApiThin, LocalTalk
+from utils.net_tools import (get_redirect_url, update_server_playback_progress, sync_third_party_for_eps,
+                             check_miss_runtime_start_sec)
 from utils.players import start_player_func_dict, playlist_func_dict, stop_sec_func_dict, prefetch_data
 from utils.tools import activate_window_by_pid
 
@@ -26,6 +26,7 @@ class BaseInit:
         self.playlist_total_sec = {}
         self.is_http_sub = bool(data.get('sub_file'))
         self.emby_thin = EmbyApiThin(data)
+        self.local_talk = LocalTalk()
 
 
 class BaseManager(BaseInit):
@@ -143,9 +144,17 @@ class BaseManager(BaseInit):
                 continue
             start_sec = ep.get('start_sec') or 0
             _stop_sec = int(_stop_sec)
-            if abs(_stop_sec - int(start_sec)) < 20:
+            if abs(_stop_sec - int(start_sec)) < 20 and not self.data.get('realtime_feedback'):
                 logger.info(f"skip update progress, {ep['basename']} start_sec stop_sec too close")
                 continue
+            if self.data.get('realtime_feedback') and self.data.get('realtime_feedback') != 'end':
+                logger.info('waiting for realtime_feedback end')
+                for _ in range(6):
+                    time.sleep(5)
+                    if self.data.get('realtime_feedback') == 'end':
+                        break
+                else:
+                    logger.info('realtime_feedback waiting timeout, may need check')
             ep['_stop_sec'] = _stop_sec
             emby_strm_miss_runtime = bool(ep['server'] != 'plex' and ep['total_sec'] == 3600 * 24)
             mpv_total_sec = self.playlist_total_sec.get(key)
@@ -228,21 +237,20 @@ class PrefetchManager(BaseInit):  # 未兼容播放器多开，暂不处理
             # 会造成意外完成播放
             logger.info('playing_feedback not support strm, skip')
             return
+        self.data['realtime_feedback'] = 'start'
         stop_sec_dict = prefetch_data['stop_sec_dict']
         prefetch_data['on'] = True
-        last_key = None
+        pre_key = None
         req_sec = 0
         interval = 5
-        pause_sec = 0
-        last_ep = None
+        pre_ep = None
+        realtime_key = 'realtime_data'
+        pre_paused = False
         while prefetch_data['on']:
             try:
                 key = mpv.command('get_property', 'media-title')
                 speed = mpv.command('get_property', 'speed')
-                if mpv.command('get_property', 'pause'):
-                    pause_sec += interval
-                else:
-                    pause_sec = 0
+                paused = bool(mpv.command('get_property', 'pause'))
             except Exception:
                 break
             cur_sec = stop_sec_dict.get(key)
@@ -250,26 +258,43 @@ class PrefetchManager(BaseInit):  # 未兼容播放器多开，暂不处理
             if not all([cur_sec, ep]):
                 time.sleep(0.5)
                 continue
-            if key != last_key:
-                if last_ep:
-                    last_sec = stop_sec_dict[last_key]
-                    logger.trace(f'updating end {last_sec=} {last_ep["basename"]}')
-                    realtime_playing_request_sender(data=last_ep, cur_sec=last_sec, method='end')
-                    last_ep['update_success'] = True
-                realtime_playing_request_sender(data=ep, cur_sec=cur_sec, method='start')
-                last_ep = ep
-                last_key = key
-                req_sec = cur_sec
+            if ep.get('total_sec') == 3600 * 24:
+                # 会造成意外完成播放
+                logger.info('playing_feedback not support strm, skip')
+                break
+            realtime_data = ep.setdefault(realtime_key, {})
+            if key != pre_key:
+                if pre_ep and not pre_ep[realtime_key].get('end'):
+                    last_sec = stop_sec_dict[pre_key]
+                    logger.trace(f'updating end {last_sec=} {pre_ep["basename"]}')
+                    if self.emby_thin.realtime_playing_request_sender(data=pre_ep, cur_sec=last_sec, method='end'):
+                        pre_ep[realtime_key]['end'] = True
+                if self.emby_thin.realtime_playing_request_sender(
+                        data=ep, cur_sec=cur_sec, method='start', paused=paused, speed=speed):
+                    realtime_data['start'] = True
+                    pre_ep, pre_key = ep, key
+                    req_sec, pre_paused = cur_sec, paused
                 time.sleep(interval)
-                logger.trace(f'updating start {cur_sec=} {last_ep["basename"]}')
+                continue
+            if paused != pre_paused:
+                if self.emby_thin.realtime_playing_request_sender(
+                        data=ep, cur_sec=cur_sec, event='Pause' if paused else 'Unpause',
+                        paused=paused, speed=speed):
+                    pre_paused = paused
+                    req_sec = cur_sec
+                time.sleep(interval)
                 continue
             after_sec = cur_sec - req_sec
-            if 180 < pause_sec or 0 < after_sec < 30 * speed:  # 尽量增加汇报间隔
+            if paused:
+                time.sleep(interval * 3)
+            elif 0 < after_sec < 20 * speed:
                 time.sleep(interval)
                 continue
-            realtime_playing_request_sender(data=ep, cur_sec=cur_sec)
-            req_sec = cur_sec
+            if self.emby_thin.realtime_playing_request_sender(
+                    data=ep, cur_sec=cur_sec, paused=paused, speed=speed):
+                req_sec = cur_sec
             time.sleep(interval)
+        self.data['realtime_feedback'] = 'end'
 
     def redirect_next_ep_loop(self):
         mpv = self.player_kwargs.get('mpv')
@@ -402,7 +427,7 @@ class PrefetchManager(BaseInit):  # 未兼容播放器多开，暂不处理
                 ep = list_playlist_data[next_ep_index]
                 if prefetch_type == 'sequence':
                     ep['gui_cmd'] = 'download_only'
-                    requests_urllib('http://127.0.0.1:58000/pl', _json=ep)
+                    self.local_talk.playlist(data=ep)
                 elif prefetch_type == 'first_last':
                     # if ep['total_sec'] == 86400:
                     #     # strm 媒体信息 无 -> 有：外挂字幕链接会失效。
@@ -410,7 +435,7 @@ class PrefetchManager(BaseInit):  # 未兼容播放器多开，暂不处理
                     #     self.emby_thin.get_playback_info(ep['item_id'], timeout=60)
                     ep['gui_cmd'] = 'download_not_play'
                     # ep['stream_url'] = get_redirect_url(ep['stream_url'], follow_redirect=True)
-                    requests_urllib('http://127.0.0.1:58000/pl', _json=ep)
+                    self.local_talk.playlist(data=ep)
                 else:
                     null_file = 'NUL' if os.name == 'nt' else '/dev/null'
                     dl = Downloader(ep['stream_url'], ep['basename'], save_path=null_file, size=ep.get('size'))

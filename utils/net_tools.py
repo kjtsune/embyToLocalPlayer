@@ -66,7 +66,7 @@ def safe_url(url):
     ))
 
 
-def requests_urllib(host, params=None, _json=None, decode=False, timeout=5.0, headers=None, req_only=False,
+def requests_urllib(host, *, params=None, _json=None, decode=False, timeout=5.0, headers=None, req_only=False,
                     http_proxy='', get_json=False, save_path='', retry=5, silence=False, res_only=False,
                     method=None):
     _json = json.dumps(_json).encode('utf-8') if _json else None
@@ -129,7 +129,7 @@ class FollowHTTPRedirectHandler(urllib.request.HTTPRedirectHandler):
 
 def check_miss_runtime_start_sec(netloc, item_id, basename, start_sec=0, stop_sec=None):
     href = configs.raw.get('dev', 'server_side_href', fallback='').strip().strip('/')
-    href = href or 'http://127.0.0.1:58000'
+    href = href or configs.local_uri
     url = f'{href}/miss_runtime_start_sec'
     params = {'netloc': netloc, 'item_id': item_id, 'basename': basename}
     get_json = True
@@ -223,32 +223,7 @@ def multi_thread_requests(urls: Union[list, tuple, dict], **kwargs):
     return result
 
 
-def change_emby_play_position(scheme, netloc, item_id, api_key, stop_sec, play_session_id, device_id, **kwargs):
-    if stop_sec > 10 * 60 * 60:
-        logger.error('stop_sec error, check it')
-        return
-    ticks = stop_sec * 10 ** 7
-    params = {
-        'X-Emby-Token': api_key,
-        'X-Emby-Device-Id': device_id,
-        'X-Emby-Client': 'embyToLocalPlayer',
-        'X-Emby-Device-Name': 'embyToLocalPlayer',
-    }
-    if not kwargs.get('update_success'):  # 由实时回传功能标记
-        # 若省略该请求，低版本 Emby/4.8.0.64 继续观看无法新增条目，高版本 Emby 直接回传失败。
-        requests_urllib(f'{scheme}://{netloc}/emby/Sessions/Playing',
-                        params=params,
-                        _json={
-                            'ItemId': item_id,
-                            'PlaySessionId': play_session_id,
-                        })
-    requests_urllib(f'{scheme}://{netloc}/emby/Sessions/Playing/Stopped',
-                    params=params,
-                    _json={
-                        'PositionTicks': ticks,
-                        'ItemId': item_id,
-                        'PlaySessionId': play_session_id,
-                    })
+
 
 
 def change_jellyfin_play_position(scheme, netloc, item_id, stop_sec, play_session_id, headers, **kwargs):
@@ -302,39 +277,6 @@ def change_plex_play_position(scheme, netloc, api_key, stop_sec, rating_key, cli
                     })
 
 
-def realtime_playing_request_sender(data, cur_sec, method='playing'):
-    is_emby = (data['server'] == 'emby')
-    emby_str = '/emby' if is_emby else ''
-    ticks = int(cur_sec * 10 ** 7)
-    url_path = {
-        'start': 'Sessions/Playing',
-        'playing': 'Sessions/Playing/Progress',
-        'end': 'Sessions/Playing/Stopped',
-    }[method]
-    params = {
-        'X-Emby-Token': data['api_key'],
-        'X-Emby-Device-Id': data['device_id'],
-        'X-Emby-Device-Name': 'embyToLocalPlayer',
-    }
-    _json = {
-        'EventName': 'timeupdate',
-        'ItemId': data['item_id'],
-        'MediaSourceId': data['media_source_id'],
-        'PlayMethod': 'DirectStream',
-        'PlaySessionId': data['play_session_id'],
-        'PositionTicks': ticks,
-        'RepeatMode': 'RepeatNone',
-    }
-    try:
-        requests_urllib(f'{data["scheme"]}://{data["netloc"]}{emby_str}/{url_path}',
-                        params=params,
-                        _json=_json,
-                        headers=data['headers'],
-                        timeout=10)
-    except Exception:
-        time.sleep(30)
-        pass
-
 
 emby_last_dict = dict(watched=True, stop_sec=0, data={}, normal_file=True)
 
@@ -357,7 +299,9 @@ def update_server_playback_progress(stop_sec, data):
         logger.info(f'skip update progress because media is {ext}')
         return
     if server == 'emby':
-        change_emby_play_position(stop_sec=stop_sec, **data)
+        from utils.emby_api_thin import EmbyApiThin
+        emby_thin = EmbyApiThin(data)
+        emby_thin.change_emby_play_position(stop_sec=stop_sec, data=data)
     elif server == 'jellyfin':
         change_jellyfin_play_position(stop_sec=stop_sec, **data)
     elif server == 'plex':

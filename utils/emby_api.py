@@ -1,24 +1,47 @@
+import socket
 import typing
 
 import requests
 
 
 class EmbyApi:
+    hostname = socket.gethostname()
+    version = 'unknow'
+    try:
+        from utils.tools import show_version_info
+        version = show_version_info()
+    except Exception:
+        pass
+
     def __init__(self, host, api_key, user_id, *,
-                 http_proxy=None, socks_proxy=None, cert_verify=True):
+                 http_proxy=None, socks_proxy=None, cert_verify=True,
+                 data=None, device_id=''):
         self.host = host.rstrip('/').split('/web/index')[0]
         self.api_key = api_key
         self.user_id = user_id
+        self.device_id = device_id
+        self.is_emby = True
         self.req = requests.Session()
         if not cert_verify:
             self.req.verify = False
             from requests.packages import urllib3
             urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-        self.req.headers.update({'Accept': 'application/json'})
-        self.req.headers.update({'User-Agent': 'embyToLocalPlayer/1.1',
-                                 'Referer': f'{self.host}/web/index.html',
-                                 'X-Emby-Authorization': f'MediaBrowser Client="embyToLocalPlayer",Token="{self.api_key}"',
-                                 'Authorization': f'MediaBrowser Client="embyToLocalPlayer",Token="{self.api_key}"',
+        if data:
+            self.host = f"{data['scheme']}://{data['netloc']}"
+            self.api_key = data['api_key']
+            self.user_id = data.get('user_id', '')
+            self.device_id = data.get('device_id', '')
+            if server := data.get('server'):
+                self.is_emby = (server == 'emby')
+
+        device_name = f'{self.hostname[:1]}***{self.hostname[-1:]}' if self.hostname else 'unknow'
+        auth_str = (f'MediaBrowser Client="embyToLocalPlayer",Token="{self.api_key}",Device="{device_name}"'
+                    f',DeviceId="{self.device_id}"')
+        self.req.headers.update({f'User-Agent': f'embyToLocalPlayer/{self.version}',
+                                 'X-Emby-Authorization': auth_str,
+                                 'X-Emby-Token': self.api_key,
+                                 'Authorization': auth_str,
+                                 'Accept': 'application/json',
                                  })
         self._default_fields = ','.join([
             'PremiereDate',
@@ -36,16 +59,12 @@ class EmbyApi:
         self.server_id = None
 
     def get(self, path, params=None, get_json=True) -> typing.Union[dict, list, requests.Response]:
-        params = params or {'X-Emby-Token': self.api_key}
-        params.update({'X-Emby-Token': self.api_key})
         url = rf'{self.host}/emby/{path}'
         res = self.req.get(url, params=params, )
         res.raise_for_status()
         return res.json() if get_json else res
 
     def post(self, path, _json, params=None):
-        params = params or {'X-Emby-Token': self.api_key}
-        params.update({'X-Emby-Token': self.api_key})
         url = rf'{self.host}/emby/{path}'
         return self.req.post(
             url,
